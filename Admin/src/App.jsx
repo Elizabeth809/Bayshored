@@ -9,6 +9,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Categories from './pages/Categories';
 import Authors from './pages/Authors';
+import Products from './pages/Products';
+import Orders from './pages/Orders';
 
 function App() {
   return (
@@ -28,8 +30,8 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="categories" element={<Categories />} />
             <Route path="authors" element={<Authors />} />
-            {/* <Route path="products" element={<Products />} />
-            <Route path="orders" element={<Orders />} /> */}
+            <Route path="products" element={<Products />} />
+            <Route path="orders" element={<Orders />} />
           </Route>
 
           {/* Catch all route */}
