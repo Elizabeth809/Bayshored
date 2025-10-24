@@ -13,35 +13,38 @@ import ResetPassword from './pages/auth/ResetPassword';
 import Profile from './pages/Profile';
 import Store from './pages/Store';
 import Cart from './pages/Cart';
+import { CartProvider } from './context/CartContext';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/verify-otp" element={<VerifyOtp />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/store" element={<Store />} />
-            <Route path="/cart" element={<Cart />} />
+      <CartProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50">
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/verify-otp" element={<VerifyOtp />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/store" element={<Store />} />
+              <Route path="/cart" element={<Cart />} />
 
-            {/* Protected Routes */}
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } 
-            />
-          </Routes>
-        </div>
-      </Router>
+              {/* Protected Routes */}
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </div>
+        </Router>
+      </CartProvider>
     </AuthProvider>
   );
 }
