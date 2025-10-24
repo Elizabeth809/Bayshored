@@ -8,6 +8,7 @@ import MainLayout from './layout/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Categories from './pages/Categories';
+import Authors from './pages/Authors';
 
 function App() {
   return (
@@ -26,8 +27,8 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="categories" element={<Categories />} />
-            {/* <Route path="authors" element={<Authors />} />
-            <Route path="products" element={<Products />} />
+            <Route path="authors" element={<Authors />} />
+            {/* <Route path="products" element={<Products />} />
             <Route path="orders" element={<Orders />} /> */}
           </Route>
 
