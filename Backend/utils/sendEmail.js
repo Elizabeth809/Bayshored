@@ -2,11 +2,14 @@ import nodemailer from 'nodemailer';
 
 // Create transporter (using Gmail as example)
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
+    },
+    tls: {
+      rejectUnauthorized: false         // allows self-signed certs (dev only)
     }
   });
 };
