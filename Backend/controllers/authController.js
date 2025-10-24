@@ -134,3 +134,31 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error during password reset', error: error.message });
   }
 };
+
+export const getMe = async (req, res) => {
+  try {
+    const user = req.user; // comes from isAuthenticated middleware
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          role: user.role,
+          isVerified: user.isVerified,
+          addresses: user.addresses
+        }
+      }
+    });
+  } catch (error) {
+    console.error('GetMe error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching user',
+      error: error.message
+    });
+  }
+};
+

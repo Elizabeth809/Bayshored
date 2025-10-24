@@ -4,8 +4,10 @@ import {
   verifyOtp,
   loginUser,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  getMe
 } from '../controllers/authController.js';
+import { isAuthenticated } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -14,5 +16,7 @@ router.post('/verify-otp', verifyOtp);
 router.post('/login', loginUser);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+
+router.get('/me', isAuthenticated, getMe);
 
 export default router;

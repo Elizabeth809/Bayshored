@@ -11,6 +11,8 @@ import VerifyOtp from './pages/auth/VerifyOtp';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import Profile from './pages/Profile';
+import Store from './pages/Store';
+import Cart from './pages/Cart';
 
 function App() {
   return (
@@ -25,8 +27,8 @@ function App() {
             <Route path="/verify-otp" element={<VerifyOtp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            {/*<Route path="/store" element={<Store />} />
-            <Route path="/cart" element={<Cart />} /> */}
+            <Route path="/store" element={<Store />} />
+            <Route path="/cart" element={<Cart />} />
 
             {/* Protected Routes */}
             <Route 
