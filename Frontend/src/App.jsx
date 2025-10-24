@@ -14,6 +14,7 @@ import Profile from './pages/Profile';
 import Store from './pages/Store';
 import Cart from './pages/Cart';
 import { CartProvider } from './context/CartContext';
+import ProductDetail from './pages/ProductDetail';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/store" element={<Store />} />
+              <Route path="/product/:slug" element={<ProductDetail />} />
               <Route path="/cart" element={<Cart />} />
 
               {/* Protected Routes */}
