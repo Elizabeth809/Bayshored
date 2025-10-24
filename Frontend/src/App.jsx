@@ -8,14 +8,8 @@ import Home from './pages/Home';
 import Register from './pages/auth/Register';
 import Login from './pages/auth/Login';
 import VerifyOtp from './pages/auth/VerifyOtp';
-// import Login from './pages/Login';
-// import Register from './pages/Register';
-// import VerifyOtp from './pages/VerifyOtp';
-// import ForgotPassword from './pages/ForgotPassword';
-// import ResetPassword from './pages/ResetPassword';
-// import Profile from './pages/Profile';
-// import Store from './pages/Store';
-// import Cart from './pages/Cart';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 function App() {
   return (
@@ -28,9 +22,9 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
-            {/*<Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/store" element={<Store />} />
+            {/*<Route path="/store" element={<Store />} />
             <Route path="/cart" element={<Cart />} /> */}
 
             {/* Protected Routes */}
