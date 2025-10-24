@@ -16,6 +16,7 @@ import Cart from './pages/Cart';
 import { CartProvider } from './context/CartContext';
 import ProductDetail from './pages/ProductDetail';
 import Header from './components/Header/Header';
+import Wishlist from './pages/Wishlist';
 
 function App() {
   return (
@@ -34,7 +35,6 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/store" element={<Store />} />
               <Route path="/product/:slug" element={<ProductDetail />} />
-              <Route path="/cart" element={<Cart />} />
 
               {/* Protected Routes */}
               <Route
@@ -45,6 +45,22 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route 
+              path="/cart" 
+              element={
+                <ProtectedRoute>
+                  <Cart />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/wishlist" 
+              element={
+                <ProtectedRoute>
+                  <Wishlist />
+                </ProtectedRoute>
+              } 
+            />
             </Routes>
           </div>
         </Router>

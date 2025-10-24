@@ -54,6 +54,12 @@ const Header = () => {
             >
               Cart
             </Link>
+            <Link
+              to="/wishlist"
+              className="text-gray-700 hover:text-blue-600 transition duration-200 font-medium"
+            >
+              Wishlist
+            </Link>
 
             {isAuthenticated ? (
               <>
@@ -133,6 +139,13 @@ const Header = () => {
               className="block text-gray-700 hover:text-blue-600 font-medium"
             >
               Contact
+            </Link>
+            <Link
+              to="/wishlist"
+              onClick={() => setIsOpen(false)}
+              className="block text-gray-700 hover:text-blue-600 font-medium"
+            >
+              Wishlist
             </Link>
 
             {isAuthenticated ? (

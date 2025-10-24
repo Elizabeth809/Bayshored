@@ -6,7 +6,9 @@ const initialState = {
   user: null,
   token: localStorage.getItem('token'),
   loading: true,
-  isAuthenticated: false
+  isAuthenticated: false,
+  cartCount: 0,
+  wishlistCount: 0
 };
 
 const authReducer = (state, action) => {
@@ -25,7 +27,9 @@ const authReducer = (state, action) => {
         user: action.payload.user,
         token: action.payload.token,
         isAuthenticated: true,
-        loading: false
+        loading: false,
+        cartCount: action.payload.cartCount || 0,
+        wishlistCount: action.payload.wishlistCount || 0
       };
     case 'AUTH_ERROR':
     case 'LOGIN_FAIL':
@@ -37,7 +41,9 @@ const authReducer = (state, action) => {
         user: null,
         token: null,
         isAuthenticated: false,
-        loading: false
+        loading: false,
+        cartCount: 0,
+        wishlistCount: 0
       };
     case 'SET_LOADING':
       return {
@@ -50,6 +56,16 @@ const authReducer = (state, action) => {
         user: action.payload,
         isAuthenticated: true,
         loading: false
+      };
+    case 'UPDATE_CART_COUNT':
+      return {
+        ...state,
+        cartCount: action.payload
+      };
+    case 'UPDATE_WISHLIST_COUNT':
+      return {
+        ...state,
+        wishlistCount: action.payload
       };
     default:
       return state;
@@ -75,6 +91,10 @@ export const AuthProvider = ({ children }) => {
           if (response.ok) {
             const data = await response.json();
             dispatch({ type: 'SET_USER', payload: data.data.user });
+            
+            // Fetch cart and wishlist counts
+            await fetchCartCount(token);
+            await fetchWishlistCount(token);
           } else {
             dispatch({ type: 'AUTH_ERROR' });
           }
@@ -89,6 +109,40 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
   }, []);
+
+  const fetchCartCount = async (token) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/v1/cart', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        dispatch({ type: 'UPDATE_CART_COUNT', payload: data.data.itemsCount || 0 });
+      }
+    } catch (error) {
+      console.error('Error fetching cart count:', error);
+    }
+  };
+
+  const fetchWishlistCount = async (token) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        dispatch({ type: 'UPDATE_WISHLIST_COUNT', payload: data.data.itemsCount || 0 });
+      }
+    } catch (error) {
+      console.error('Error fetching wishlist count:', error);
+    }
+  };
 
   const login = async (email, password) => {
     dispatch({ type: 'LOGIN_START' });
@@ -105,6 +159,10 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (data.success) {
+        if (data.data.requiresVerification) {
+          return { success: true, requiresVerification: true, data };
+        }
+        
         dispatch({
           type: 'LOGIN_SUCCESS',
           payload: {
@@ -112,6 +170,11 @@ export const AuthProvider = ({ children }) => {
             user: data.data.user
           }
         });
+        
+        // Fetch cart and wishlist counts after login
+        await fetchCartCount(data.data.token);
+        await fetchWishlistCount(data.data.token);
+        
         return { success: true, data };
       } else {
         dispatch({ type: 'LOGIN_FAIL' });
@@ -169,6 +232,11 @@ export const AuthProvider = ({ children }) => {
             user: data.data.user
           }
         });
+        
+        // Fetch cart and wishlist counts after verification
+        await fetchCartCount(data.data.token);
+        await fetchWishlistCount(data.data.token);
+        
         return { success: true, data };
       } else {
         return { success: false, message: data.message };
@@ -182,15 +250,27 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGOUT' });
   };
 
+  const updateCartCount = (count) => {
+    dispatch({ type: 'UPDATE_CART_COUNT', payload: count });
+  };
+
+  const updateWishlistCount = (count) => {
+    dispatch({ type: 'UPDATE_WISHLIST_COUNT', payload: count });
+  };
+
   const value = {
     user: state.user,
     token: state.token,
     loading: state.loading,
     isAuthenticated: state.isAuthenticated,
+    cartCount: state.cartCount,
+    wishlistCount: state.wishlistCount,
     login,
     register,
     verifyOtp,
-    logout
+    logout,
+    updateCartCount,
+    updateWishlistCount
   };
 
   return (
