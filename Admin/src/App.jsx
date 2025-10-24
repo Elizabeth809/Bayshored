@@ -6,11 +6,7 @@ import MainLayout from './layout/MainLayout';
 
 // Pages
 import Login from './pages/Login';
-// import Dashboard from './pages/Dashboard';
-// import Categories from './pages/Categories';
-// import Authors from './pages/Authors';
-// import Products from './pages/Products';
-// import Orders from './pages/Orders';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
@@ -26,9 +22,9 @@ function App() {
               <MainLayout />
             </ProtectedAdminRoute>
           }>
-            {/* <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="categories" element={<Categories />} />
+            {/* <Route path="categories" element={<Categories />} />
             <Route path="authors" element={<Authors />} />
             <Route path="products" element={<Products />} />
             <Route path="orders" element={<Orders />} /> */}
