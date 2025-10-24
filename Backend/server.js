@@ -1,7 +1,11 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
+
+// Import routes
+import authRoutes from './routes/authRoutes.js';
 
 // Load env variables
 dotenv.config();
@@ -12,13 +16,16 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(express.json()); // Body parser for JSON data
+app.use(cors());
+app.use(express.json());
+app.use(cookieParser());
 
 // Simple test route
 app.get('/', (req, res) => {
   res.send('API is running...');
 });
+
+app.use('/api/auth', authRoutes);
 
 // Define other routes here...
 
