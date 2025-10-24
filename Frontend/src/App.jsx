@@ -15,12 +15,14 @@ import Store from './pages/Store';
 import Cart from './pages/Cart';
 import { CartProvider } from './context/CartContext';
 import ProductDetail from './pages/ProductDetail';
+import Header from './components/Header/Header';
 
 function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <Router>
+          <Header />
           <div className="min-h-screen bg-gray-50">
             <Routes>
               {/* Public Routes */}
