@@ -17,7 +17,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
             </svg>
           </button>
         </div>
-        <div className="p-6">
+        <div className="!p-6">
           {children}
         </div>
       </div>
