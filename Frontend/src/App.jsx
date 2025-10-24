@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-// import ProtectedRoute from './components/others/ProtectedRoute';
+import ProtectedRoute from './components/others/ProtectedRoute';
 
 // Pages
 import Home from './pages/Home';
@@ -10,6 +10,7 @@ import Login from './pages/auth/Login';
 import VerifyOtp from './pages/auth/VerifyOtp';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -28,14 +29,14 @@ function App() {
             <Route path="/cart" element={<Cart />} /> */}
 
             {/* Protected Routes */}
-            {/* <Route 
+            <Route 
               path="/profile" 
               element={
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
               } 
-            /> */}
+            />
           </Routes>
         </div>
       </Router>

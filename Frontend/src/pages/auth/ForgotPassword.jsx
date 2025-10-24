@@ -63,7 +63,7 @@ const ForgotPassword = () => {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
               </label>
-              <div className="mt-1">
+              <div className="!mt-1">
                 <input
                   id="email"
                   name="email"
@@ -78,7 +78,7 @@ const ForgotPassword = () => {
               </div>
             </div>
 
-            <div>
+            <div className='!mt-2'>
               <button
                 type="submit"
                 disabled={loading}
