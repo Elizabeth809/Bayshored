@@ -6,6 +6,8 @@ import { AuthProvider } from './context/AuthContext';
 // Pages
 import Home from './pages/Home';
 import Register from './pages/auth/Register';
+import Login from './pages/auth/Login';
+import VerifyOtp from './pages/auth/VerifyOtp';
 // import Login from './pages/Login';
 // import Register from './pages/Register';
 // import VerifyOtp from './pages/VerifyOtp';
@@ -24,9 +26,9 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />
-            {/* <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
+            {/*<Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/store" element={<Store />} />
             <Route path="/cart" element={<Cart />} /> */}
