@@ -2,6 +2,10 @@ import Order from '../models/orderModel.js';
 import User from '../models/userModel.js';
 import Coupon from '../models/couponModel.js';
 import Product from '../models/productModel.js';
+import mongoose from 'mongoose'
+
+import { createInvoice } from '../utils/createInvoice.js';
+import { sendEmail } from '../utils/sendEmail.js';
 
 // @desc    Apply coupon to order
 // @route   POST /api/v1/orders/apply-coupon
@@ -110,23 +114,16 @@ export const createOrder = async (req, res) => {
     if (!user) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Check if cart is empty
     if (user.cart.length === 0) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: 'Cart is empty'
-      });
+      return res.status(400).json({ success: false, message: 'Cart is empty' });
     }
 
-    // Validate products and stock
+    // Validate stock
     for (const item of user.cart) {
       if (!item.product || !item.product.active) {
         await session.abortTransaction();
@@ -136,7 +133,6 @@ export const createOrder = async (req, res) => {
           message: `Product "${item.product?.name || 'Unknown'}" is no longer available`
         });
       }
-
       if (item.product.stock < item.quantity) {
         await session.abortTransaction();
         session.endSession();
@@ -148,17 +144,13 @@ export const createOrder = async (req, res) => {
     }
 
     // Calculate subtotal
-    const subtotal = user.cart.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
-    }, 0);
-
-    // Calculate shipping cost (dummy calculation)
-    const shippingCost = subtotal > 200 ? 0 : 15; // Free shipping over $200
+    const subtotal = user.cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
+    const shippingCost = subtotal > 200 ? 0 : 15;
 
     let coupon = null;
     let discountAmount = 0;
 
-    // Apply coupon if provided
+    // Apply coupon if exists
     if (couponCode) {
       coupon = await Coupon.findOne({
         code: couponCode.toUpperCase(),
@@ -167,40 +159,23 @@ export const createOrder = async (req, res) => {
       }).session(session);
 
       if (coupon) {
-        // Check usage limit
         if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-          await session.abortTransaction();
-          session.endSession();
-          return res.status(400).json({
-            success: false,
-            message: 'Coupon usage limit reached'
-          });
+          throw new Error('Coupon usage limit reached');
         }
 
-        // Check minimum order amount
         if (subtotal < coupon.minOrderAmount) {
-          await session.abortTransaction();
-          session.endSession();
-          return res.status(400).json({
-            success: false,
-            message: `Minimum order amount of $${coupon.minOrderAmount} required for this coupon`
-          });
+          throw new Error(`Minimum order amount of $${coupon.minOrderAmount} required`);
         }
 
-        // Calculate discount
-        if (coupon.discountType === 'percentage') {
-          discountAmount = (subtotal * coupon.discountValue) / 100;
-          
-          if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
-            discountAmount = coupon.maxDiscountAmount;
-          }
-        } else {
-          discountAmount = coupon.discountValue;
+        discountAmount = coupon.discountType === 'percentage'
+          ? (subtotal * coupon.discountValue) / 100
+          : coupon.discountValue;
+
+        if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
+          discountAmount = coupon.maxDiscountAmount;
         }
 
         discountAmount = Math.min(discountAmount, subtotal);
-
-        // Increment coupon usage
         coupon.usedCount += 1;
         await coupon.save({ session });
       }
@@ -209,14 +184,14 @@ export const createOrder = async (req, res) => {
     const totalAmount = subtotal + shippingCost - discountAmount;
 
     // Prepare order items
-    const orderItems = user.cart.map(item => ({
-      product: item.product._id,
-      quantity: item.quantity,
-      priceAtOrder: item.product.price,
-      name: item.product.name,
-      image: item.product.image,
-      author: item.product.author?.name || 'Unknown Artist',
-      medium: item.product.medium
+    const orderItems = user.cart.map(i => ({
+      product: i.product._id,
+      quantity: i.quantity,
+      priceAtOrder: i.product.price,
+      name: i.product.name,
+      image: i.product.image,
+      author: i.product.author?.name || 'Unknown Artist',
+      medium: i.product.medium
     }));
 
     // Create order
@@ -231,13 +206,10 @@ export const createOrder = async (req, res) => {
       totalAmount,
       paymentMethod,
       notes,
-      shippingUpdates: [{
-        message: 'Order placed successfully',
-        timestamp: new Date()
-      }]
+      shippingUpdates: [{ message: 'Order placed successfully', timestamp: new Date() }]
     }], { session });
 
-    // Update product stock
+    // Update stock
     for (const item of user.cart) {
       await Product.findByIdAndUpdate(
         item.product._id,
@@ -246,39 +218,58 @@ export const createOrder = async (req, res) => {
       );
     }
 
-    // Clear user's cart
+    // Clear cart
     user.cart = [];
     await user.save({ session });
 
     await session.commitTransaction();
     session.endSession();
 
-    // Populate order details
+    // ✅ Generate populated order for invoice/email
     const populatedOrder = await Order.findById(order[0]._id)
       .populate('user', 'name email')
       .populate('couponApplied', 'code discountType discountValue');
+
+    // ✅ Send Invoice Email
+    try {
+      const invoiceBuffer = await createInvoice(populatedOrder);
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Thank you for your order!</h2>
+          <p>Dear ${populatedOrder.user.name},</p>
+          <p>Your order <strong>#${populatedOrder.orderNumber}</strong> has been received.</p>
+          <div style="background:#f8f9fa;padding:15px;border-radius:5px;margin:20px 0;">
+            <h3>Order Summary</h3>
+            <p><strong>Items:</strong> ${populatedOrder.items.length}</p>
+            <p><strong>Total:</strong> $${populatedOrder.totalAmount.toFixed(2)}</p>
+          </div>
+          <p>Thank you for choosing MERN Art Gallery!</p>
+        </div>
+      `;
+      await sendEmail(
+        populatedOrder.user.email,
+        `Order Confirmation - #${populatedOrder.orderNumber}`,
+        emailHtml,
+        [
+          {
+            filename: `invoice-${populatedOrder.orderNumber}.pdf`,
+            content: invoiceBuffer
+          }
+        ]
+      );
+    } catch (emailError) {
+      console.error('❌ Email sending failed:', emailError.message);
+    }
 
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
       data: populatedOrder
     });
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    
     console.error('Create order error:', error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: messages
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: 'Server error while creating order',
@@ -286,6 +277,7 @@ export const createOrder = async (req, res) => {
     });
   }
 };
+
 
 // @desc    Get user's orders
 // @route   GET /api/v1/orders/my-orders

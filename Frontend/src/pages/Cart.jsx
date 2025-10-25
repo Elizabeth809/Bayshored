@@ -41,7 +41,7 @@ const Cart = () => {
 
   const updateQuantity = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
-    
+
     setUpdating(true);
     try {
       const response = await fetch(`http://localhost:5000/api/v1/cart/${productId}`, {
@@ -97,7 +97,7 @@ const Cart = () => {
 
   const clearCart = async () => {
     if (!window.confirm('Are you sure you want to clear your cart?')) return;
-    
+
     setUpdating(true);
     try {
       const response = await fetch('http://localhost:5000/api/v1/cart', {
@@ -189,7 +189,7 @@ const Cart = () => {
                       alt={item.product.name}
                       className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                     />
-                    
+
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-semibold text-gray-900 truncate">
                         <Link to={`/product/${item.product.slug}`} className="hover:text-blue-600">
@@ -256,7 +256,7 @@ const Cart = () => {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6 sticky top-8">
               <h2 className="text-lg font-semibold text-gray-900 !mb-4">Order Summary</h2>
-              
+
               <div className="!space-y-3 !mb-6">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
@@ -281,9 +281,12 @@ const Cart = () => {
               </div>
 
               <div className="!space-y-3">
-                <button className="w-full bg-blue-600 text-white !py-3 !px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                <Link
+                  to="/checkout"
+                  className="flex-1 bg-blue-600 text-white !py-3 !px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium text-center"
+                >
                   Proceed to Checkout
-                </button>
+                </Link>
                 <Link
                   to="/store"
                   className="block w-full text-center bg-gray-200 text-gray-900 !py-3 !px-6 rounded-lg hover:bg-gray-300 transition-colors font-medium"

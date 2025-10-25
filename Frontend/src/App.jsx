@@ -17,6 +17,7 @@ import { CartProvider } from './context/CartContext';
 import ProductDetail from './pages/ProductDetail';
 import Header from './components/Header/Header';
 import Wishlist from './pages/Wishlist';
+import Checkout from './pages/Checkout';
 
 function App() {
   return (
@@ -45,22 +46,30 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route 
-              path="/cart" 
-              element={
-                <ProtectedRoute>
-                  <Cart />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/wishlist" 
-              element={
-                <ProtectedRoute>
-                  <Wishlist />
-                </ProtectedRoute>
-              } 
-            />
+              <Route
+                path="/cart"
+                element={
+                  <ProtectedRoute>
+                    <Cart />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/wishlist"
+                element={
+                  <ProtectedRoute>
+                    <Wishlist />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/checkout"
+                element={
+                  <ProtectedRoute>
+                    <Checkout />
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
           </div>
         </Router>
