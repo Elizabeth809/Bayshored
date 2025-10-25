@@ -11,6 +11,8 @@ import authorRoutes from './routes/authorRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
+import couponRoutes from './routes/couponRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 dotenv.config();
 
@@ -32,6 +34,8 @@ app.use('/api/v1/authors', authorRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
+app.use('/api/v1/coupons', couponRoutes);
+app.use('/api/v1/orders', orderRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
@@ -44,7 +48,9 @@ app.get('/', (req, res) => {
       authors: '/api/v1/authors',
       products: '/api/v1/products',
       cart: '/api/v1/cart',
-      wishlist: '/api/v1/wishlist'
+      wishlist: '/api/v1/wishlist',
+      coupons: '/api/v1/coupons',
+      orders: '/api/v1/orders'
     }
   });
 });
