@@ -188,7 +188,7 @@ const Coupons = () => {
         </div>
         <button
           onClick={openCreateModal}
-          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
         >
           Create New Coupon
         </button>
@@ -273,13 +273,13 @@ const Coupons = () => {
             <div className="flex !space-x-2">
               <button
                 onClick={() => openEditModal(coupon)}
-                className="flex-1 bg-gray-100 text-gray-700 !py-2 !px-3 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                className="flex-1 bg-gray-100 text-gray-700 !py-2 !px-3 rounded-lg hover:bg-gray-200 transition-colors text-sm cursor-pointer"
               >
                 Edit
               </button>
               <button
                 onClick={() => handleDelete(coupon._id)}
-                className="flex-1 bg-red-100 text-red-700 !py-2 !px-3 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                className="flex-1 bg-red-100 text-red-700 !py-2 !px-3 rounded-lg hover:bg-red-200 transition-colors text-sm cursor-pointer"
               >
                 Delete
               </button>
@@ -306,7 +306,7 @@ const Coupons = () => {
         onClose={() => setModalOpen(false)}
         title={editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
       >
-        <form onSubmit={handleSubmit} className="!space-y-4 !p-4">
+        <form onSubmit={handleSubmit} className="!space-y-4 !p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Coupon Code */}
             <div>
@@ -459,14 +459,14 @@ const Coupons = () => {
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="!px-4 !py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+              className="!px-4 !py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={formLoading}
-              className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center"
+              className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center cursor-pointer"
             >
               {formLoading && <LoadingSpinner size="small" className="!mr-2" />}
               {editingCoupon ? 'Update Coupon' : 'Create Coupon'}

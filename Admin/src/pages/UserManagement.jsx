@@ -153,13 +153,13 @@ const UserManagement = () => {
                     <td className="!px-6 !py-4 whitespace-nowrap text-sm font-medium !space-x-3">
                       <button
                         onClick={() => openEditModal(user)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="text-blue-600 hover:text-blue-900 cursor-pointer"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(user._id)}
-                        className="text-red-600 hover:text-red-900"
+                        className="text-red-600 hover:text-red-900 cursor-pointer"
                       >
                         Delete
                       </button>
@@ -296,14 +296,14 @@ const UserEditModal = ({ user, onClose, onUpdate, token }) => {
           <button
             type="button"
             onClick={onClose}
-            className="bg-gray-200 text-gray-700 !px-4 !py-2 rounded-lg"
+            className="bg-gray-200 text-gray-700 !px-4 !py-2 rounded-lg cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="bg-blue-600 text-white !px-4 !py-2 rounded-lg disabled:bg-gray-300"
+            className="bg-blue-600 text-white !px-4 !py-2 rounded-lg disabled:bg-gray-300 cursor-pointer"
           >
             {loading ? 'Saving...' : 'Save Changes'}
           </button>

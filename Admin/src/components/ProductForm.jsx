@@ -170,7 +170,7 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="!space-y-6 max-h-96 overflow-y-auto !pr-4">
+    <form onSubmit={handleSubmit} className="!space-y-6 max-h-96 overflow-y-auto !p-6">
       {/* Image Upload */}
       <div>
         <label className="block text-sm font-medium text-gray-700 !mb-2">
@@ -514,7 +514,7 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
         <button
           type="button"
           onClick={onCancel}
-          className="!px-6 !py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200"
+          className="!px-6 !py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 cursor-pointer"
           disabled={loading}
         >
           Cancel
@@ -522,7 +522,7 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-600 text-white !px-6 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center"
+          className="bg-blue-600 text-white !px-6 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center cursor-pointer"
         >
           {loading && <LoadingSpinner size="small" className="!mr-2" />}
           {product ? 'Update Product' : 'Create Product'}

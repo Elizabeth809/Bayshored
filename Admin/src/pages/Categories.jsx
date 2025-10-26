@@ -131,7 +131,7 @@ const Categories = () => {
         <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
         <button
           onClick={openCreateModal}
-          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200"
+          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 cursor-pointer"
         >
           Add New Category
         </button>
@@ -180,13 +180,13 @@ const Categories = () => {
                 <td className="!px-6 !py-4 whitespace-nowrap text-sm font-medium !space-x-2">
                   <button
                     onClick={() => openEditModal(category)}
-                    className="text-blue-600 hover:text-blue-900 transition duration-200"
+                    className="text-blue-600 hover:text-blue-900 transition duration-200 cursor-pointer"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(category._id)}
-                    className="text-red-600 hover:text-red-900 transition duration-200"
+                    className="text-red-600 hover:text-red-900 transition duration-200 cursor-pointer"
                   >
                     Delete
                   </button>
@@ -209,7 +209,7 @@ const Categories = () => {
         onClose={() => setModalOpen(false)}
         title={editingCategory ? 'Edit Category' : 'Add New Category'}
       >
-        <form onSubmit={handleSubmit} className="!space-y-4">
+        <form onSubmit={handleSubmit} className="!space-y-4 !p-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 !mb-1">
               Category Name
@@ -242,14 +242,14 @@ const Categories = () => {
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="!px-4 !py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+              className="!px-4 !py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={formLoading}
-              className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center"
+              className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center cursor-pointer"
             >
               {formLoading && <LoadingSpinner size="small" className="!mr-2" />}
               {editingCategory ? 'Update' : 'Create'} Category

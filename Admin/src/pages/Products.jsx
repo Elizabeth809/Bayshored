@@ -167,7 +167,7 @@ const Products = () => {
         </div>
         <button
           onClick={openCreateModal}
-          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center"
+          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center cursor-pointer"
         >
           <svg className="w-5 h-5 !mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -274,13 +274,13 @@ const Products = () => {
                   <td className="!px-6 !py-4 whitespace-nowrap text-sm font-medium !space-x-2">
                     <button
                       onClick={() => openEditModal(product)}
-                      className="text-blue-600 hover:text-blue-900 transition duration-200"
+                      className="text-blue-600 hover:text-blue-900 transition duration-200 cursor-pointer"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(product._id)}
-                      className="text-red-600 hover:text-red-900 transition duration-200"
+                      className="text-red-600 hover:text-red-900 transition duration-200 cursor-pointer"
                     >
                       Delete
                     </button>
