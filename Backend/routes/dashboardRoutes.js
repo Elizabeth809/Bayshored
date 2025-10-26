@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDashboardStats } from '../controllers/dashboardController.js';
+import { getCouponStats, getDashboardStats } from '../controllers/dashboardController.js';
 import { isAuthenticated, isAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -8,5 +8,6 @@ const router = express.Router();
 router.use(isAuthenticated, isAdmin);
 
 router.get('/', getDashboardStats);
+router.get('/coupon-stats', getCouponStats);
 
 export default router;

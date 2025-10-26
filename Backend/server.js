@@ -1,20 +1,23 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import connectDB from './config/db.js';
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import connectDB from "./config/db.js";
 
 // Route imports
-import authRoutes from './routes/authRoutes.js';
-import categoryRoutes from './routes/categoryRoutes.js';
-import authorRoutes from './routes/authorRoutes.js';
-import productRoutes from './routes/productRoutes.js';
-import cartRoutes from './routes/cartRoutes.js';
-import wishlistRoutes from './routes/wishlistRoutes.js';
-import couponRoutes from './routes/couponRoutes.js';
-import orderRoutes from './routes/orderRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import dashboardRoutes from './routes/dashboardRoutes.js';
+import authRoutes from "./routes/authRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
+import authorRoutes from "./routes/authorRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoutes.js";
+import couponRoutes from "./routes/couponRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+
+import helmet from 'helmet';
+import compression from 'compression';
 
 dotenv.config();
 
@@ -25,49 +28,91 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(compression());
+app.use(helmet());
 
 // Basic route
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.json({
-    message: 'MERN Art Backend Server is running!',
-    version: '1.0.0',
+    message: "MERN Art Backend Server is running!",
+    version: "1.0.0",
     endpoints: {
-      auth: '/api/v1/auth',
-      categories: '/api/v1/categories',
-      authors: '/api/v1/authors',
-      products: '/api/v1/products',
-      cart: '/api/v1/cart',
-      wishlist: '/api/v1/wishlist',
-      coupons: '/api/v1/coupons',
-      orders: '/api/v1/orders',
-      user: '/api/v1/user',
-      dashboard: 'api/v1/dashboard'
-    }
+      auth: "/api/v1/auth",
+      categories: "/api/v1/categories",
+      authors: "/api/v1/authors",
+      products: "/api/v1/products",
+      cart: "/api/v1/cart",
+      wishlist: "/api/v1/wishlist",
+      coupons: "/api/v1/coupons",
+      orders: "/api/v1/orders",
+      user: "/api/v1/user",
+      dashboard: "api/v1/dashboard",
+    },
   });
 });
 
 // Error handling middleware
 app.use((error, req, res, next) => {
-  console.error('Server error:', error);
+  console.error("Server error:", error);
 
-  if (error.code === 'LIMIT_FILE_SIZE') {
+  // Don't leak error details in production
+  const isProduction = process.env.NODE_ENV === "production";
+
+  let errorMessage = "Internal server error";
+  let errorDetails = {};
+
+  if (!isProduction) {
+    errorMessage = error.message;
+    errorDetails = {
+      stack: error.stack,
+      ...error,
+    };
+  }
+
+  // Specific error handling
+  if (error.name === "ValidationError") {
     return res.status(400).json({
       success: false,
-      message: 'File too large. Maximum size is 5MB.'
+      message: "Validation error",
+      errors: Object.values(error.errors).map((err) => err.message),
     });
   }
 
-  if (error.message === 'Only image files are allowed!') {
+  if (error.name === "CastError") {
     return res.status(400).json({
       success: false,
-      message: 'Only image files are allowed!'
+      message: "Invalid resource ID",
     });
   }
 
-  res.status(500).json({
+  // MongoDB duplicate key error
+  if (error.code === 11000) {
+    const field = Object.keys(error.keyValue)[0];
+    return res.status(400).json({
+      success: false,
+      message: `${field} already exists`,
+    });
+  }
+
+  // JWT errors
+  if (error.name === "JsonWebTokenError") {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid token",
+    });
+  }
+
+  if (error.name === "TokenExpiredError") {
+    return res.status(401).json({
+      success: false,
+      message: "Token expired",
+    });
+  }
+
+  res.status(error.status || 500).json({
     success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : {}
+    message: errorMessage,
+    ...(!isProduction && { error: errorDetails }),
   });
 });
 
@@ -75,27 +120,27 @@ app.use((error, req, res, next) => {
 const startServer = async () => {
   try {
     await connectDB(); // Wait for MongoDB connection
-    console.log('✅ MongoDB connected successfully');
+    console.log("✅ MongoDB connected successfully");
 
     // Only start server after DB connection
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌎 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌎 Environment: ${process.env.NODE_ENV || "development"}`);
     });
 
     // Mount routes AFTER connection
-    app.use('/api/v1/auth', authRoutes);
-    app.use('/api/v1/categories', categoryRoutes);
-    app.use('/api/v1/authors', authorRoutes);
-    app.use('/api/v1/products', productRoutes);
-    app.use('/api/v1/cart', cartRoutes);
-    app.use('/api/v1/wishlist', wishlistRoutes);
-    app.use('/api/v1/coupons', couponRoutes);
-    app.use('/api/v1/orders', orderRoutes);
-    app.use('/api/v1/user', userRoutes);
-    app.use('/api/v1/dashboard', dashboardRoutes);
+    app.use("/api/v1/auth", authRoutes);
+    app.use("/api/v1/categories", categoryRoutes);
+    app.use("/api/v1/authors", authorRoutes);
+    app.use("/api/v1/products", productRoutes);
+    app.use("/api/v1/cart", cartRoutes);
+    app.use("/api/v1/wishlist", wishlistRoutes);
+    app.use("/api/v1/coupons", couponRoutes);
+    app.use("/api/v1/orders", orderRoutes);
+    app.use("/api/v1/user", userRoutes);
+    app.use("/api/v1/dashboard", dashboardRoutes);
   } catch (err) {
-    console.error('❌ Failed to connect to MongoDB:', err.message);
+    console.error("❌ Failed to connect to MongoDB:", err.message);
     process.exit(1); // Exit if DB fails
   }
 };

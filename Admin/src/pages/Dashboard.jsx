@@ -30,12 +30,34 @@ ChartJS.register(
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
+  const [couponStats, setCouponStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  // Define fetchCouponStats first
+  const fetchCouponStats = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/v1/coupons', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        const activeCoupons = data.data.filter(coupon =>
+          coupon.isActive && new Date(coupon.expiryDate) > new Date()
+        );
+        const totalDiscounts = data.data.reduce((sum, coupon) => sum + coupon.usedCount, 0);
+        setCouponStats({
+          totalCoupons: data.data.length,
+          activeCoupons: activeCoupons.length,
+          totalDiscounts
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching coupon stats:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -52,10 +74,23 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([fetchDashboardData(), fetchCouponStats()]);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAllData();
+  }, []);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-US', {
@@ -227,6 +262,22 @@ const Dashboard = () => {
           subtitle="Available artworks"
           icon="🖼️"
         />
+        {couponStats && (
+          <>
+            <StatCard
+              title="Total Coupons"
+              value={couponStats.totalCoupons.toString()}
+              subtitle="Created coupons"
+              icon="🎫"
+            />
+            <StatCard
+              title="Active Coupons"
+              value={couponStats.activeCoupons.toString()}
+              subtitle="Currently valid"
+              icon="✅"
+            />
+          </>
+        )}
       </div>
 
       {/* Monthly Stats */}
@@ -248,7 +299,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
           <div className="!space-y-3">

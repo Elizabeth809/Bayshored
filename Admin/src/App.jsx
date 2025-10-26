@@ -11,6 +11,7 @@ import Categories from './pages/Categories';
 import Authors from './pages/Authors';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
+import Coupons from './pages/Coupons';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
             <Route path="authors" element={<Authors />} />
             <Route path="products" element={<Products />} />
             <Route path="orders" element={<Orders />} />
+            <Route path="coupons" element={<Coupons />} />
           </Route>
 
           {/* Catch all route */}
