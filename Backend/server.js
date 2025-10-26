@@ -96,5 +96,4 @@ const startServer = async () => {
     process.exit(1); // Exit if DB fails
   }
 };
-
 startServer();

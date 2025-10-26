@@ -85,20 +85,20 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl !mx-auto !px-4 sm:!px-6 lg:!px-8 !py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="!mb-8">
           <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-600 mt-2">Welcome back, {user?.name}!</p>
+          <p className="text-gray-600 !mt-2">Welcome back, {user?.name}!</p>
         </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+            <nav className="flex -!mb-px">
               <button
                 onClick={() => setActiveTab('orders')}
-                className={`py-4 px-6 text-sm font-medium border-b-2 ${
+                className={`!py-4 !px-6 text-sm font-medium border-b-2 ${
                   activeTab === 'orders'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -108,7 +108,7 @@ const Profile = () => {
               </button>
               <button
                 onClick={() => setActiveTab('addresses')}
-                className={`py-4 px-6 text-sm font-medium border-b-2 ${
+                className={`!py-4 !px-6 text-sm font-medium border-b-2 ${
                   activeTab === 'addresses'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -118,7 +118,7 @@ const Profile = () => {
               </button>
               <button
                 onClick={() => setActiveTab('settings')}
-                className={`py-4 px-6 text-sm font-medium border-b-2 ${
+                className={`!py-4 !px-6 text-sm font-medium border-b-2 ${
                   activeTab === 'settings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -130,9 +130,9 @@ const Profile = () => {
           </div>
 
           {/* Tab Content */}
-          <div className="p-6">
+          <div className="!p-6">
             {loading ? (
-              <div className="flex justify-center py-8">
+              <div className="flex justify-center !py-8">
                 <LoadingSpinner size="large" />
               </div>
             ) : activeTab === 'orders' ? (
@@ -164,20 +164,20 @@ const Profile = () => {
 const OrdersTab = ({ orders, selectedOrder, setSelectedOrder, formatPrice, formatDate, getStatusColor }) => {
   if (orders.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center !py-12">
         <div className="text-gray-400 mb-4">
-          <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
+        <h3 className="text-lg font-medium text-gray-900 !mb-2">No orders yet</h3>
         <p className="text-gray-500">Your order history will appear here</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="!space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Order History</h2>
       
       {selectedOrder ? (
@@ -189,21 +189,21 @@ const OrdersTab = ({ orders, selectedOrder, setSelectedOrder, formatPrice, forma
           getStatusColor={getStatusColor}
         />
       ) : (
-        <div className="space-y-4">
+        <div className="!space-y-4">
           {orders.map(order => (
             <div 
               key={order._id} 
-              className="bg-gray-50 rounded-lg p-6 hover:bg-gray-100 cursor-pointer transition-colors"
+              className="bg-gray-50 rounded-lg !p-6 hover:bg-gray-100 cursor-pointer transition-colors"
               onClick={() => setSelectedOrder(order)}
             >
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex justify-between items-start !mb-4">
                 <div>
                   <h3 className="font-semibold text-gray-900">Order #{order.orderNumber}</h3>
                   <p className="text-sm text-gray-600">Placed on {formatDate(order.createdAt)}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900">{formatPrice(order.totalAmount)}</p>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.orderStatus)}`}>
+                  <span className={`inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.orderStatus)}`}>
                     {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
                   </span>
                 </div>
@@ -235,36 +235,36 @@ const OrderDetail = ({ order, onBack, formatPrice, formatDate, getStatusColor })
     <div>
       <button
         onClick={onBack}
-        className="flex items-center text-blue-600 hover:text-blue-800 mb-6"
+        className="flex items-center text-blue-600 hover:text-blue-800 !mb-6"
       >
-        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 !mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         Back to Orders
       </button>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 !p-6">
         {/* Order Header */}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start !mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Order #{order.orderNumber}</h2>
             <p className="text-gray-600">Placed on {formatDate(order.createdAt)}</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold text-gray-900">{formatPrice(order.totalAmount)}</p>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.orderStatus)}`}>
+            <span className={`inline-flex items-center !px-3 !py-1 rounded-full text-sm font-medium ${getStatusColor(order.orderStatus)}`}>
               {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
             </span>
           </div>
         </div>
 
         {/* Shipping Updates */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Shipping Updates</h3>
-          <div className="space-y-3">
+        <div className="!mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Shipping Updates</h3>
+          <div className="!space-y-3">
             {order.shippingUpdates.map((update, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div key={index} className="flex items-start !space-x-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full !mt-2 flex-shrink-0"></div>
                 <div>
                   <p className="text-gray-900">{update.message}</p>
                   <p className="text-sm text-gray-500">{formatDate(update.timestamp)}</p>
@@ -275,11 +275,11 @@ const OrderDetail = ({ order, onBack, formatPrice, formatDate, getStatusColor })
         </div>
 
         {/* Order Items */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Items</h3>
+        <div className="!mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Order Items</h3>
           <div className="space-y-4">
             {order.items.map((item, index) => (
-              <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+              <div key={index} className="flex items-center !space-x-4 !p-4 bg-gray-50 rounded-lg">
                 <img
                   src={item.image}
                   alt={item.name}
@@ -299,9 +299,9 @@ const OrderDetail = ({ order, onBack, formatPrice, formatDate, getStatusColor })
         </div>
 
         {/* Order Summary */}
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Summary</h3>
-          <div className="space-y-2">
+        <div className="border-t border-gray-200 !pt-6">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Order Summary</h3>
+          <div className="!space-y-2">
             <div className="flex justify-between">
               <span>Subtotal</span>
               <span>{formatPrice(order.subtotal)}</span>
@@ -316,7 +316,7 @@ const OrderDetail = ({ order, onBack, formatPrice, formatDate, getStatusColor })
                 <span>-{formatPrice(order.discountAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg font-semibold border-t border-gray-200 pt-2">
+            <div className="flex justify-between text-lg font-semibold border-t border-gray-200 !pt-2">
               <span>Total</span>
               <span>{formatPrice(order.totalAmount)}</span>
             </div>
@@ -324,8 +324,8 @@ const OrderDetail = ({ order, onBack, formatPrice, formatDate, getStatusColor })
         </div>
 
         {/* Shipping Address */}
-        <div className="border-t border-gray-200 pt-6 mt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Shipping Address</h3>
+        <div className="border-t border-gray-200 !pt-6 !mt-6">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Shipping Address</h3>
           <div className="text-gray-600">
             <p>{order.shippingAddress.street}</p>
             <p>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}</p>
@@ -428,7 +428,7 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="!space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-900">Saved Addresses</h2>
         <button
@@ -445,82 +445,82 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
               phoneNo: ''
             });
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           Add New Address
         </button>
       </div>
 
       {showAddForm && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white border border-gray-200 rounded-lg !p-6">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-4">
             {editingAddress ? 'Edit Address' : 'Add New Address'}
           </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Flat/House No</label>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">Flat/House No</label>
               <input
                 type="text"
                 required
                 value={formData.flatNo}
                 onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Street</label>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">Street</label>
               <input
                 type="text"
                 required
                 value={formData.street}
                 onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">City</label>
               <input
                 type="text"
                 required
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">State</label>
               <input
                 type="text"
                 required
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">ZIP Code</label>
               <input
                 type="text"
                 required
                 value={formData.zipCode}
                 onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">Phone Number</label>
               <input
                 type="tel"
                 required
                 value={formData.phoneNo}
                 onChange={(e) => setFormData({ ...formData, phoneNo: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            <div className="md:col-span-2 flex space-x-3">
+            <div className="md:col-span-2 flex !space-x-3">
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white !px-6 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {editingAddress ? 'Update Address' : 'Save Address'}
               </button>
@@ -530,7 +530,7 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
                   setShowAddForm(false);
                   setEditingAddress(null);
                 }}
-                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                className="bg-gray-200 text-gray-700 !px-6 !py-2 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Cancel
               </button>
@@ -541,14 +541,14 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {addresses.map(address => (
-          <div key={address._id} className="bg-gray-50 rounded-lg p-6">
-            <div className="mb-4">
+          <div key={address._id} className="bg-gray-50 rounded-lg !p-6">
+            <div className="!mb-4">
               <p className="font-semibold text-gray-900">{address.flatNo}, {address.street}</p>
               <p className="text-gray-600">{address.city}, {address.state} {address.zipCode}</p>
               <p className="text-gray-600">{address.country}</p>
               <p className="text-gray-600">Phone: {address.phoneNo}</p>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex !space-x-2">
               <button
                 onClick={() => handleEdit(address)}
                 className="text-blue-600 hover:text-blue-800 text-sm"
@@ -567,14 +567,14 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
       </div>
 
       {addresses.length === 0 && !showAddForm && (
-        <div className="text-center py-12">
+        <div className="text-center !py-12">
           <div className="text-gray-400 mb-4">
-            <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No addresses saved</h3>
+          <h3 className="text-lg font-medium text-gray-900 !mb-2">No addresses saved</h3>
           <p className="text-gray-500">Add your first address to get started</p>
         </div>
       )}
@@ -585,39 +585,39 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
 // Settings Tab Component
 const SettingsTab = ({ user }) => {
   return (
-    <div className="space-y-6">
+    <div className="!space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Account Settings</h2>
       
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-gray-200 rounded-lg !p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-            <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900 !mb-4">Personal Information</h3>
+            <div className="!space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                <p className="mt-1 text-gray-900">{user?.name}</p>
+                <p className="!mt-1 text-gray-900">{user?.name}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Email Address</label>
-                <p className="mt-1 text-gray-900">{user?.email}</p>
+                <p className="!mt-1 text-gray-900">{user?.email}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                <p className="mt-1 text-gray-900">{user?.phoneNumber}</p>
+                <p className="!mt-1 text-gray-900">{user?.phoneNumber}</p>
               </div>
             </div>
           </div>
           
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Security</h3>
-            <div className="space-y-3">
-              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <h3 className="text-lg font-semibold text-gray-900 !mb-4">Account Security</h3>
+            <div className="!space-y-3">
+              <button className="w-full text-left !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Change Password
               </button>
-              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <button className="w-full text-left !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Two-Factor Authentication
               </button>
-              <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <button className="w-full text-left !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Privacy Settings
               </button>
             </div>
