@@ -12,6 +12,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [showNewAddress, setShowNewAddress] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('card');
   const [newAddress, setNewAddress] = useState({
     flatNo: '',
     street: '',
@@ -22,13 +23,37 @@ const Checkout = () => {
     phoneNo: ''
   });
 
-  const { token, updateCartCount } = useAuth();
+  const { token, updateCartCount, user } = useAuth();
   const navigate = useNavigate();
+
+  // Load applied coupon from localStorage on component mount
+  useEffect(() => {
+    const savedCoupon = localStorage.getItem('appliedCoupon');
+    if (savedCoupon) {
+      try {
+        const parsedCoupon = JSON.parse(savedCoupon);
+        setAppliedCoupon(parsedCoupon);
+        setCouponCode(parsedCoupon.coupon.code);
+      } catch (error) {
+        console.error('Error parsing saved coupon:', error);
+        localStorage.removeItem('appliedCoupon');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     fetchCart();
     fetchAddresses();
   }, []);
+
+  // Save applied coupon to localStorage whenever it changes
+  useEffect(() => {
+    if (appliedCoupon) {
+      localStorage.setItem('appliedCoupon', JSON.stringify(appliedCoupon));
+    } else {
+      localStorage.removeItem('appliedCoupon');
+    }
+  }, [appliedCoupon]);
 
   const fetchCart = async () => {
     try {
@@ -66,7 +91,10 @@ const Checkout = () => {
   };
 
   const applyCoupon = async () => {
-    if (!couponCode.trim()) return;
+    if (!couponCode.trim()) {
+      alert('Please enter a coupon code');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -98,8 +126,13 @@ const Checkout = () => {
     }
   };
 
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    localStorage.removeItem('appliedCoupon');
+  };
+
   const handleSaveNewAddress = async () => {
-    // Validate all required fields
     const { flatNo, street, city, state, zipCode, phoneNo } = newAddress;
     if (!flatNo || !street || !city || !state || !zipCode || !phoneNo) {
       alert('Please fill all address fields');
@@ -120,12 +153,30 @@ const Checkout = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Add new address to list and select it
-        const addedAddress = data.data;
-        setAddresses(prev => [...prev, addedAddress]);
-        setSelectedAddress(addedAddress._id);
+        const newAddresses = data.data;
+        setAddresses(newAddresses);
+        
+        // Find and select the newly added address
+        const addedAddress = newAddresses.find(addr => 
+          addr.flatNo === newAddress.flatNo && 
+          addr.street === newAddress.street &&
+          addr.phoneNo === newAddress.phoneNo
+        );
+        
+        if (addedAddress) {
+          setSelectedAddress(addedAddress._id);
+        }
+        
         setShowNewAddress(false);
-        alert('Address added successfully!');
+        setNewAddress({
+          flatNo: '',
+          street: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: 'India',
+          phoneNo: ''
+        });
       } else {
         alert(data.message || 'Failed to add address');
       }
@@ -137,28 +188,49 @@ const Checkout = () => {
     }
   };
 
-
   const handlePlaceOrder = async () => {
+    // Validate address selection
     if (!selectedAddress && !showNewAddress) {
       alert('Please select a shipping address');
       return;
     }
 
-    if (showNewAddress && (!newAddress.flatNo || !newAddress.street || !newAddress.city || !newAddress.state || !newAddress.zipCode || !newAddress.phoneNo)) {
-      alert('Please fill all address fields');
+    // Validate new address if showing form
+    if (showNewAddress) {
+      const { flatNo, street, city, state, zipCode, phoneNo } = newAddress;
+      if (!flatNo || !street || !city || !state || !zipCode || !phoneNo) {
+        alert('Please fill all address fields');
+        return;
+      }
+    }
+
+    // Validate payment method
+    if (!paymentMethod) {
+      alert('Please select a payment method');
       return;
     }
 
     setPlacingOrder(true);
     try {
-      const shippingAddress = showNewAddress
-        ? newAddress
-        : addresses.find(addr => addr._id === selectedAddress);
+      let shippingAddress;
+      
+      if (showNewAddress) {
+        // Use the new address from form
+        shippingAddress = newAddress;
+      } else {
+        // Find the selected address from saved addresses
+        const selectedAddr = addresses.find(addr => addr._id === selectedAddress);
+        if (!selectedAddr) {
+          alert('Selected address not found');
+          return;
+        }
+        shippingAddress = selectedAddr;
+      }
 
       const orderData = {
         shippingAddress,
         couponCode: appliedCoupon?.coupon?.code || '',
-        paymentMethod: 'card',
+        paymentMethod: paymentMethod,
         notes: ''
       };
 
@@ -174,6 +246,11 @@ const Checkout = () => {
       const data = await response.json();
 
       if (data.success) {
+        // Clear applied coupon after successful order
+        localStorage.removeItem('appliedCoupon');
+        setAppliedCoupon(null);
+        setCouponCode('');
+        
         updateCartCount(0);
         navigate('/profile', {
           state: {
@@ -199,9 +276,27 @@ const Checkout = () => {
     }).format(price);
   };
 
+  // Calculate shipping cost
   const shippingCost = cart && cart.total > 200 ? 0 : 15;
-  const discountAmount = appliedCoupon?.discountAmount || 0;
-  const finalTotal = cart ? cart.total + shippingCost - discountAmount : 0;
+  
+  // Calculate discount amount properly for both percentage and fixed coupons
+  const calculateDiscountAmount = () => {
+    if (!appliedCoupon || !cart) return 0;
+    
+    const subtotal = cart.total;
+    const coupon = appliedCoupon.coupon;
+    
+    if (coupon.discountType === 'percentage') {
+      // For percentage coupons, use the discountAmount from the backend response
+      return appliedCoupon.discountAmount;
+    } else {
+      // For fixed amount coupons
+      return Math.min(coupon.discountValue, subtotal);
+    }
+  };
+
+  const discountAmount = calculateDiscountAmount();
+  const finalTotal = cart ? Math.max(0, cart.total + shippingCost - discountAmount) : 0;
 
   if (!cart) {
     return (
@@ -236,13 +331,23 @@ const Checkout = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Shipping & Payment */}
           <div className="!space-y-6">
+            {/* Customer Information */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6">
+              <h2 className="text-xl font-semibold text-gray-900 !mb-4">Customer Information</h2>
+              <div className="!space-y-2">
+                <p><strong>Name:</strong> {user?.name}</p>
+                <p><strong>Email:</strong> {user?.email}</p>
+                <p><strong>Phone:</strong> {user?.phoneNumber}</p>
+              </div>
+            </div>
+
             {/* Shipping Address */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6">
               <h2 className="text-xl font-semibold text-gray-900 !mb-4">Shipping Address</h2>
 
               {!showNewAddress ? (
                 <>
-                  {addresses.length > 0 && (
+                  {addresses.length > 0 ? (
                     <div className="!space-y-3 !mb-4">
                       {addresses.map(address => (
                         <label key={address._id} className="flex items-start !space-x-3 !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -254,7 +359,7 @@ const Checkout = () => {
                             onChange={(e) => setSelectedAddress(e.target.value)}
                             className="!mt-1"
                           />
-                          <div>
+                          <div className="flex-1">
                             <p className="font-medium text-gray-900">{address.flatNo}, {address.street}</p>
                             <p className="text-gray-600">{address.city}, {address.state} {address.zipCode}</p>
                             <p className="text-gray-600">{address.country}</p>
@@ -263,6 +368,8 @@ const Checkout = () => {
                         </label>
                       ))}
                     </div>
+                  ) : (
+                    <p className="text-gray-500 !mb-4">No saved addresses found.</p>
                   )}
 
                   <button
@@ -276,89 +383,148 @@ const Checkout = () => {
                 <div className="!space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 !mb-1">Flat/House No</label>
+                      <label className="block text-sm font-medium text-gray-700 !mb-1">
+                        Flat/House No *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newAddress.flatNo}
                         onChange={(e) => setNewAddress({ ...newAddress, flatNo: e.target.value })}
                         className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter flat/house number"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 !mb-1">Street</label>
+                      <label className="block text-sm font-medium text-gray-700 !mb-1">
+                        Street *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newAddress.street}
                         onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
                         className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter street address"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 !mb-1">City</label>
+                      <label className="block text-sm font-medium text-gray-700 !mb-1">
+                        City *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newAddress.city}
                         onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
                         className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter city"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 !mb-1">State</label>
+                      <label className="block text-sm font-medium text-gray-700 !mb-1">
+                        State *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newAddress.state}
                         onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
                         className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter state"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 !mb-1">ZIP Code</label>
+                      <label className="block text-sm font-medium text-gray-700 !mb-1">
+                        ZIP Code *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newAddress.zipCode}
                         onChange={(e) => setNewAddress({ ...newAddress, zipCode: e.target.value })}
                         className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter ZIP code"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 !mb-1">Phone Number</label>
+                      <label className="block text-sm font-medium text-gray-700 !mb-1">
+                        Phone Number *
+                      </label>
                       <input
                         type="tel"
                         required
                         value={newAddress.phoneNo}
                         onChange={(e) => setNewAddress({ ...newAddress, phoneNo: e.target.value })}
                         className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter phone number"
                       />
                     </div>
                   </div>
                   <div className="flex !space-x-3">
                     <button
-                      onClick={() => setShowNewAddress(false)}
+                      onClick={() => {
+                        setShowNewAddress(false);
+                        setNewAddress({
+                          flatNo: '',
+                          street: '',
+                          city: '',
+                          state: '',
+                          zipCode: '',
+                          country: 'India',
+                          phoneNo: ''
+                        });
+                      }}
                       className="bg-gray-200 text-gray-700 !px-4 !py-2 rounded-lg hover:bg-gray-300 transition-colors"
                     >
                       Cancel
                     </button>
-                    {/* <button
-                      onClick={() => setShowNewAddress(false)}
-                      className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Use This Address
-                    </button> */}
                     <button
                       onClick={handleSaveNewAddress}
-                      className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={loading}
+                      className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
                     >
-                      Use This Address
+                      {loading ? 'Saving...' : 'Save & Use Address'}
                     </button>
-
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Payment Method */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6">
+              <h2 className="text-xl font-semibold text-gray-900 !mb-4">Payment Method</h2>
+              <div className="!space-y-3">
+                <label className="flex items-center !space-x-3 !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="card"
+                    checked={paymentMethod === 'card'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <p className="font-medium text-gray-900">Credit/Debit Card</p>
+                    <p className="text-sm text-gray-600">Pay securely with your card</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center !space-x-3 !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="cod"
+                    checked={paymentMethod === 'cod'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <p className="font-medium text-gray-900">Cash on Delivery (COD)</p>
+                    <p className="text-sm text-gray-600">Pay when you receive your order</p>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Coupon Code */}
@@ -373,13 +539,22 @@ const Checkout = () => {
                   className="flex-1 !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={!!appliedCoupon}
                 />
-                <button
-                  onClick={applyCoupon}
-                  disabled={loading || !couponCode.trim() || !!appliedCoupon}
-                  className="bg-blue-600 text-white !px-6 !py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  {loading ? 'Applying...' : appliedCoupon ? 'Applied' : 'Apply'}
-                </button>
+                {appliedCoupon ? (
+                  <button
+                    onClick={removeCoupon}
+                    className="bg-red-600 text-white !px-6 !py-2 rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    onClick={applyCoupon}
+                    disabled={loading || !couponCode.trim()}
+                    className="bg-blue-600 text-white !px-6 !py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {loading ? 'Applying...' : 'Apply'}
+                  </button>
+                )}
               </div>
               {appliedCoupon && (
                 <div className="!mt-3 !p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -387,7 +562,18 @@ const Checkout = () => {
                     Coupon {appliedCoupon.coupon.code} applied successfully!
                   </p>
                   <p className="text-green-700 text-sm">
-                    Discount: {formatPrice(appliedCoupon.discountAmount)}
+                    Discount Type: {appliedCoupon.coupon.discountType === 'percentage' ? 'Percentage' : 'Fixed Amount'}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    Discount Value: {appliedCoupon.coupon.discountType === 'percentage' 
+                      ? `${appliedCoupon.coupon.discountValue}%` 
+                      : formatPrice(appliedCoupon.coupon.discountValue)}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    Discount Amount: -{formatPrice(appliedCoupon.discountAmount)}
+                  </p>
+                  <p className="text-green-700 text-sm font-semibold">
+                    Final Amount: {formatPrice(appliedCoupon.finalAmount || finalTotal)}
                   </p>
                 </div>
               )}
@@ -400,7 +586,7 @@ const Checkout = () => {
               <h2 className="text-xl font-semibold text-gray-900 !mb-4">Order Summary</h2>
 
               {/* Order Items */}
-              <div className="!space-y-4 !mb-6">
+              <div className="!space-y-4 !mb-6 max-h-64 overflow-y-auto">
                 {cart.items.map(item => (
                   <div key={item._id} className="flex items-center !space-x-3">
                     <img
@@ -408,13 +594,14 @@ const Checkout = () => {
                       alt={item.product.name}
                       className="w-12 h-12 object-cover rounded"
                     />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-sm line-clamp-1">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm line-clamp-2">
                         {item.product.name}
                       </p>
+                      <p className="text-gray-600 text-xs">by {item.product.author?.name}</p>
                       <p className="text-gray-600 text-xs">Qty: {item.quantity}</p>
                     </div>
-                    <p className="font-semibold text-gray-900 text-sm">
+                    <p className="font-semibold text-gray-900 text-sm whitespace-nowrap">
                       {formatPrice(item.product.price * item.quantity)}
                     </p>
                   </div>
@@ -445,10 +632,19 @@ const Checkout = () => {
                 </div>
               </div>
 
+              {/* Payment Method Note */}
+              {paymentMethod === 'cod' && (
+                <div className="!mt-4 !p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800 text-sm">
+                    <strong>Cash on Delivery:</strong> You'll pay {formatPrice(finalTotal)} when you receive your order.
+                  </p>
+                </div>
+              )}
+
               {/* Place Order Button */}
               <button
                 onClick={handlePlaceOrder}
-                disabled={placingOrder || (!selectedAddress && !showNewAddress)}
+                disabled={placingOrder || (!selectedAddress && !showNewAddress) || !paymentMethod}
                 className="w-full bg-blue-600 text-white !py-4 !px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-semibold text-lg !mt-6"
               >
                 {placingOrder ? (
@@ -456,15 +652,32 @@ const Checkout = () => {
                     <LoadingSpinner size="small" className="!mr-2" />
                     Placing Order...
                   </div>
+                ) : paymentMethod === 'cod' ? (
+                  `Place COD Order • ${formatPrice(finalTotal)}`
                 ) : (
                   `Place Order • ${formatPrice(finalTotal)}`
                 )}
               </button>
 
               <div className="!mt-4 text-sm text-gray-600 !space-y-1">
-                <p>🔒 Secure checkout</p>
-                <p>↩️ 30-day return policy</p>
-                <p>🛡️ Certificate of authenticity included</p>
+                <p className="flex items-center">
+                  <span className="!mr-2">🔒</span>
+                  Secure checkout
+                </p>
+                <p className="flex items-center">
+                  <span className="!mr-2">↩️</span>
+                  30-day return policy
+                </p>
+                <p className="flex items-center">
+                  <span className="!mr-2">🛡️</span>
+                  Certificate of authenticity included
+                </p>
+                {paymentMethod === 'cod' && (
+                  <p className="flex items-center text-blue-600">
+                    <span className="!mr-2">💵</span>
+                    Pay when you receive your artwork
+                  </p>
+                )}
               </div>
             </div>
           </div>
