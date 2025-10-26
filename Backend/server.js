@@ -14,6 +14,7 @@ import wishlistRoutes from './routes/wishlistRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
 
 dotenv.config();
 
@@ -39,7 +40,8 @@ app.get('/', (req, res) => {
       wishlist: '/api/v1/wishlist',
       coupons: '/api/v1/coupons',
       orders: '/api/v1/orders',
-      user: '/api/v1/user'
+      user: '/api/v1/user',
+      dashboard: 'api/v1/dashboard'
     }
   });
 });
@@ -91,6 +93,7 @@ const startServer = async () => {
     app.use('/api/v1/coupons', couponRoutes);
     app.use('/api/v1/orders', orderRoutes);
     app.use('/api/v1/user', userRoutes);
+    app.use('/api/v1/dashboard', dashboardRoutes);
   } catch (err) {
     console.error('❌ Failed to connect to MongoDB:', err.message);
     process.exit(1); // Exit if DB fails

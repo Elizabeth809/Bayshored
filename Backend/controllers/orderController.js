@@ -444,3 +444,305 @@ export const updateOrderStatus = async (req, res) => {
     });
   }
 };
+
+// @desc    Get all orders (Admin)
+// @route   GET /api/v1/orders/admin/all
+// @access  Private/Admin
+export const getAllOrdersAdmin = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      search,
+      sortBy = 'createdAt_desc' 
+    } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    
+    if (status && status !== 'all') {
+      filter.orderStatus = status;
+    }
+
+    // Search by order number or customer name/email
+    if (search) {
+      const users = await User.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      const userIds = users.map(user => user._id);
+      filter.user = { $in: userIds };
+    }
+
+    // Sort options
+    const sortOptions = {};
+    switch (sortBy) {
+      case 'totalAmount_asc':
+        sortOptions.totalAmount = 1;
+        break;
+      case 'totalAmount_desc':
+        sortOptions.totalAmount = -1;
+        break;
+      case 'createdAt_asc':
+        sortOptions.createdAt = 1;
+        break;
+      default:
+        sortOptions.createdAt = -1;
+    }
+
+    const orders = await Order.find(filter)
+      .populate('user', 'name email phoneNumber')
+      .populate('couponApplied', 'code discountType discountValue')
+      .sort(sortOptions)
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Order.countDocuments(filter);
+
+    // Calculate summary stats
+    const stats = await Order.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$totalAmount' },
+          totalOrders: { $sum: 1 },
+          averageOrderValue: { $avg: '$totalAmount' }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      count: orders.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      stats: stats[0] || { totalRevenue: 0, totalOrders: 0, averageOrderValue: 0 },
+      data: orders
+    });
+
+  } catch (error) {
+    console.error('Get all orders admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching orders',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get order details for admin
+// @route   GET /api/v1/orders/admin/:id
+// @access  Private/Admin
+export const getOrderDetailsAdmin = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('user', 'name email phoneNumber addresses')
+      .populate('couponApplied', 'code discountType discountValue');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: order
+    });
+
+  } catch (error) {
+    console.error('Get order details admin error:', error);
+    
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching order details',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update order status (Admin)
+// @route   PUT /api/v1/orders/admin/:id/status
+// @access  Private/Admin
+export const updateOrderStatusAdmin = async (req, res) => {
+  try {
+    const { orderStatus, message } = req.body;
+
+    const validStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order status'
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    const oldStatus = order.orderStatus;
+    order.orderStatus = orderStatus;
+    
+    // Add automatic shipping update when status changes
+    const statusMessages = {
+      confirmed: 'Order has been confirmed and is being prepared for processing',
+      processing: 'Order is being processed and prepared for shipment',
+      shipped: 'Order has been shipped and is on its way to you',
+      delivered: 'Order has been successfully delivered',
+      cancelled: 'Order has been cancelled'
+    };
+
+    if (statusMessages[orderStatus] && oldStatus !== orderStatus) {
+      order.shippingUpdates.push({
+        message: message || statusMessages[orderStatus],
+        timestamp: new Date()
+      });
+    }
+
+    await order.save();
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate('user', 'name email')
+      .populate('couponApplied', 'code discountType discountValue');
+
+    res.json({
+      success: true,
+      message: 'Order status updated successfully',
+      data: populatedOrder
+    });
+
+  } catch (error) {
+    console.error('Update order status admin error:', error);
+    
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating order status',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Add shipping update (Admin)
+// @route   POST /api/v1/orders/admin/:id/shipping-update
+// @access  Private/Admin
+export const addShippingUpdate = async (req, res) => {
+  try {
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Shipping update message is required'
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    order.shippingUpdates.push({
+      message: message.trim(),
+      timestamp: new Date()
+    });
+
+    await order.save();
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate('user', 'name email')
+      .populate('couponApplied', 'code discountType discountValue');
+
+    res.json({
+      success: true,
+      message: 'Shipping update added successfully',
+      data: populatedOrder
+    });
+
+  } catch (error) {
+    console.error('Add shipping update error:', error);
+    
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while adding shipping update',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get order invoice (Admin)
+// @route   GET /api/v1/orders/admin/:id/invoice
+// @access  Private/Admin
+export const getOrderInvoiceAdmin = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('user', 'name email')
+      .populate('couponApplied', 'code discountType discountValue');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    const invoiceBuffer = await createInvoice(order);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=invoice-${order.orderNumber}.pdf`
+    });
+
+    res.send(invoiceBuffer);
+
+  } catch (error) {
+    console.error('Get order invoice admin error:', error);
+    
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while generating invoice',
+      error: error.message
+    });
+  }
+};
