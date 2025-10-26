@@ -289,7 +289,7 @@ const Cart = () => {
                 </Link>
                 <Link
                   to="/store"
-                  className="block w-full text-center bg-gray-200 text-gray-900 !py-3 !px-6 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  className="block w-full text-center bg-gray-200 text-gray-900 !py-3 !px-6 rounded-lg hover:bg-gray-300 transition-colors font-medium !mt-6"
                 >
                   Continue Shopping
                 </Link>
