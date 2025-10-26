@@ -14,6 +14,7 @@ import wishlistRoutes from "./routes/wishlistRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import usersRoutes from './routes/adminUsersRoutes.js';
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 import helmet from 'helmet';
@@ -138,6 +139,8 @@ const startServer = async () => {
     app.use("/api/v1/coupons", couponRoutes);
     app.use("/api/v1/orders", orderRoutes);
     app.use("/api/v1/user", userRoutes);
+    //admin user routes
+    app.use("/api/v1/users", usersRoutes);
     app.use("/api/v1/dashboard", dashboardRoutes);
   } catch (err) {
     console.error("❌ Failed to connect to MongoDB:", err.message);

@@ -162,3 +162,136 @@ export const getMe = async (req, res) => {
   }
 };
 
+// @desc    Get all users (Admin)
+// @route   GET /api/v1/users
+// @access  Private/Admin
+export const getAllUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, role } = req.query;
+
+    const filter = {};
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (role && role !== 'all') {
+      filter.role = role;
+    }
+
+    const users = await User.find(filter)
+      .select('-password') // Exclude password from the result
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+
+    const total = await User.countDocuments(filter);
+
+    res.json({
+      success: true,
+      count: users.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      data: users,
+    });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching users',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get single user by ID (Admin)
+// @route   GET /api/v1/users/:id
+// @access  Private/Admin
+export const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.json({ success: true, data: user });
+  } catch (error) {
+    console.error('Get user by ID error:', error);
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Update user by ID (Admin)
+// @route   PUT /api/v1/users/:id
+// @access  Private/Admin
+export const updateUserByAdmin = async (req, res) => {
+  try {
+    const { name, email, phoneNumber, role, isVerified } = req.body;
+    
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if email is being changed and if it already exists for another user
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'Email already in use' });
+      }
+    }
+    
+    // Check for phone number conflicts
+    if (phoneNumber && phoneNumber !== user.phoneNumber) {
+        const existingUser = await User.findOne({ phoneNumber });
+        if (existingUser) {
+          return res.status(400).json({ success: false, message: 'Phone number already in use' });
+        }
+      }
+
+    user.name = name || user.name;
+    user.email = email || user.email;
+    user.phoneNumber = phoneNumber || user.phoneNumber;
+    user.role = role || user.role;
+    user.isVerified = isVerified === undefined ? user.isVerified : isVerified;
+
+    const updatedUser = await user.save();
+    
+    // Exclude password from the response
+    const userObject = updatedUser.toObject();
+    delete userObject.password;
+
+    res.json({ success: true, message: 'User updated successfully', data: userObject });
+  } catch (error) {
+    console.error('Update user by admin error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Delete user by ID (Admin)
+// @route   DELETE /api/v1/users/:id
+// @access  Private/Admin
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // TODO: Add logic here to handle user's associated data (e.g., orders)
+    // For now, we'll just delete the user.
+    // A safer approach might be to "deactivate" the user instead.
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
