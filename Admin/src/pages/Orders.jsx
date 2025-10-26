@@ -340,15 +340,15 @@ const Orders = () => {
 };
 
 // Order Detail Modal Component
-const OrderDetailModal = ({ 
-  order, 
-  onUpdateStatus, 
-  onAddShippingUpdate, 
-  onDownloadInvoice, 
+const OrderDetailModal = ({
+  order,
+  onUpdateStatus,
+  onAddShippingUpdate,
+  onDownloadInvoice,
   onClose,
-  formatPrice, 
-  formatDate, 
-  getStatusColor 
+  formatPrice,
+  formatDate,
+  getStatusColor
 }) => {
   const [newStatus, setNewStatus] = useState(order.orderStatus);
   const [shippingUpdate, setShippingUpdate] = useState('');
@@ -367,7 +367,7 @@ const OrderDetailModal = ({
   };
 
   return (
-    <div className="!space-y-6 max-h-96 overflow-y-auto">
+    <div className="!space-y-6 max-h-96 overflow-y-auto !p-6">
       {/* Order Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -382,7 +382,7 @@ const OrderDetailModal = ({
           <h3 className="text-lg font-semibold text-gray-900 !mb-3">Order Information</h3>
           <div className="!space-y-2 text-sm">
             <p><strong>Order Date:</strong> {formatDate(order.createdAt)}</p>
-            <p><strong>Status:</strong> 
+            <p><strong>Status:</strong>
               <span className={`!ml-2 inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.orderStatus)}`}>
                 {order.orderStatus}
               </span>
@@ -495,7 +495,7 @@ const OrderDetailModal = ({
       {/* Actions */}
       <div className="flex justify-between !pt-4 border-t border-gray-200">
         <button
-          onClick={onDownloadInvoice}
+          onClick={() => onDownloadInvoice(order._id)}
           className="bg-gray-600 text-white !px-4 !py-2 rounded-lg hover:bg-gray-700"
         >
           Download Invoice

@@ -46,6 +46,10 @@ const orderSchema = new mongoose.Schema({
   },
   items: [orderItemSchema],
   shippingAddress: {
+    flatNo: {
+      type: String,
+      required: true
+    },
     street: {
       type: String,
       required: true
@@ -108,7 +112,7 @@ const orderSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['card', 'paypal', 'bank_transfer'],
+    enum: ['card', 'cod', 'paypal', 'bank_transfer'],
     default: 'card'
   },
   shippingUpdates: [shippingUpdateSchema],
@@ -122,13 +126,19 @@ const orderSchema = new mongoose.Schema({
 
 // Generate order number before saving
 orderSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const date = new Date();
-    const timestamp = date.getTime();
-    const random = Math.floor(Math.random() * 1000);
-    this.orderNumber = `ART${timestamp}${random}`;
+  if (this.isNew && !this.orderNumber) {
+    try {
+      const date = new Date();
+      const timestamp = date.getTime();
+      const random = Math.floor(Math.random() * 1000);
+      this.orderNumber = `ART${timestamp}${random}`;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  } else {
+    next();
   }
-  next();
 });
 
 // Index for better search performance

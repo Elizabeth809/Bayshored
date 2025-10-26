@@ -116,17 +116,20 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Virtual for cart total
 userSchema.virtual('cartTotal').get(function() {
-  return this.cart.reduce((total, item) => {
+  // Use (this.cart || []) to prevent error if cart is not populated
+  return (this.cart || []).reduce((total, item) => {
     return total + (item.product?.price || 0) * item.quantity;
   }, 0);
 });
 
 // Virtual for cart items count
 userSchema.virtual('cartItemsCount').get(function() {
-  return this.cart.reduce((total, item) => total + item.quantity, 0);
+  // Use (this.cart || []) to prevent error if cart is not populated
+  return (this.cart || []).reduce((total, item) => total + item.quantity, 0);
 });
 
 // Ensure virtual fields are serialized
 userSchema.set('toJSON', { virtuals: true });
+userSchema.set('toObject', { virtuals: true }); // Good to add this too
 
 export default mongoose.model('User', userSchema);
