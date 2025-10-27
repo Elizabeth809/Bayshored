@@ -1,12 +1,117 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LoadingSpinner from '../others/LoadingSpinner';
+import { Heart } from 'lucide-react';
 
 const ProductCard = ({ product }) => {
   const { isAuthenticated, token, updateCartCount, updateWishlistCount } = useAuth();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [checkingWishlist, setCheckingWishlist] = useState(false);
+
+  // Check wishlist status when component mounts and when product changes
+  useEffect(() => {
+    if (isAuthenticated && product) {
+      checkWishlistStatus();
+    }
+  }, [product, isAuthenticated]);
+
+  // Check if product is in wishlist
+  const checkWishlistStatus = async () => {
+    if (!isAuthenticated || !product) return;
+    
+    setCheckingWishlist(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/wishlist/check/${product._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setIsWishlisted(data.data.isInWishlist);
+      }
+    } catch (err) {
+      console.error('Error checking wishlist status:', err);
+    } finally {
+      setCheckingWishlist(false);
+    }
+  };
+
+  // --- Add to Wishlist Handler ---
+  const handleAddToWishlist = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      alert('Please login to add items to wishlist');
+      return;
+    }
+
+    // If already wishlisted, remove from wishlist
+    if (isWishlisted) {
+      await handleRemoveFromWishlist();
+      return;
+    }
+
+    // Add to wishlist
+    setAddingToWishlist(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ productId: product._id })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        updateWishlistCount(data.data.itemsCount);
+        setIsWishlisted(true);
+      } else {
+        alert(data.message || 'Failed to add to wishlist');
+      }
+    } catch (error) {
+      console.error('Error adding to wishlist:', error);
+      alert('Failed to add to wishlist');
+    } finally {
+      setAddingToWishlist(false);
+    }
+  };
+
+  // --- Remove from Wishlist Handler ---
+  const handleRemoveFromWishlist = async () => {
+    if (!isAuthenticated || !product) return;
+
+    setAddingToWishlist(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/wishlist/${product._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        updateWishlistCount(data.data.itemsCount);
+        setIsWishlisted(false);
+      } else {
+        alert(data.message || 'Failed to remove from wishlist');
+      }
+    } catch (err) {
+      console.error('Error removing from wishlist:', err);
+      alert('Failed to remove from wishlist');
+    } finally {
+      setAddingToWishlist(false);
+    }
+  };
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
@@ -43,41 +148,6 @@ const ProductCard = ({ product }) => {
     }
   };
 
-  const handleAddToWishlist = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!isAuthenticated) {
-      alert('Please login to add items to wishlist');
-      return;
-    }
-
-    setAddingToWishlist(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ productId: product._id })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        updateWishlistCount(data.data.itemsCount);
-      } else {
-        alert(data.message || 'Failed to add to wishlist');
-      }
-    } catch (error) {
-      console.error('Error adding to wishlist:', error);
-      alert('Failed to add to wishlist');
-    } finally {
-      setAddingToWishlist(false);
-    }
-  };
-
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -90,16 +160,16 @@ const ProductCard = ({ product }) => {
       {/* Wishlist Button */}
       <button
         onClick={handleAddToWishlist}
-        disabled={addingToWishlist}
+        disabled={addingToWishlist || checkingWishlist}
         className="absolute top-3 right-3 !p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors z-10 disabled:opacity-50"
-        title="Add to Wishlist"
+        title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
       >
-        {addingToWishlist ? (
+        {addingToWishlist || checkingWishlist ? (
           <LoadingSpinner size="small" />
+        ) : isWishlisted ? (
+          <Heart className="text-red-500" fill="currentColor" size={20} />
         ) : (
-          <svg className="w-4 h-4 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
+          <Heart className="text-gray-400 hover:text-red-500" size={20} />
         )}
       </button>
 
@@ -131,7 +201,7 @@ const ProductCard = ({ product }) => {
 
           <div className="flex items-center justify-between text-sm text-gray-600 !mb-3">
             <span>{product.medium}</span>
-            <span className={`!px-2 !py-1 rounded-full text-xs ${
+            <span className={`!px-2 py-1 rounded-full text-xs ${
               product.stock > 10 
                 ? 'bg-green-100 text-green-800' 
                 : product.stock > 0 

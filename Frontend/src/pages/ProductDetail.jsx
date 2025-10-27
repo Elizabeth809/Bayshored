@@ -20,6 +20,7 @@ const ProductDetail = () => {
   const [error, setError] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [checkingWishlist, setCheckingWishlist] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
 
@@ -28,6 +29,12 @@ const ProductDetail = () => {
   useEffect(() => {
     fetchProduct();
   }, [slug]);
+
+  useEffect(() => {
+    if (product && isAuthenticated) {
+      checkWishlistStatus();
+    }
+  }, [product, isAuthenticated]);
 
   const fetchProduct = async () => {
     try {
@@ -40,6 +47,29 @@ const ProductDetail = () => {
       setError('Failed to load product');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Check if product is in wishlist
+  const checkWishlistStatus = async () => {
+    if (!isAuthenticated || !product) return;
+    
+    setCheckingWishlist(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/wishlist/check/${product._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setIsWishlisted(data.data.isInWishlist);
+      }
+    } catch (err) {
+      console.error('Error checking wishlist status:', err);
+    } finally {
+      setCheckingWishlist(false);
     }
   };
 
@@ -83,6 +113,13 @@ const ProductDetail = () => {
       return;
     }
 
+    // If already wishlisted, remove from wishlist
+    if (isWishlisted) {
+      await handleRemoveFromWishlist();
+      return;
+    }
+
+    // Add to wishlist
     setAddingToWishlist(true);
     try {
       const response = await fetch('http://localhost:5000/api/v1/wishlist', {
@@ -109,6 +146,34 @@ const ProductDetail = () => {
     }
   };
 
+  // --- Remove from Wishlist Handler ---
+  const handleRemoveFromWishlist = async () => {
+    if (!isAuthenticated || !product) return;
+
+    setAddingToWishlist(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/wishlist/${product._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        updateWishlistCount(data.data.itemsCount);
+        setIsWishlisted(false);
+      } else {
+        alert(data.message || 'Failed to remove from wishlist');
+      }
+    } catch (err) {
+      console.error('Error removing from wishlist:', err);
+      alert('Failed to remove from wishlist');
+    } finally {
+      setAddingToWishlist(false);
+    }
+  };
+
   const formatPrice = (price) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -128,7 +193,7 @@ const ProductDetail = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 !mb-4">Product Not Found</h1>
-          <p className="text-gray-600 !mb-8">
+          <p className="text-gray-600 mb-8">
             The product you're looking for doesn't exist.
           </p>
           <Link
@@ -205,6 +270,29 @@ const ProductDetail = () => {
                 </span>
               </div>
 
+              {/* Product Details */}
+              <div className="grid grid-cols-2 gap-4 !mb-6 text-sm">
+                <div>
+                  <span className="font-medium text-gray-900">Medium:</span>
+                  <p className="text-gray-600">{product.medium}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Dimensions:</span>
+                  <p className="text-gray-600">
+                    {product.dimensions?.height} × {product.dimensions?.width}
+                    {product.dimensions?.depth > 0 && ` × ${product.dimensions.depth}`} cm
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Category:</span>
+                  <p className="text-gray-600">{product.category?.name}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">SKU:</span>
+                  <p className="text-gray-600">{product.slug}</p>
+                </div>
+              </div>
+
               {/* Description */}
               <div className="!mb-6">
                 <h3 className="font-medium text-gray-900 !mb-2">Description</h3>
@@ -256,16 +344,16 @@ const ProductDetail = () => {
 
                       <button
                         onClick={handleAddToWishlist}
-                        disabled={addingToWishlist}
+                        disabled={addingToWishlist || checkingWishlist}
                         className="flex items-center justify-center !px-6 !py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                        title="Add to Wishlist"
+                        title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
                       >
-                        {addingToWishlist ? (
+                        {addingToWishlist || checkingWishlist ? (
                           <LoadingSpinner size="small" />
                         ) : isWishlisted ? (
-                          <Heart className="text-red-500" fill="red" size={22} />
+                          <Heart className="text-red-500" fill="currentColor" size={22} />
                         ) : (
-                          <HeartOff className="text-red-500" size={22} />
+                          <Heart className="text-red-500" size={22} />
                         )}
                       </button>
                     </div>
@@ -277,8 +365,12 @@ const ProductDetail = () => {
                     </p>
                     <button
                       onClick={handleAddToWishlist}
-                      className="bg-gray-600 text-white !py-3 !px-6 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                      disabled={addingToWishlist || checkingWishlist}
+                      className="bg-gray-600 text-white !py-3 !px-6 rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center mx-auto"
                     >
+                      {addingToWishlist || checkingWishlist ? (
+                        <LoadingSpinner size="small" className="!mr-2" />
+                      ) : null}
                       Notify When Available
                     </button>
                   </div>
