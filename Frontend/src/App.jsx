@@ -18,6 +18,7 @@ import ProductDetail from './pages/ProductDetail';
 import Header from './components/Header/Header';
 import Wishlist from './pages/Wishlist';
 import Checkout from './pages/Checkout';
+import VirtualGallery from './pages/VirtualGallery';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/store" element={<Store />} />
               <Route path="/product/:slug" element={<ProductDetail />} />
+              <Route path="/virtual-gallery" element={<VirtualGallery />} />
 
               {/* Protected Routes */}
               <Route
