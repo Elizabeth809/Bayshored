@@ -301,7 +301,7 @@ const Dashboard = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
+          <h3 className="text-lg font-semibold text-gray-900 !mb-4">Quick Stats</h3>
           <div className="!space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Categories</span>

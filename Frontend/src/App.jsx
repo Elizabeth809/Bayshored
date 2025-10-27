@@ -19,6 +19,8 @@ import Header from './components/Header/Header';
 import Wishlist from './pages/Wishlist';
 import Checkout from './pages/Checkout';
 import VirtualGallery from './pages/VirtualGallery';
+import Authors from './pages/author/Authors';
+import AuthorDetail from './pages/author/AuthorDetail';
 
 function App() {
   return (
@@ -38,6 +40,8 @@ function App() {
               <Route path="/store" element={<Store />} />
               <Route path="/product/:slug" element={<ProductDetail />} />
               <Route path="/virtual-gallery" element={<VirtualGallery />} />
+              <Route path="/artists" element={<Authors />} /> {/* <-- Add Authors Route */}
+              <Route path="/artist/:authorId" element={<AuthorDetail />} /> {/* <-- Add Author Detail Route */}
 
               {/* Protected Routes */}
               <Route
