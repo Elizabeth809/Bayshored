@@ -36,7 +36,7 @@ const MainLayout = () => {
             )}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="!p-2 rounded-md hover:bg-gray-700"
+              className="!p-2 rounded-md hover:bg-gray-700 cursor-pointer"
             >
               {sidebarOpen ? '←' : '→'}
             </button>
@@ -48,7 +48,7 @@ const MainLayout = () => {
             <button
               key={item.name}
               onClick={() => navigate(item.href)}
-              className={`w-full flex items-center !px-4 !py-3 text-left transition duration-200 ${
+              className={`w-full flex items-center !px-4 !py-3 text-left transition duration-200 cursor-pointer ${
                 isActive(item.href)
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-300 hover:bg-gray-700 hover:text-white'
@@ -78,7 +78,7 @@ const MainLayout = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 text-white !px-4 !py-2 rounded-lg hover:bg-red-700 transition duration-200 text-sm"
+                className="bg-red-600 text-white !px-4 !py-2 rounded-lg hover:bg-red-700 transition duration-200 text-sm cursor-pointer"
               >
                 Logout
               </button>
