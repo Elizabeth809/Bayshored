@@ -16,6 +16,21 @@ const authorSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: ''
+  },
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    sparse: true
+  },
+  website: {
+    type: String,
+    trim: true
+  },
+  socialMedia: {
+    instagram: { type: String, trim: true },
+    facebook: { type: String, trim: true },
+    twitter: { type: String, trim: true }
   }
 }, {
   timestamps: true
