@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import LoadingSpinner from '../../components/others/LoadingSpinner'; // Adjust path
 import ProductCard from '../../components/Products/ProductCard'; // Adjust path (You should have this already)
 import { Mail, Link as LinkIcon, Instagram, Facebook, Twitter } from 'lucide-react';
+import { CLIENT_BASE_URL } from '../../components/others/clientApiUrl';
 
 // Define a placeholder image URL
 const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/200?text=NA';
@@ -21,7 +22,7 @@ const AuthorDetail = () => {
       setLoadingAuthor(true);
       setError('');
       try {
-        const response = await fetch(`http://localhost:5000/api/v1/authors/${authorId}`);
+        const response = await fetch(`${CLIENT_BASE_URL}/api/v1/authors/${authorId}`);
         const data = await response.json();
         if (data.success) {
           setAuthor(data.data);
@@ -49,7 +50,7 @@ const AuthorDetail = () => {
         try {
           // --- IMPORTANT: Ensure your backend supports this ---
           // Assuming /api/v1/products?author=AUTHOR_ID fetches products by author
-          const response = await fetch(`http://localhost:5000/api/v1/products?author=${authorId}`); 
+          const response = await fetch(`${CLIENT_BASE_URL}/api/v1/products?author=${authorId}`); 
           // --- END IMPORTANT ---
           
           const data = await response.json();

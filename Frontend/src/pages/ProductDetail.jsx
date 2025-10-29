@@ -12,6 +12,7 @@ import {
   Undo2,
   Gift
 } from 'lucide-react';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -38,7 +39,7 @@ const ProductDetail = () => {
 
   const fetchProduct = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/products/slug/${slug}`);
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/products/slug/${slug}`);
       const data = await response.json();
       if (data.success) setProduct(data.data);
       else setError('Product not found');
@@ -56,7 +57,7 @@ const ProductDetail = () => {
     
     setCheckingWishlist(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/wishlist/check/${product._id}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist/check/${product._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -82,7 +83,7 @@ const ProductDetail = () => {
 
     setAddingToCart(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +123,7 @@ const ProductDetail = () => {
     // Add to wishlist
     setAddingToWishlist(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +153,7 @@ const ProductDetail = () => {
 
     setAddingToWishlist(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/wishlist/${product._id}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist/${product._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

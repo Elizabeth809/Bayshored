@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const AuthContext = createContext();
 
@@ -82,7 +83,7 @@ export const AuthProvider = ({ children }) => {
       
       if (token) {
         try {
-          const response = await fetch('http://localhost:5000/api/v1/auth/me', {
+          const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -112,7 +113,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchCartCount = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -129,7 +130,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchWishlistCount = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -148,7 +149,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/login', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +191,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'REGISTER_START' });
     
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/register', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -214,7 +215,7 @@ export const AuthProvider = ({ children }) => {
 
   const verifyOtp = async (email, otp) => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/verify-otp', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

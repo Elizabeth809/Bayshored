@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { CLIENT_BASE_URL } from '../../components/others/clientApiUrl';
 
 const ResetPassword = () => {
   const [formData, setFormData] = useState({
@@ -47,7 +48,7 @@ const ResetPassword = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/reset-password', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

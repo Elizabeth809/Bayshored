@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/others/LoadingSpinner';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const Checkout = () => {
   const [cart, setCart] = useState(null);
@@ -57,7 +58,7 @@ const Checkout = () => {
 
   const fetchCart = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -73,7 +74,7 @@ const Checkout = () => {
 
   const fetchAddresses = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/user/addresses', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -98,7 +99,7 @@ const Checkout = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/orders/apply-coupon', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/apply-coupon`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +142,7 @@ const Checkout = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/user/addresses', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +235,7 @@ const Checkout = () => {
         notes: ''
       };
 
-      const response = await fetch('http://localhost:5000/api/v1/orders', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

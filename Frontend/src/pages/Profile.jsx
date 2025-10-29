@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/others/LoadingSpinner';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('orders');
@@ -21,7 +22,7 @@ const Profile = () => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/orders/my-orders', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/my-orders`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -40,7 +41,7 @@ const Profile = () => {
   const fetchAddresses = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/user/addresses', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -357,8 +358,8 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
     
     try {
       const url = editingAddress 
-        ? `http://localhost:5000/api/v1/user/addresses/${editingAddress._id}`
-        : 'http://localhost:5000/api/v1/user/addresses';
+        ? `${CLIENT_BASE_URL}/api/v1/user/addresses/${editingAddress._id}`
+        : `${CLIENT_BASE_URL}/api/v1/user/addresses`;
       
       const method = editingAddress ? 'PUT' : 'POST';
 
@@ -410,7 +411,7 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
     if (!window.confirm('Are you sure you want to delete this address?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/user/addresses/${addressId}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses/${addressId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/others/LoadingSpinner';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const Cart = () => {
   const [cart, setCart] = useState(null);
@@ -20,7 +21,7 @@ const Cart = () => {
 
   const fetchCart = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -44,7 +45,7 @@ const Cart = () => {
 
     setUpdating(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/cart/${productId}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +73,7 @@ const Cart = () => {
   const removeFromCart = async (productId) => {
     setUpdating(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/cart/${productId}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -100,7 +101,7 @@ const Cart = () => {
 
     setUpdating(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

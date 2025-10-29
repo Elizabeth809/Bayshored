@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/others/LoadingSpinner';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const Wishlist = () => {
   const [wishlist, setWishlist] = useState(null);
@@ -20,7 +21,7 @@ const Wishlist = () => {
 
   const fetchWishlist = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -42,7 +43,7 @@ const Wishlist = () => {
   const removeFromWishlist = async (productId) => {
     setUpdating(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/wishlist/${productId}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -69,7 +70,7 @@ const Wishlist = () => {
     setUpdating(true);
     try {
       // Add to cart
-      const cartResponse = await fetch('http://localhost:5000/api/v1/cart', {
+      const cartResponse = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +83,7 @@ const Wishlist = () => {
 
       if (cartData.success) {
         // Remove from wishlist after successful add to cart
-        const wishlistResponse = await fetch(`http://localhost:5000/api/v1/wishlist/${product._id}`, {
+        const wishlistResponse = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist/${product._id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/Products/ProductCard';
 import LoadingSpinner from '../components/others/LoadingSpinner';
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const Store = () => {
   const [products, setProducts] = useState([]);
@@ -52,7 +53,7 @@ const Store = () => {
       params.append('page', currentPage);
       params.append('limit', '12');
 
-      const response = await fetch(`http://localhost:5000/api/v1/products?${params}`);
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/products?${params}`);
       const data = await response.json();
 
       if (data.success) {
@@ -68,7 +69,7 @@ const Store = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/categories');
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/categories`);
       const data = await response.json();
       if (data.success) setCategories(data.data);
     } catch (error) {
@@ -78,7 +79,7 @@ const Store = () => {
 
   const fetchAuthors = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/authors');
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/authors`);
       const data = await response.json();
       if (data.success) setAuthors(data.data);
     } catch (error) {

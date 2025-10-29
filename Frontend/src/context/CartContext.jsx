@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 // 1. Import useAuth to know if the user is logged in
 import { useAuth } from './AuthContext'; 
+import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const CartContext = createContext();
 
@@ -40,7 +41,7 @@ export const CartProvider = ({ children }) => {
       // Only fetch if the user is logged in
       if (isAuthenticated) {
         try {
-          const response = await fetch('http://localhost:5000/api/v1/cart', {
+          const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -73,7 +74,7 @@ export const CartProvider = ({ children }) => {
     }
     
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +100,7 @@ export const CartProvider = ({ children }) => {
     if (!isAuthenticated) return;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/cart/${productId}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -127,7 +128,7 @@ export const CartProvider = ({ children }) => {
     }
     
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/cart/${productId}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ export const CartProvider = ({ children }) => {
     if (!isAuthenticated) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

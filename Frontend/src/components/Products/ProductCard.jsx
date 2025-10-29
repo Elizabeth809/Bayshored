@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useState, useEffect } from 'react';
 import LoadingSpinner from '../others/LoadingSpinner';
 import { Heart } from 'lucide-react';
+import { CLIENT_BASE_URL } from '../others/clientApiUrl';
 
 const ProductCard = ({ product }) => {
   const { isAuthenticated, token, updateCartCount, updateWishlistCount } = useAuth();
@@ -24,7 +25,7 @@ const ProductCard = ({ product }) => {
     
     setCheckingWishlist(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/wishlist/check/${product._id}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist/check/${product._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -60,7 +61,7 @@ const ProductCard = ({ product }) => {
     // Add to wishlist
     setAddingToWishlist(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/wishlist', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +92,7 @@ const ProductCard = ({ product }) => {
 
     setAddingToWishlist(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/wishlist/${product._id}`, {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/wishlist/${product._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -124,7 +125,7 @@ const ProductCard = ({ product }) => {
 
     setAddingToCart(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/cart', {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

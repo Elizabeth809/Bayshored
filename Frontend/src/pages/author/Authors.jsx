@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AuthorCard from '../../components/Author/AuthorCard'; // Adjust path as needed
 import LoadingSpinner from '../../components/others/LoadingSpinner'; // Adjust path as needed
+import { CLIENT_BASE_URL } from '../../components/others/clientApiUrl';
 
 const Authors = () => {
   const [authors, setAuthors] = useState([]);
@@ -16,7 +17,7 @@ const Authors = () => {
     setError('');
     try {
       // Use relative path because of Vite proxy
-      const response = await fetch('http://localhost:5000/api/v1/authors'); 
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/authors`); 
       const data = await response.json();
       
       if (data.success) {
