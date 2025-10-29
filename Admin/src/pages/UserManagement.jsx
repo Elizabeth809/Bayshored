@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner'; // Assuming you have this
 import Modal from '../components/Modal'; // Assuming you have this
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -25,7 +26,7 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const params = new URLSearchParams(filters);
-      const response = await fetch(`http://localhost:5000/api/v1/users?${params}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/users?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -49,7 +50,7 @@ const UserManagement = () => {
   const handleDelete = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/v1/users/${userId}`, {
+        const response = await fetch(`${ADMIN_BASE_URL}/api/v1/users/${userId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -212,7 +213,7 @@ const UserEditModal = ({ user, onClose, onUpdate, token }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/users/${user._id}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/users/${user._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

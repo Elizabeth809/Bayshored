@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const AuthContext = createContext();
 
@@ -67,7 +68,7 @@ export const AuthProvider = ({ children }) => {
       
       if (token) {
         try {
-          const response = await fetch('http://localhost:5000/api/v1/auth/me', {
+          const response = await fetch(`${ADMIN_BASE_URL}/api/v1/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -99,7 +100,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/login', {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

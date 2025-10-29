@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -30,7 +31,7 @@ const Orders = () => {
         if (value) params.append(key, value);
       });
 
-      const response = await fetch(`http://localhost:5000/api/v1/orders/admin/all?${params}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/orders/admin/all?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -51,7 +52,7 @@ const Orders = () => {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/orders/admin/${orderId}/status`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/orders/admin/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ const Orders = () => {
 
   const addShippingUpdate = async (orderId, message) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/orders/admin/${orderId}/shipping-update`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/orders/admin/${orderId}/shipping-update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +105,7 @@ const Orders = () => {
 
   const downloadInvoice = async (orderId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/orders/admin/${orderId}/invoice`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/orders/admin/${orderId}/invoice`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

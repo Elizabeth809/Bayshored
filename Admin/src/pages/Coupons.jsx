@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const Coupons = () => {
   const [coupons, setCoupons] = useState([]);
@@ -29,7 +30,7 @@ const Coupons = () => {
 
   const fetchCoupons = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/coupons', {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/coupons`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -54,8 +55,8 @@ const Coupons = () => {
 
     try {
       const url = editingCoupon 
-        ? `http://localhost:5000/api/v1/coupons/${editingCoupon._id}`
-        : 'http://localhost:5000/api/v1/coupons';
+        ? `${ADMIN_BASE_URL}/api/v1/coupons/${editingCoupon._id}`
+        : `${ADMIN_BASE_URL}/api/v1/coupons`;
       
       const method = editingCoupon ? 'PUT' : 'POST';
 
@@ -100,7 +101,7 @@ const Coupons = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/coupons/${couponId}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/coupons/${couponId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

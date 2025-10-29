@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
+import { ADMIN_BASE_URL } from './adminApiUrl';
 
 const ProductForm = ({ product, onSave, onCancel, loading }) => {
   const [formData, setFormData] = useState({
@@ -64,8 +65,8 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
     setLoadingData(true);
     try {
       const [categoriesRes, authorsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/v1/categories'),
-        fetch('http://localhost:5000/api/v1/authors')
+        fetch(`${ADMIN_BASE_URL}/api/v1/categories`),
+        fetch(`${ADMIN_BASE_URL}/api/v1/authors`)
       ]);
 
       const categoriesData = await categoriesRes.json();

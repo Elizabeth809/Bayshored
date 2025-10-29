@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import LoadingSpinner from '../components/AdminLoadingSpinner';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 // Register ChartJS components
 ChartJS.register(
@@ -37,7 +38,7 @@ const Dashboard = () => {
   // Define fetchCouponStats first
   const fetchCouponStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/coupons', {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/coupons`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -61,7 +62,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/dashboard', {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/dashboard`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -64,7 +64,7 @@ const Header = () => {
   const navLinks = [
     { name: 'Home', href: '/', end: true },
     { name: 'Store', href: '/store', end: false },
-    { name: 'Gallery', href: '/virtual-gallery', end: false },
+    { name: 'Virtual Gallery', href: '/virtual-gallery', end: false },
     { name: 'Artists', href: '/artists', end: false },
     { name: 'About', href: '/about', end: false },
   ];
@@ -182,10 +182,10 @@ const Header = () => {
                 <div className="relative" ref={avatarMenuRef}>
                   <button
                     onClick={() => setIsAvatarMenuOpen(!isAvatarMenuOpen)}
-                    className="flex items-center !space-x-2 p-1 rounded-2xl hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-200"
+                    className="flex items-center !space-x-2 p-1 rounded-2xl hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-200 cursor-pointer"
                     aria-label="User menu"
                   >
-                    <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full font-semibold shadow-lg">
+                    <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full font-semibold shadow-lg cursor-pointer">
                       {user?.name ? user.name[0].toUpperCase() : <User size={16} />}
                     </div>
                     <ChevronDown 
@@ -222,7 +222,7 @@ const Header = () => {
 
             {/* Mobile Menu Button (no changes) */}
             <button
-              className="lg:hidden !p-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
+              className="lg:hidden !p-2 text-gray-700 hover:text-blue-600 transition-colors duration-200 cursor-pointer"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Toggle mobile menu"
             >
@@ -260,7 +260,7 @@ const AvatarDropdown = ({ isOpen, user, onLogout, onClose }) => (
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 10, scale: 0.95 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="absolute right-0 top-14 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden backdrop-blur-md"
+        className="absolute right-0 top-14 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden backdrop-blur-md "
       >
         <div className="!p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-100">
           <div className="flex items-center !space-x-4">
@@ -270,7 +270,6 @@ const AvatarDropdown = ({ isOpen, user, onLogout, onClose }) => (
             <div className="flex-1 min-w-0">
               <p className="font-bold text-gray-900 text-lg truncate">{user?.name}</p>
               <p className="text-sm text-gray-500 truncate !mt-1">{user?.email}</p>
-              <p className="text-xs text-blue-600 font-medium !mt-2">Premium Member</p>
             </div>
           </div>
         </div>
@@ -305,7 +304,7 @@ const AvatarDropdown = ({ isOpen, user, onLogout, onClose }) => (
         <div className="border-t border-gray-100 !p-2">
           <button
             onClick={onLogout}
-            className="flex items-center w-full !px-4 !py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 group"
+            className="flex items-center w-full !px-4 !py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 group cursor-pointer"
           >
             <LogOut size={18} className="!mr-3" />
             <span className="font-medium">Logout</span>

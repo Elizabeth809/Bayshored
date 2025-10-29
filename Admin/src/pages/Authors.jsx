@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AuthorForm from '../components/AuthorForm';
 import AdminLoadingSpinner from '../components/AdminLoadingSpinner';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/40x40/EFEFEF/AAAAAA&text=NA';
 
@@ -24,7 +25,7 @@ const Authors = () => {
     setLoading(true);
     setMessage('');
     try {
-      const response = await fetch('http://localhost:5000/api/v1/authors');
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/authors`);
       const data = await response.json();
       
       if (data.success) {
@@ -45,7 +46,7 @@ const Authors = () => {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/authors', {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/authors`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -75,7 +76,7 @@ const Authors = () => {
     setMessage('');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/authors/${editingAuthor._id}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/authors/${editingAuthor._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -116,7 +117,7 @@ const Authors = () => {
      setMessage('');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/authors/${authorId}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/authors/${authorId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

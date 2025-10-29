@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProductForm from '../components/ProductForm';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -20,7 +21,7 @@ const Products = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/products');
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/products`);
       const data = await response.json();
       
       if (data.success) {
@@ -39,7 +40,7 @@ const Products = () => {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/products', {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/products`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -69,7 +70,7 @@ const Products = () => {
     setMessage('');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/products/${editingProduct._id}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/products/${editingProduct._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -108,7 +109,7 @@ const Products = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/products/${productId}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/products/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

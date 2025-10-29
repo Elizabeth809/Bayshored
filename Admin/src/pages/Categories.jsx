@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ADMIN_BASE_URL } from '../components/adminApiUrl';
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
@@ -20,7 +21,7 @@ const Categories = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/categories');
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/categories`);
       const data = await response.json();
       
       if (data.success) {
@@ -41,8 +42,8 @@ const Categories = () => {
 
     try {
       const url = editingCategory 
-        ? `http://localhost:5000/api/v1/categories/${editingCategory._id}`
-        : 'http://localhost:5000/api/v1/categories';
+        ? `${ADMIN_BASE_URL}/api/v1/categories/${editingCategory._id}`
+        : `${ADMIN_BASE_URL}/api/v1/categories`;
       
       const method = editingCategory ? 'PUT' : 'POST';
 
@@ -78,7 +79,7 @@ const Categories = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/categories/${categoryId}`, {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/categories/${categoryId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
