@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NewsletterSubscription from '../components/others/NewsletterSubscription';
 
 const Home = () => {
   const { isAuthenticated } = useAuth();
@@ -31,6 +32,7 @@ const Home = () => {
           )}
         </div>
       </div>
+      <NewsletterSubscription />
     </div>
   );
 };
