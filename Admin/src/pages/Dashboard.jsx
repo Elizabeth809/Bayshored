@@ -32,10 +32,11 @@ ChartJS.register(
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [couponStats, setCouponStats] = useState(null);
+  const [subscriberStats, setSubscriberStats] = useState(null); // <-- NEW STATE
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
 
-  // Define fetchCouponStats first
+  // Define fetchCouponStats
   const fetchCouponStats = async () => {
     try {
       const response = await fetch(`${ADMIN_BASE_URL}/api/v1/coupons`, {
@@ -60,6 +61,7 @@ const Dashboard = () => {
     }
   };
 
+  // Define fetchDashboardData
   const fetchDashboardData = async () => {
     try {
       const response = await fetch(`${ADMIN_BASE_URL}/api/v1/dashboard`, {
@@ -78,11 +80,34 @@ const Dashboard = () => {
     }
   };
 
+  // --- NEW: Define fetchSubscriberStats ---
+  const fetchSubscriberStats = async () => {
+    try {
+      // We only need the stats, not the full list, so limit=1 is efficient
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/subscribers?limit=1`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSubscriberStats(data.stats); // Set the stats object
+      }
+    } catch (error) {
+      console.error('Error fetching subscriber stats:', error);
+    }
+  };
+  // ----------------------------------------
+
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        await Promise.all([fetchDashboardData(), fetchCouponStats()]);
+        await Promise.all([
+          fetchDashboardData(),
+          fetchCouponStats(),
+          fetchSubscriberStats() // <-- NEW: Add to Promise.all
+        ]);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -90,8 +115,10 @@ const Dashboard = () => {
       }
     };
     
-    fetchAllData();
-  }, []);
+    if (token) {
+      fetchAllData();
+    }
+  }, [token]); // <-- NEW: Added token dependency
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-US', {
@@ -279,6 +306,26 @@ const Dashboard = () => {
             />
           </>
         )}
+        
+        {/* --- NEW SUBSCRIBER STAT CARDS --- */}
+        {subscriberStats && (
+          <>
+            <StatCard
+              title="Total Subscribers"
+              value={subscriberStats.totalSubscribers.toString()}
+              subtitle="All subscribers"
+              icon="✉️"
+            />
+            <StatCard
+              title="New Subscribers"
+              value={subscriberStats.newThisMonth.toString()}
+              subtitle="This month"
+              icon="✨"
+            />
+          </>
+        )}
+        {/* ----------------------------------- */}
+
       </div>
 
       {/* Monthly Stats */}
