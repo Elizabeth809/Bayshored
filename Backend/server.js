@@ -16,6 +16,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import usersRoutes from './routes/adminUsersRoutes.js';
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import subscriberRoutes from './routes/subscriberRoutes.js';
 
 import helmet from 'helmet';
 import compression from 'compression';
@@ -67,6 +68,7 @@ app.get("/", (req, res) => {
       orders: "/api/v1/orders",
       user: "/api/v1/user",
       dashboard: "api/v1/dashboard",
+      subscribe:"/api/v1/subscribers",
     },
   });
 });
@@ -161,6 +163,7 @@ const startServer = async () => {
     //admin user routes
     app.use("/api/v1/users", usersRoutes);
     app.use("/api/v1/dashboard", dashboardRoutes);
+    app.use('/api/v1/subscribers', subscriberRoutes);
   } catch (err) {
     console.error("❌ Failed to connect to MongoDB:", err.message);
     process.exit(1); // Exit if DB fails
