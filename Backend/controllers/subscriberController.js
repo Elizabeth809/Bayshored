@@ -163,7 +163,7 @@ export const getSubscribers = async (req, res) => {
                 { 
                   $and: [
                     { $gte: ['$subscribedAt', new Date(new Date().getFullYear(), new Date().getMonth(), 1)] },
-                    { $isActive: true }
+                    { $eq: ['$isActive', true] } // <-- THE FIX IS HERE
                   ]
                 }, 
                 1, 

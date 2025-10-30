@@ -16,6 +16,7 @@ const MainLayout = () => {
     { name: 'Orders', href: '/orders', icon: '📦' },
     { name: 'Coupons', href: '/coupons', icon: '🎫' },
     { name: 'Users', href: '/users', icon: '👥' },
+    { name: 'Subscribers', href: '/subscribers', icon: '🔔' },
   ];
 
   const handleLogout = () => {
