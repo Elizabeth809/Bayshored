@@ -6,10 +6,7 @@ import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 import {
   User,
   MapPin,
-  Settings,
   Shield,
-  Bell,
-  CreditCard,
   Edit3,
   Trash2,
   Plus,
@@ -18,7 +15,10 @@ import {
   Phone,
   Camera,
   Save,
-  X
+  X,
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const Profile = () => {
@@ -31,7 +31,7 @@ const Profile = () => {
     email: '',
     phoneNumber: ''
   });
-  const { user, token, updateUser } = useAuth();
+  const { user, token, updateUser } = useAuth(); // Now updateUser is available
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -80,30 +80,46 @@ const Profile = () => {
 
       const data = await response.json();
       if (data.success) {
+        // Update the user in context with the new data
         updateUser(data.data);
-        // Show success animation
-        document.getElementById('successToast')?.classList.remove('hidden');
-        setTimeout(() => {
-          document.getElementById('successToast')?.classList.add('hidden');
-        }, 3000);
+        showToast('Profile updated successfully!', 'success');
+      } else {
+        showToast(data.message || 'Failed to update profile', 'error');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
+      showToast('Failed to update profile', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  const showToast = (message, type = 'success') => {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    if (toast && toastMessage) {
+      toastMessage.textContent = message;
+      toast.className = `fixed top-4 right-4 !px-6 !py-3 rounded-xl shadow-lg z-50 transform transition-all duration-500 animate-bounce-in flex items-center !space-x-2 ${
+        type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+      }`;
+      
+      setTimeout(() => {
+        toast.className = 'hidden';
+      }, 3000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      {/* Success Toast */}
+      {/* Toast Notification */}
       <div
-        id="successToast"
-        className="hidden fixed top-4 right-4 bg-green-500 text-white !px-6 !py-3 rounded-xl shadow-lg z-50 transform transition-all duration-500 animate-bounce-in"
+        id="toast"
+        className="hidden"
       >
-        <div className="flex items-center !space-x-2">
+        <div id="toastMessage" className="flex items-center !space-x-2">
           <CheckCircle size={20} />
-          <span>Profile updated successfully!</span>
+          <span></span>
         </div>
       </div>
 
@@ -155,6 +171,7 @@ const Profile = () => {
                 <div className="!space-y-2">
                   {[
                     { id: 'personal', label: 'Personal Info', icon: User },
+                    { id: 'security', label: 'Security', icon: Shield },
                     { id: 'addresses', label: 'My Addresses', icon: MapPin }
                   ].map((item) => {
                     const Icon = item.icon;
@@ -191,18 +208,21 @@ const Profile = () => {
                     setUserData={setUserData}
                     onSave={handleSaveProfile}
                     saving={saving}
+                    user={user}
                   />
+                ) : activeTab === 'security' ? (
+                  <SecurityTab token={token} showToast={showToast} />
                 ) : activeTab === 'addresses' ? (
                   <AddressesTab
                     addresses={addresses}
                     fetchAddresses={fetchAddresses}
                     token={token}
+                    showToast={showToast}
                   />
                 ) : null}
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -210,7 +230,11 @@ const Profile = () => {
 };
 
 // Personal Info Tab Component
-const PersonalInfoTab = ({ userData, setUserData, onSave, saving }) => {
+const PersonalInfoTab = ({ userData, setUserData, onSave, saving, user }) => {
+  const hasChanges = userData.name !== user?.name || 
+                    userData.email !== user?.email || 
+                    userData.phoneNumber !== user?.phoneNumber;
+
   return (
     <div className="!space-y-8">
       <div className="flex items-center justify-between">
@@ -220,8 +244,8 @@ const PersonalInfoTab = ({ userData, setUserData, onSave, saving }) => {
         </div>
         <button
           onClick={onSave}
-          disabled={saving}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-8 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none font-medium flex items-center !space-x-2 shadow-lg"
+          disabled={saving || !hasChanges}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-8 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed font-medium flex items-center !space-x-2 shadow-lg"
         >
           {saving ? (
             <LoadingSpinner size="small" />
@@ -285,13 +309,239 @@ const PersonalInfoTab = ({ userData, setUserData, onSave, saving }) => {
             </div>
           </div>
         </div>
+
+        {/* Account Info */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl !p-6 border border-green-200">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-6 flex items-center !space-x-2">
+            <User className="w-5 h-5 text-green-600" />
+            <span>Account Information</span>
+          </h3>
+          
+          <div className="!space-y-4">
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="text-sm text-gray-600">Account Status</p>
+              <div className="flex items-center !space-x-2 !mt-1">
+                <div className={`w-2 h-2 rounded-full ${user?.isVerified ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="font-medium text-gray-900">
+                  {user?.isVerified ? 'Verified' : 'Pending Verification'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="text-sm text-gray-600">Member Since</p>
+              <p className="font-medium text-gray-900">
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long',
+                  day: 'numeric'
+                }) : 'N/A'}
+              </p>
+            </div>
+            
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="text-sm text-gray-600">Account Role</p>
+              <p className="font-medium text-gray-900 capitalize">
+                {user?.role || 'Customer'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Security Tab Component
+const SecurityTab = ({ token, showToast }) => {
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      showToast('New passwords do not match', 'error');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      showToast('Password must be at least 6 characters long', 'error');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showToast('Password changed successfully!', 'success');
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      } else {
+        showToast(data.message || 'Failed to change password', 'error');
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      showToast('Failed to change password', 'error');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  return (
+    <div className="!space-y-8">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Security Settings</h2>
+        <p className="text-gray-600">Manage your account security and privacy</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Change Password */}
+        <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl !p-6 border border-red-200">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-6 flex items-center !space-x-2">
+            <Lock className="w-5 h-5 text-red-600" />
+            <span>Change Password</span>
+          </h3>
+          
+          <form onSubmit={handleChangePassword} className="!space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-2">Current Password</label>
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 !pr-12"
+                  placeholder="Enter current password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showCurrentPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-2">New Password</label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 !pr-12"
+                  placeholder="Enter new password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-2">Confirm New Password</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 !pr-12"
+                  placeholder="Confirm new password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={changingPassword}
+              className="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white !py-3 rounded-xl hover:from-red-700 hover:to-orange-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none font-medium flex items-center justify-center !space-x-2"
+            >
+              {changingPassword ? (
+                <LoadingSpinner size="small" />
+              ) : (
+                <>
+                  <Lock size={18} />
+                  <span>Change Password</span>
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Security Tips */}
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl !p-6 border border-purple-200">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-6 flex items-center !space-x-2">
+            <Shield className="w-5 h-5 text-purple-600" />
+            <span>Security Tips</span>
+          </h3>
+          
+          <div className="!space-y-4">
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="font-medium text-gray-900">Use a strong password</p>
+              <p className="text-sm text-gray-600 !mt-1">Include uppercase, lowercase, numbers, and symbols</p>
+            </div>
+            
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="font-medium text-gray-900">Don't reuse passwords</p>
+              <p className="text-sm text-gray-600 !mt-1">Use unique passwords for different accounts</p>
+            </div>
+            
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="font-medium text-gray-900">Enable 2FA</p>
+              <p className="text-sm text-gray-600 !mt-1">Add an extra layer of security to your account</p>
+            </div>
+            
+            <div className="!p-4 bg-white rounded-xl border border-gray-200">
+              <p className="font-medium text-gray-900">Regular updates</p>
+              <p className="text-sm text-gray-600 !mt-1">Change your password every 3-6 months</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 // Addresses Tab Component
-const AddressesTab = ({ addresses, fetchAddresses, token }) => {
+const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [formData, setFormData] = useState({
@@ -339,14 +589,13 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
           phoneNo: ''
         });
 
-        // Show success message
-        document.getElementById('addressSuccess')?.classList.remove('hidden');
-        setTimeout(() => {
-          document.getElementById('addressSuccess')?.classList.add('hidden');
-        }, 3000);
+        showToast(`Address ${editingAddress ? 'updated' : 'added'} successfully!`, 'success');
+      } else {
+        showToast(data.message || 'Failed to save address', 'error');
       }
     } catch (error) {
       console.error('Error saving address:', error);
+      showToast('Failed to save address', 'error');
     }
   };
 
@@ -379,9 +628,13 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
 
       if (data.success) {
         fetchAddresses();
+        showToast('Address deleted successfully!', 'success');
+      } else {
+        showToast(data.message || 'Failed to delete address', 'error');
       }
     } catch (error) {
       console.error('Error deleting address:', error);
+      showToast('Failed to delete address', 'error');
     }
   };
 
@@ -411,14 +664,6 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
           <Plus size={20} />
           <span>Add New Address</span>
         </button>
-      </div>
-
-      {/* Success Message */}
-      <div
-        id="addressSuccess"
-        className="hidden bg-green-50 border border-green-200 text-green-700 !px-4 !py-3 rounded-xl"
-      >
-        Address {editingAddress ? 'updated' : 'added'} successfully!
       </div>
 
       {showAddForm && (
@@ -558,20 +803,6 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
     </div>
   );
 };
-
-// Add this missing icon component
-const FileText = ({ size = 24, className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-);
 
 // Add CSS animations
 const styles = `

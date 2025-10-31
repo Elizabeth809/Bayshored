@@ -68,6 +68,11 @@ const authReducer = (state, action) => {
         ...state,
         wishlistCount: action.payload
       };
+    case 'UPDATE_USER': // Add this new case
+      return {
+        ...state,
+        user: { ...state.user, ...action.payload }
+      };
     default:
       return state;
   }
@@ -259,6 +264,11 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'UPDATE_WISHLIST_COUNT', payload: count });
   };
 
+  // Add this new function
+  const updateUser = (userData) => {
+    dispatch({ type: 'UPDATE_USER', payload: userData });
+  };
+
   const value = {
     user: state.user,
     token: state.token,
@@ -271,7 +281,8 @@ export const AuthProvider = ({ children }) => {
     verifyOtp,
     logout,
     updateCartCount,
-    updateWishlistCount
+    updateWishlistCount,
+    updateUser // Add this to the context value
   };
 
   return (
