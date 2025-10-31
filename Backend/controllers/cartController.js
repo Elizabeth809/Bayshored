@@ -1,6 +1,14 @@
 import User from '../models/userModel.js';
 import Product from '../models/productModel.js';
 
+// Helper function to calculate current price
+const getCurrentPrice = (product) => {
+  if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
+    return product.discountPrice;
+  }
+  return product.mrpPrice;
+};
+
 // @desc    Get user's cart
 // @route   GET /api/v1/cart
 // @access  Private
@@ -9,7 +17,7 @@ export const getCart = async (req, res) => {
     const user = await User.findById(req.user.id)
       .populate({
         path: 'cart.product',
-        select: 'name price image slug stock active dimensions medium author',
+        select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
         populate: {
           path: 'author',
           select: 'name'
@@ -37,7 +45,8 @@ export const getCart = async (req, res) => {
     }
 
     const cartTotal = validCartItems.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
+      const currentPrice = getCurrentPrice(item.product);
+      return total + (currentPrice * item.quantity);
     }, 0);
 
     res.json({
@@ -133,7 +142,7 @@ export const addToCart = async (req, res) => {
     // Populate the cart to return complete data
     await user.populate({
       path: 'cart.product',
-      select: 'name price image slug stock active dimensions medium author',
+      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
       populate: {
         path: 'author',
         select: 'name'
@@ -141,7 +150,8 @@ export const addToCart = async (req, res) => {
     });
 
     const cartTotal = user.cart.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
+      const currentPrice = getCurrentPrice(item.product);
+      return total + (currentPrice * item.quantity);
     }, 0);
 
     res.status(200).json({
@@ -237,7 +247,7 @@ export const updateCartQuantity = async (req, res) => {
     // Populate the cart to return complete data
     await user.populate({
       path: 'cart.product',
-      select: 'name price image slug stock active dimensions medium author',
+      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
       populate: {
         path: 'author',
         select: 'name'
@@ -245,7 +255,8 @@ export const updateCartQuantity = async (req, res) => {
     });
 
     const cartTotal = user.cart.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
+      const currentPrice = getCurrentPrice(item.product);
+      return total + (currentPrice * item.quantity);
     }, 0);
 
     res.json({
@@ -301,7 +312,7 @@ export const removeFromCart = async (req, res) => {
     // Populate the cart to return complete data
     await user.populate({
       path: 'cart.product',
-      select: 'name price image slug stock active dimensions medium author',
+      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
       populate: {
         path: 'author',
         select: 'name'
@@ -309,7 +320,8 @@ export const removeFromCart = async (req, res) => {
     });
 
     const cartTotal = user.cart.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
+      const currentPrice = getCurrentPrice(item.product);
+      return total + (currentPrice * item.quantity);
     }, 0);
 
     res.json({
