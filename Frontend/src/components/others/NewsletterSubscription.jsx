@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react';
+
+// --- MOCK DEPENDENCIES TO FIX IMPORT ERRORS ---
+
+// Mock for './clientApiUrl'
+// We use an empty string so fetch requests are relative to the current origin.
 const CLIENT_BASE_URL = '';
 
 // Mock for './LoadingSpinner'
@@ -41,17 +46,25 @@ const mockAuthData = {
     email: 'alice@example.com'
   }
 };
+// const mockAuthData = { isAuthenticated: false, user: null }; // For testing logged-out state
 
 const useAuth = () => {
   // Return the stable mock data object
   return mockAuthData;
 };
+
+// --- END OF MOCK DEPENDENCIES ---
+
+
+// --- Style Injector Component ---
+// This adds the Google Font and all our custom animations
+// directly into the component for a single-file solution.
 const StyleInjector = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
     
     .font-playfair {
-      font-family: "Parisienne", cursive;
+      font-family: 'Playfair Display', serif;
     }
 
     // --- Floating Icons Animation ---

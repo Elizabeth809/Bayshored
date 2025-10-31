@@ -1,5 +1,5 @@
-import Product from '../models/productModel.js';
-import cloudinary from '../config/cloudinary.js';
+import Product from "../models/productModel.js";
+import cloudinary from "../config/cloudinary.js";
 
 // @desc    Create a new product
 // @route   POST /api/v1/products
@@ -20,14 +20,14 @@ export const createProduct = async (req, res) => {
       metaDescription,
       tags,
       featured,
-      offer
+      offer,
     } = req.body;
 
     // Check if images were uploaded
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'At least one product image is required'
+        message: "At least one product image is required",
       });
     }
 
@@ -35,42 +35,40 @@ export const createProduct = async (req, res) => {
     if (req.files.length > 5) {
       // Delete uploaded images if more than 5
       await Promise.all(
-        req.files.map(file => 
-          cloudinary.uploader.destroy(file.filename)
-        )
+        req.files.map((file) => cloudinary.uploader.destroy(file.filename))
       );
       return res.status(400).json({
         success: false,
-        message: 'Maximum 5 images allowed per product'
+        message: "Maximum 5 images allowed per product",
       });
     }
 
     // Parse dimensions if it's a string
     let parsedDimensions = dimensions;
-    if (typeof dimensions === 'string') {
+    if (typeof dimensions === "string") {
       try {
         parsedDimensions = JSON.parse(dimensions);
       } catch (error) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid dimensions format'
+          message: "Invalid dimensions format",
         });
       }
     }
 
     // Parse tags if it's a string
     let parsedTags = tags;
-    if (typeof tags === 'string') {
+    if (typeof tags === "string") {
       try {
         parsedTags = JSON.parse(tags);
       } catch (error) {
-        parsedTags = tags.split(',').map(tag => tag.trim().toLowerCase());
+        parsedTags = tags.split(",").map((tag) => tag.trim().toLowerCase());
       }
     }
 
     // Parse offer if it's a string
     let parsedOffer = offer;
-    if (typeof offer === 'string') {
+    if (typeof offer === "string") {
       try {
         parsedOffer = JSON.parse(offer);
       } catch (error) {
@@ -79,7 +77,7 @@ export const createProduct = async (req, res) => {
     }
 
     // Get image URLs from uploaded files
-    const imageUrls = req.files.map(file => file.path);
+    const imageUrls = req.files.map((file) => file.path);
 
     // Create product
     const product = await Product.create({
@@ -96,56 +94,56 @@ export const createProduct = async (req, res) => {
       metaTitle,
       metaDescription,
       tags: parsedTags,
-      featured: featured === 'true',
-      offer: parsedOffer
+      featured: featured === "true",
+      offer: parsedOffer,
     });
 
     // Populate category and author details
-    await product.populate('category', 'name');
-    await product.populate('author', 'name');
+    await product.populate("category", "name");
+    await product.populate("author", "name");
 
     res.status(201).json({
       success: true,
-      message: 'Product created successfully',
-      data: product
+      message: "Product created successfully",
+      data: product,
     });
-
   } catch (error) {
-    console.error('Create product error:', error);
-    
+    console.error("Create product error:", error);
+
     // Delete uploaded images from Cloudinary if product creation fails
     if (req.files) {
       try {
         await Promise.all(
-          req.files.map(file => 
-            cloudinary.uploader.destroy(file.filename)
-          )
+          req.files.map((file) => cloudinary.uploader.destroy(file.filename))
         );
       } catch (cloudinaryError) {
-        console.error('Error deleting images from Cloudinary:', cloudinaryError);
+        console.error(
+          "Error deleting images from Cloudinary:",
+          cloudinaryError
+        );
       }
     }
 
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: messages
+        message: "Validation error",
+        errors: messages,
       });
     }
 
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'Product with this name already exists'
+        message: "Product with this name already exists",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Server error while creating product',
-      error: error.message
+      message: "Server error while creating product",
+      error: error.message,
     });
   }
 };
@@ -164,71 +162,119 @@ export const getAllProducts = async (req, res) => {
       search,
       tags,
       onSale,
-      sortBy = 'createdAt_desc',
+      sortBy = "createdAt_desc",
       page = 1,
-      limit = 12
+      limit = 12,
     } = req.query;
 
     // Build filter object
     const filter = { active: true };
 
+    // Handle category filter - support multiple categories
     if (category) {
-      filter.category = category;
+      if (typeof category === "string" && category.includes(",")) {
+        // Multiple categories provided as comma-separated string
+        const categoryArray = category.split(",").map((cat) => cat.trim());
+        filter.category = { $in: categoryArray };
+      } else {
+        // Single category
+        filter.category = category;
+      }
     }
 
+    // Handle author filter - support multiple authors
     if (author) {
-      filter.author = author;
+      if (typeof author === "string" && author.includes(",")) {
+        // Multiple authors provided as comma-separated string
+        const authorArray = author.split(",").map((auth) => auth.trim());
+        filter.author = { $in: authorArray };
+      } else {
+        // Single author
+        filter.author = author;
+      }
     }
 
     if (featured) {
-      filter.featured = featured === 'true';
+      filter.featured = featured === "true";
     }
 
-    if (onSale === 'true') {
-      filter['offer.isActive'] = true;
-      filter.discountPrice = { $exists: true, $lt: filter.mrpPrice };
+    if (onSale === "true") {
+      filter["offer.isActive"] = true;
+      filter.discountPrice = { $exists: true, $ne: null };
     }
 
+    // Price range filter - fix the field name
     if (minPrice || maxPrice) {
-      filter.currentPrice = {};
-      if (minPrice) filter.currentPrice.$gte = parseFloat(minPrice);
-      if (maxPrice) filter.currentPrice.$lte = parseFloat(maxPrice);
+      // Use mrpPrice or discountPrice based on what's available
+      filter.$or = [
+        {
+          $and: [
+            { discountPrice: { $exists: true, $ne: null } },
+            { discountPrice: {} },
+          ],
+        },
+        { mrpPrice: {} },
+      ];
+
+      // Price range filter - improved version
+      if (minPrice || maxPrice) {
+
+        const priceFilter = {};
+
+        if (minPrice) {
+          priceFilter.$gte = parseFloat(minPrice);
+        }
+        if (maxPrice) {
+          priceFilter.$lte = parseFloat(maxPrice);
+        }
+
+        // Check both mrpPrice and discountPrice
+        filter.$or = [
+          { discountPrice: priceFilter },
+          { mrpPrice: priceFilter },
+        ];
+      }
     }
 
     // Search functionality
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { tags: { $in: [new RegExp(search, "i")] } },
       ];
     }
 
     // Filter by tags
     if (tags) {
-      const tagArray = Array.isArray(tags) ? tags : tags.split(',');
-      filter.tags = { $in: tagArray.map(tag => new RegExp(tag, 'i')) };
+      const tagArray = Array.isArray(tags) ? tags : tags.split(",");
+      filter.tags = { $in: tagArray.map((tag) => new RegExp(tag, "i")) };
     }
 
-    // Sort options
+    // Sort options - fix price sorting
     const sortOptions = {};
     switch (sortBy) {
-      case 'price_asc':
-        sortOptions.currentPrice = 1;
+      case "price_asc":
+        // Sort by discount price if available, otherwise by mrpPrice
+        sortOptions.discountPrice = 1;
+        sortOptions.mrpPrice = 1;
         break;
-      case 'price_desc':
-        sortOptions.currentPrice = -1;
+      case "price_desc":
+        sortOptions.discountPrice = -1;
+        sortOptions.mrpPrice = -1;
         break;
-      case 'name_asc':
+      case "name_asc":
         sortOptions.name = 1;
         break;
-      case 'name_desc':
+      case "name_desc":
         sortOptions.name = -1;
         break;
-      case 'discount_desc':
-        sortOptions.calculatedDiscount = -1;
+      case "discount_desc":
+        // Calculate discount percentage for sorting
+        // This might need a virtual field or aggregation
+        sortOptions.discountPrice = -1;
         break;
-      case 'createdAt_asc':
+      case "createdAt_asc":
         sortOptions.createdAt = 1;
         break;
       default:
@@ -242,8 +288,8 @@ export const getAllProducts = async (req, res) => {
 
     // Execute query
     const products = await Product.find(filter)
-      .populate('category', 'name')
-      .populate('author', 'name bio profileImage')
+      .populate("category", "name")
+      .populate("author", "name bio profileImage")
       .sort(sortOptions)
       .skip(skip)
       .limit(limitNum);
@@ -258,15 +304,13 @@ export const getAllProducts = async (req, res) => {
       total,
       totalPages,
       currentPage: pageNum,
-      data: products
+      data: products,
     });
-
   } catch (error) {
-    console.error('Get products error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching products',
-      error: error.message
+      message: "Server error while fetching products",
+      error: error.message,
     });
   }
 };
@@ -276,31 +320,30 @@ export const getAllProducts = async (req, res) => {
 // @access  Public
 export const getProductBySlug = async (req, res) => {
   try {
-    const product = await Product.findOne({ 
+    const product = await Product.findOne({
       slug: req.params.slug,
-      active: true 
+      active: true,
     })
-    .populate('category', 'name description')
-    .populate('author', 'name bio profileImage');
+      .populate("category", "name description")
+      .populate("author", "name bio profileImage");
 
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     res.json({
       success: true,
-      data: product
+      data: product,
     });
-
   } catch (error) {
-    console.error('Get product by slug error:', error);
+    console.error("Get product by slug error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching product',
-      error: error.message
+      message: "Server error while fetching product",
+      error: error.message,
     });
   }
 };
@@ -325,7 +368,7 @@ export const updateProduct = async (req, res) => {
       tags,
       featured,
       active,
-      offer
+      offer,
     } = req.body;
 
     // Find existing product
@@ -334,43 +377,41 @@ export const updateProduct = async (req, res) => {
       // Delete newly uploaded images if product not found
       if (req.files) {
         await Promise.all(
-          req.files.map(file => 
-            cloudinary.uploader.destroy(file.filename)
-          )
+          req.files.map((file) => cloudinary.uploader.destroy(file.filename))
         );
       }
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     // Parse dimensions if it's a string
     let parsedDimensions = dimensions;
-    if (typeof dimensions === 'string') {
+    if (typeof dimensions === "string") {
       try {
         parsedDimensions = JSON.parse(dimensions);
       } catch (error) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid dimensions format'
+          message: "Invalid dimensions format",
         });
       }
     }
 
     // Parse tags if it's a string
     let parsedTags = tags;
-    if (typeof tags === 'string') {
+    if (typeof tags === "string") {
       try {
         parsedTags = JSON.parse(tags);
       } catch (error) {
-        parsedTags = tags.split(',').map(tag => tag.trim().toLowerCase());
+        parsedTags = tags.split(",").map((tag) => tag.trim().toLowerCase());
       }
     }
 
     // Parse offer if it's a string
     let parsedOffer = offer;
-    if (typeof offer === 'string') {
+    if (typeof offer === "string") {
       try {
         parsedOffer = JSON.parse(offer);
       } catch (error) {
@@ -392,9 +433,9 @@ export const updateProduct = async (req, res) => {
       metaTitle,
       metaDescription,
       tags: parsedTags,
-      featured: featured === 'true',
-      active: active === 'true',
-      offer: parsedOffer
+      featured: featured === "true",
+      active: active === "true",
+      offer: parsedOffer,
     };
 
     // If new images are uploaded, update images array and delete old ones from Cloudinary
@@ -403,70 +444,76 @@ export const updateProduct = async (req, res) => {
       if (product.images && product.images.length > 0) {
         try {
           await Promise.all(
-            product.images.map(imageUrl => {
-              const publicId = imageUrl.split('/').pop().split('.')[0];
-              return cloudinary.uploader.destroy(`mern_art/products/${publicId}`);
+            product.images.map((imageUrl) => {
+              const publicId = imageUrl.split("/").pop().split(".")[0];
+              return cloudinary.uploader.destroy(
+                `mern_art/products/${publicId}`
+              );
             })
           );
         } catch (cloudinaryError) {
-          console.error('Error deleting old images from Cloudinary:', cloudinaryError);
+          console.error(
+            "Error deleting old images from Cloudinary:",
+            cloudinaryError
+          );
         }
       }
 
       // Add new images
-      const newImageUrls = req.files.map(file => file.path);
+      const newImageUrls = req.files.map((file) => file.path);
       updateData.images = newImageUrls;
     }
 
     // Update product
-    product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('category', 'name').populate('author', 'name');
+    product = await Product.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    })
+      .populate("category", "name")
+      .populate("author", "name");
 
     res.json({
       success: true,
-      message: 'Product updated successfully',
-      data: product
+      message: "Product updated successfully",
+      data: product,
     });
-
   } catch (error) {
-    console.error('Update product error:', error);
-    
+    console.error("Update product error:", error);
+
     // Delete newly uploaded images if update fails
     if (req.files) {
       try {
         await Promise.all(
-          req.files.map(file => 
-            cloudinary.uploader.destroy(file.filename)
-          )
+          req.files.map((file) => cloudinary.uploader.destroy(file.filename))
         );
       } catch (cloudinaryError) {
-        console.error('Error deleting images from Cloudinary:', cloudinaryError);
+        console.error(
+          "Error deleting images from Cloudinary:",
+          cloudinaryError
+        );
       }
     }
 
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: messages
+        message: "Validation error",
+        errors: messages,
       });
     }
 
-    if (error.kind === 'ObjectId') {
+    if (error.kind === "ObjectId") {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Server error while updating product',
-      error: error.message
+      message: "Server error while updating product",
+      error: error.message,
     });
   }
 };
@@ -476,27 +523,26 @@ export const updateProduct = async (req, res) => {
 // @access  Public
 export const getFeaturedProducts = async (req, res) => {
   try {
-    const products = await Product.find({ 
-      featured: true, 
-      active: true 
+    const products = await Product.find({
+      featured: true,
+      active: true,
     })
-    .populate('category', 'name')
-    .populate('author', 'name')
-    .sort({ createdAt: -1 })
-    .limit(8);
+      .populate("category", "name")
+      .populate("author", "name")
+      .sort({ createdAt: -1 })
+      .limit(8);
 
     res.json({
       success: true,
       count: products.length,
-      data: products
+      data: products,
     });
-
   } catch (error) {
-    console.error('Get featured products error:', error);
+    console.error("Get featured products error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching featured products',
-      error: error.message
+      message: "Server error while fetching featured products",
+      error: error.message,
     });
   }
 };
@@ -506,27 +552,26 @@ export const getFeaturedProducts = async (req, res) => {
 // @access  Public
 export const getProductsOnSale = async (req, res) => {
   try {
-    const products = await Product.find({ 
-      'offer.isActive': true,
-      active: true 
+    const products = await Product.find({
+      "offer.isActive": true,
+      active: true,
     })
-    .populate('category', 'name')
-    .populate('author', 'name')
-    .sort({ 'offer.discountPercentage': -1 })
-    .limit(12);
+      .populate("category", "name")
+      .populate("author", "name")
+      .sort({ "offer.discountPercentage": -1 })
+      .limit(12);
 
     res.json({
       success: true,
       count: products.length,
-      data: products
+      data: products,
     });
-
   } catch (error) {
-    console.error('Get products on sale error:', error);
+    console.error("Get products on sale error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching products on sale',
-      error: error.message
+      message: "Server error while fetching products on sale",
+      error: error.message,
     });
   }
 };
@@ -539,19 +584,19 @@ export const getProductsByTag = async (req, res) => {
     const { tag } = req.params;
     const { page = 1, limit = 12 } = req.query;
 
-    const products = await Product.find({ 
-      tags: { $in: [new RegExp(tag, 'i')] },
-      active: true 
+    const products = await Product.find({
+      tags: { $in: [new RegExp(tag, "i")] },
+      active: true,
     })
-    .populate('category', 'name')
-    .populate('author', 'name')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .populate("category", "name")
+      .populate("author", "name")
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
-    const total = await Product.countDocuments({ 
-      tags: { $in: [new RegExp(tag, 'i')] },
-      active: true 
+    const total = await Product.countDocuments({
+      tags: { $in: [new RegExp(tag, "i")] },
+      active: true,
     });
 
     res.json({
@@ -560,15 +605,14 @@ export const getProductsByTag = async (req, res) => {
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
-      data: products
+      data: products,
     });
-
   } catch (error) {
-    console.error('Get products by tag error:', error);
+    console.error("Get products by tag error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching products by tag',
-      error: error.message
+      message: "Server error while fetching products by tag",
+      error: error.message,
     });
   }
 };
@@ -579,35 +623,34 @@ export const getProductsByTag = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate('category', 'name description')
-      .populate('author', 'name bio profileImage');
+      .populate("category", "name description")
+      .populate("author", "name bio profileImage");
 
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     res.json({
       success: true,
-      data: product
+      data: product,
     });
-
   } catch (error) {
-    console.error('Get product error:', error);
-    
-    if (error.kind === 'ObjectId') {
+    console.error("Get product error:", error);
+
+    if (error.kind === "ObjectId") {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching product',
-      error: error.message
+      message: "Server error while fetching product",
+      error: error.message,
     });
   }
 };
@@ -622,17 +665,17 @@ export const deleteProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     // Delete image from Cloudinary
     if (product.image) {
       try {
-        const publicId = product.image.split('/').pop().split('.')[0];
+        const publicId = product.image.split("/").pop().split(".")[0];
         await cloudinary.uploader.destroy(`mern_art/products/${publicId}`);
       } catch (cloudinaryError) {
-        console.error('Error deleting image from Cloudinary:', cloudinaryError);
+        console.error("Error deleting image from Cloudinary:", cloudinaryError);
       }
     }
 
@@ -641,23 +684,22 @@ export const deleteProduct = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Product deleted successfully'
+      message: "Product deleted successfully",
     });
-
   } catch (error) {
-    console.error('Delete product error:', error);
-    
-    if (error.kind === 'ObjectId') {
+    console.error("Delete product error:", error);
+
+    if (error.kind === "ObjectId") {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Server error while deleting product',
-      error: error.message
+      message: "Server error while deleting product",
+      error: error.message,
     });
   }
 };
