@@ -12,20 +12,74 @@ const Products = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    search: '',
+    category: '',
+    author: '',
+    featured: '',
+    active: '',
+    onSale: '', // Changed from 'offer' to 'onSale' to match backend
+    sortBy: 'createdAt_desc',
+    limit: 10,
+    page: 1
+  });
+
+  const [categories, setCategories] = useState([]);
+  const [authors, setAuthors] = useState([]);
 
   const { token } = useAuth();
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+    fetchFilterData();
+  }, [filters]);
+
+  const fetchFilterData = async () => {
+    try {
+      const [categoriesRes, authorsRes] = await Promise.all([
+        fetch(`${ADMIN_BASE_URL}/api/v1/categories`),
+        fetch(`${ADMIN_BASE_URL}/api/v1/authors`)
+      ]);
+
+      const categoriesData = await categoriesRes.json();
+      const authorsData = await authorsRes.json();
+
+      if (categoriesData.success) setCategories(categoriesData.data);
+      if (authorsData.success) setAuthors(authorsData.data);
+    } catch (error) {
+      console.error('Error fetching filter data:', error);
+    }
+  };
 
   const fetchProducts = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/products`);
+      const queryParams = new URLSearchParams();
+      
+      // Add all filters to query params
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== '' && value !== null && value !== undefined) {
+          queryParams.append(key, value);
+        }
+      });
+
+      console.log('Fetching products with params:', Object.fromEntries(queryParams));
+
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/products?${queryParams}`);
       const data = await response.json();
       
       if (data.success) {
         setProducts(data.data);
+        setTotalPages(data.totalPages);
+        setCurrentPage(data.currentPage);
+        setTotalProducts(data.total);
+      } else {
+        setMessage(data.message || 'Failed to fetch products');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -33,6 +87,36 @@ const Products = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: key === 'limit' ? 1 : prev.page // Reset to page 1 when changing limit
+    }));
+  };
+
+  const handleSearchChange = (value) => {
+    setFilters(prev => ({
+      ...prev,
+      search: value,
+      page: 1
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      category: '',
+      author: '',
+      featured: '',
+      active: '',
+      onSale: '',
+      sortBy: 'createdAt_desc',
+      limit: 10,
+      page: 1
+    });
   };
 
   const handleCreateProduct = async (formData) => {
@@ -44,7 +128,6 @@ const Products = () => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
-          // Note: Don't set Content-Type for FormData, let browser set it with boundary
         },
         body: formData
       });
@@ -151,6 +234,72 @@ const Products = () => {
     }).format(price);
   };
 
+  const handlePageChange = (newPage) => {
+    setFilters(prev => ({
+      ...prev,
+      page: newPage
+    }));
+  };
+
+  const getDiscountPercentage = (product) => {
+    if (product.mrpPrice && product.discountPrice && product.discountPrice < product.mrpPrice) {
+      return Math.round(((product.mrpPrice - product.discountPrice) / product.mrpPrice) * 100);
+    }
+    return 0;
+  };
+
+  const hasActiveOffer = (product) => {
+    return product.offer?.isActive === true;
+  };
+
+  const renderPagination = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={`!px-3 !py-1 rounded-lg ${
+            currentPage === i
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+
+    return (
+      <div className="flex items-center !space-x-2">
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="!px-3 !py-1 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        {pages}
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="!px-3 !py-1 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -187,6 +336,146 @@ const Products = () => {
         </div>
       )}
 
+      {/* Filters Section */}
+      <div className="bg-white shadow-sm rounded-lg !p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 !mb-4">
+          {/* Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Search</label>
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search by name, tags..."
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          {/* Category Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Category</label>
+            <select
+              value={filters.category}
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map(category => (
+                <option key={category._id} value={category._id}>{category.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Author Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Author</label>
+            <select
+              value={filters.author}
+              onChange={(e) => handleFilterChange('author', e.target.value)}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Authors</option>
+              {authors.map(author => (
+                <option key={author._id} value={author._id}>{author.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Status</label>
+            <select
+              value={filters.active}
+              onChange={(e) => handleFilterChange('active', e.target.value)}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 !mb-4">
+          {/* Featured Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Featured</label>
+            <select
+              value={filters.featured}
+              onChange={(e) => handleFilterChange('featured', e.target.value)}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Products</option>
+              <option value="true">Featured Only</option>
+              <option value="false">Not Featured</option>
+            </select>
+          </div>
+
+          {/* Offer Filter - Fixed to use 'onSale' */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Offer</label>
+            <select
+              value={filters.onSale}
+              onChange={(e) => handleFilterChange('onSale', e.target.value)}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Offers</option>
+              <option value="true">Active Offers</option>
+              <option value="false">No Offers</option>
+            </select>
+          </div>
+
+          {/* Sort By */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Sort By</label>
+            <select
+              value={filters.sortBy}
+              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="createdAt_desc">Newest First</option>
+              <option value="createdAt_asc">Oldest First</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="name_desc">Name Z-A</option>
+              <option value="price_asc">Price Low to High</option>
+              <option value="price_desc">Price High to Low</option>
+              <option value="discount_desc">Highest Discount</option>
+            </select>
+          </div>
+
+          {/* Items Per Page */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 !mb-1">Items Per Page</label>
+            <select
+              value={filters.limit}
+              onChange={(e) => handleFilterChange('limit', parseInt(e.target.value))}
+              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value={10}>10 per page</option>
+              <option value={25}>25 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <button
+            onClick={clearFilters}
+            className="text-gray-600 hover:text-gray-800 transition duration-200 flex items-center cursor-pointer"
+          >
+            <svg className="w-4 h-4 !mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            Clear Filters
+          </button>
+          
+          <div className="text-sm text-gray-600">
+            Showing {products.length} of {totalProducts} products
+          </div>
+        </div>
+      </div>
+
+      {/* Products Table */}
       <div className="bg-white shadow-sm rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -223,8 +512,11 @@ const Products = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <img
                           className="h-10 w-10 rounded-lg object-cover"
-                          src={product.image}
+                          src={product.images?.[0] || product.image}
                           alt={product.name}
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/40?text=No+Image';
+                          }}
                         />
                       </div>
                       <div className="!ml-4">
@@ -245,7 +537,17 @@ const Products = () => {
                   </td>
                   <td className="!px-6 !py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {formatPrice(product.price)}
+                      {product.discountPrice ? (
+                        <div className="flex items-center !space-x-2">
+                          <span className="text-red-600">{formatPrice(product.discountPrice)}</span>
+                          <span className="text-gray-400 line-through text-sm">{formatPrice(product.mrpPrice)}</span>
+                          <span className="text-green-600 text-xs font-bold">
+                            {getDiscountPercentage(product)}% OFF
+                          </span>
+                        </div>
+                      ) : (
+                        formatPrice(product.mrpPrice || product.price)
+                      )}
                     </div>
                   </td>
                   <td className="!px-6 !py-4 whitespace-nowrap">
@@ -270,6 +572,11 @@ const Products = () => {
                           Featured
                         </span>
                       )}
+                      {hasActiveOffer(product) && (
+                        <span className="inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          Offer
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="!px-6 !py-4 whitespace-nowrap text-sm font-medium !space-x-2">
@@ -291,6 +598,16 @@ const Products = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="!px-6 !py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              Page {currentPage} of {totalPages}
+            </div>
+            {renderPagination()}
+          </div>
+        )}
 
         {products.length === 0 && (
           <div className="text-center !py-12">
