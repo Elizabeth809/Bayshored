@@ -21,6 +21,7 @@ import Checkout from './pages/Checkout';
 import VirtualGallery from './pages/VirtualGallery';
 import Authors from './pages/author/Authors';
 import AuthorDetail from './pages/author/AuthorDetail';
+import Orders from './pages/Orders';
 
 function App() {
   return (
@@ -73,6 +74,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Checkout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <Orders />
                   </ProtectedRoute>
                 }
               />

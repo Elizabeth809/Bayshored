@@ -1,42 +1,51 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/others/LoadingSpinner';
 import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
+import {
+  User,
+  MapPin,
+  Settings,
+  Shield,
+  Bell,
+  CreditCard,
+  Edit3,
+  Trash2,
+  Plus,
+  CheckCircle,
+  Mail,
+  Phone,
+  Camera,
+  Save,
+  X
+} from 'lucide-react';
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState('orders');
-  const [orders, setOrders] = useState([]);
+  const [activeTab, setActiveTab] = useState('personal');
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const { user, token } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [userData, setUserData] = useState({
+    name: '',
+    email: '',
+    phoneNumber: ''
+  });
+  const { user, token, updateUser } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchOrders();
-    } else if (activeTab === 'addresses') {
+    if (user) {
+      setUserData({
+        name: user.name || '',
+        email: user.email || '',
+        phoneNumber: user.phoneNumber || ''
+      });
+    }
+    if (activeTab === 'addresses') {
       fetchAddresses();
     }
-  }, [activeTab]);
-
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/my-orders`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setOrders(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, activeTab]);
 
   const fetchAddresses = async () => {
     setLoading(true);
@@ -57,281 +66,223 @@ const Profile = () => {
     }
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(price);
-  };
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userData)
+      });
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      confirmed: 'bg-blue-100 text-blue-800',
-      processing: 'bg-purple-100 text-purple-800',
-      shipped: 'bg-indigo-100 text-indigo-800',
-      delivered: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+      const data = await response.json();
+      if (data.success) {
+        updateUser(data.data);
+        // Show success animation
+        document.getElementById('successToast')?.classList.remove('hidden');
+        setTimeout(() => {
+          document.getElementById('successToast')?.classList.add('hidden');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl !mx-auto !px-4 sm:!px-6 lg:!px-8 !py-8">
-        {/* Header */}
-        <div className="!mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-600 !mt-2">Welcome back, {user?.name}!</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="border-b border-gray-200">
-            <nav className="flex -!mb-px">
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`!py-4 !px-6 text-sm font-medium border-b-2 ${
-                  activeTab === 'orders'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                My Orders
-              </button>
-              <button
-                onClick={() => setActiveTab('addresses')}
-                className={`!py-4 !px-6 text-sm font-medium border-b-2 ${
-                  activeTab === 'addresses'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                My Addresses
-              </button>
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`!py-4 !px-6 text-sm font-medium border-b-2 ${
-                  activeTab === 'settings'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Account Settings
-              </button>
-            </nav>
-          </div>
-
-          {/* Tab Content */}
-          <div className="!p-6">
-            {loading ? (
-              <div className="flex justify-center !py-8">
-                <LoadingSpinner size="large" />
-              </div>
-            ) : activeTab === 'orders' ? (
-              <OrdersTab 
-                orders={orders} 
-                selectedOrder={selectedOrder}
-                setSelectedOrder={setSelectedOrder}
-                formatPrice={formatPrice}
-                formatDate={formatDate}
-                getStatusColor={getStatusColor}
-              />
-            ) : activeTab === 'addresses' ? (
-              <AddressesTab 
-                addresses={addresses}
-                fetchAddresses={fetchAddresses}
-                token={token}
-              />
-            ) : (
-              <SettingsTab user={user} />
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Orders Tab Component
-const OrdersTab = ({ orders, selectedOrder, setSelectedOrder, formatPrice, formatDate, getStatusColor }) => {
-  if (orders.length === 0) {
-    return (
-      <div className="text-center !py-12">
-        <div className="text-gray-400 mb-4">
-          <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 !mb-2">No orders yet</h3>
-        <p className="text-gray-500">Your order history will appear here</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="!space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Order History</h2>
-      
-      {selectedOrder ? (
-        <OrderDetail 
-          order={selectedOrder}
-          onBack={() => setSelectedOrder(null)}
-          formatPrice={formatPrice}
-          formatDate={formatDate}
-          getStatusColor={getStatusColor}
-        />
-      ) : (
-        <div className="!space-y-4">
-          {orders.map(order => (
-            <div 
-              key={order._id} 
-              className="bg-gray-50 rounded-lg !p-6 hover:bg-gray-100 cursor-pointer transition-colors"
-              onClick={() => setSelectedOrder(order)}
-            >
-              <div className="flex justify-between items-start !mb-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900">Order #{order.orderNumber}</h3>
-                  <p className="text-sm text-gray-600">Placed on {formatDate(order.createdAt)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">{formatPrice(order.totalAmount)}</p>
-                  <span className={`inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.orderStatus)}`}>
-                    {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                <div>
-                  <p><strong>Items:</strong> {order.items.length} artwork(s)</p>
-                  <p><strong>Payment:</strong> {order.paymentStatus}</p>
-                </div>
-                <div>
-                  <p><strong>Shipping:</strong> {order.shippingAddress.city}, {order.shippingAddress.state}</p>
-                  {order.couponApplied && (
-                    <p><strong>Coupon:</strong> {order.couponApplied.code} applied</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Order Detail Component
-const OrderDetail = ({ order, onBack, formatPrice, formatDate, getStatusColor }) => {
-  return (
-    <div>
-      <button
-        onClick={onBack}
-        className="flex items-center text-blue-600 hover:text-blue-800 !mb-6"
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      {/* Success Toast */}
+      <div
+        id="successToast"
+        className="hidden fixed top-4 right-4 bg-green-500 text-white !px-6 !py-3 rounded-xl shadow-lg z-50 transform transition-all duration-500 animate-bounce-in"
       >
-        <svg className="w-4 h-4 !mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Orders
-      </button>
-
-      <div className="bg-white rounded-lg border border-gray-200 !p-6">
-        {/* Order Header */}
-        <div className="flex justify-between items-start !mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Order #{order.orderNumber}</h2>
-            <p className="text-gray-600">Placed on {formatDate(order.createdAt)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-semibold text-gray-900">{formatPrice(order.totalAmount)}</p>
-            <span className={`inline-flex items-center !px-3 !py-1 rounded-full text-sm font-medium ${getStatusColor(order.orderStatus)}`}>
-              {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
-            </span>
-          </div>
+        <div className="flex items-center !space-x-2">
+          <CheckCircle size={20} />
+          <span>Profile updated successfully!</span>
         </div>
+      </div>
 
-        {/* Shipping Updates */}
-        <div className="!mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Shipping Updates</h3>
-          <div className="!space-y-3">
-            {order.shippingUpdates.map((update, index) => (
-              <div key={index} className="flex items-start !space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full !mt-2 flex-shrink-0"></div>
-                <div>
-                  <p className="text-gray-900">{update.message}</p>
-                  <p className="text-sm text-gray-500">{formatDate(update.timestamp)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Order Items */}
-        <div className="!mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Order Items</h3>
-          <div className="space-y-4">
-            {order.items.map((item, index) => (
-              <div key={index} className="flex items-center !space-x-4 !p-4 bg-gray-50 rounded-lg">
+      <div className="max-w-6xl !mx-auto !px-4 sm:!px-6 lg:!px-8 !py-8">
+        {/* Header */}
+        <div className="text-center !mb-8">
+          <div className="relative inline-block">
+            <div className="w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center !mx-auto !mb-4 shadow-xl transform hover:scale-105 transition-transform duration-300">
+              {user?.avatar ? (
                 <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-16 h-16 object-cover rounded"
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-full h-full object-cover rounded-full"
                 />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                  <p className="text-sm text-gray-600">by {item.author} • {item.medium}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">{formatPrice(item.priceAtOrder)}</p>
-                  <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
-                </div>
-              </div>
-            ))}
+              ) : (
+                <User className="w-16 h-16 text-white" />
+              )}
+              <button className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
+                <Camera className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            {user?.name}
+          </h1>
+          <p className="text-gray-600 !mt-2 text-lg">Welcome to your personal space</p>
+          <div className="flex justify-center !space-x-6 !mt-4">
+            <Link
+              to="/orders"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-6 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 font-medium shadow-lg"
+            >
+              View My Orders
+            </Link>
+            <Link
+              to="/store"
+              className="bg-white text-gray-700 !px-6 !py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-all transform hover:scale-105 font-medium shadow-lg"
+            >
+              Continue Shopping
+            </Link>
           </div>
         </div>
 
-        {/* Order Summary */}
-        <div className="border-t border-gray-200 !pt-6">
-          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Order Summary</h3>
-          <div className="!space-y-2">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>{formatPrice(order.subtotal)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Shipping</span>
-              <span>{formatPrice(order.shippingCost)}</span>
-            </div>
-            {order.discountAmount > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Discount</span>
-                <span>-{formatPrice(order.discountAmount)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-lg font-semibold border-t border-gray-200 !pt-2">
-              <span>Total</span>
-              <span>{formatPrice(order.totalAmount)}</span>
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar Navigation */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 sticky top-8">
+              <nav className="!p-6">
+                <div className="!space-y-2">
+                  {[
+                    { id: 'personal', label: 'Personal Info', icon: User },
+                    { id: 'addresses', label: 'My Addresses', icon: MapPin }
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full flex items-center !space-x-3 !p-4 rounded-xl transition-all duration-300 ${activeTab === item.id
+                            ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-600 border border-blue-200 shadow-md'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                      >
+                        <Icon size={20} />
+                        <span className="font-medium">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
             </div>
           </div>
-        </div>
 
-        {/* Shipping Address */}
-        <div className="border-t border-gray-200 !pt-6 !mt-6">
-          <h3 className="text-lg font-semibold text-gray-900 !mb-3">Shipping Address</h3>
-          <div className="text-gray-600">
-            <p>{order.shippingAddress.street}</p>
-            <p>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}</p>
-            <p>{order.shippingAddress.country}</p>
-            <p>Phone: {order.shippingAddress.phoneNo}</p>
+          {/* Main Content Area */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+              <div className="!p-8">
+                {loading ? (
+                  <div className="flex justify-center !py-12">
+                    <LoadingSpinner size="large" />
+                  </div>
+                ) : activeTab === 'personal' ? (
+                  <PersonalInfoTab
+                    userData={userData}
+                    setUserData={setUserData}
+                    onSave={handleSaveProfile}
+                    saving={saving}
+                  />
+                ) : activeTab === 'addresses' ? (
+                  <AddressesTab
+                    addresses={addresses}
+                    fetchAddresses={fetchAddresses}
+                    token={token}
+                  />
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Personal Info Tab Component
+const PersonalInfoTab = ({ userData, setUserData, onSave, saving }) => {
+  return (
+    <div className="!space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Personal Information</h2>
+          <p className="text-gray-600">Update your personal details and preferences</p>
+        </div>
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-8 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none font-medium flex items-center !space-x-2 shadow-lg"
+        >
+          {saving ? (
+            <LoadingSpinner size="small" />
+          ) : (
+            <>
+              <Save size={18} />
+              <span>Save Changes</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Personal Details */}
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl !p-6 border border-blue-200">
+          <h3 className="text-lg font-semibold text-gray-900 !mb-6 flex items-center !space-x-2">
+            <User className="w-5 h-5 text-blue-600" />
+            <span>Basic Information</span>
+          </h3>
+
+          <div className="!space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-2">Full Name</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={userData.name}
+                  onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                  className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                  placeholder="Enter your full name"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 !mb-2 flex items-center !space-x-2">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <span>Email Address</span>
+              </label>
+              <input
+                type="email"
+                value={userData.email}
+                onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 !mb-2 flex items-center !space-x-2">
+                <Phone className="w-4 h-4 text-gray-400" />
+                <span>Phone Number</span>
+              </label>
+              <input
+                type="tel"
+                value={userData.phoneNumber}
+                onChange={(e) => setUserData({ ...userData, phoneNumber: e.target.value })}
+                className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                placeholder="Enter your phone number"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -355,12 +306,12 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
-      const url = editingAddress 
+      const url = editingAddress
         ? `${CLIENT_BASE_URL}/api/v1/user/addresses/${editingAddress._id}`
         : `${CLIENT_BASE_URL}/api/v1/user/addresses`;
-      
+
       const method = editingAddress ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -387,6 +338,12 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
           country: 'India',
           phoneNo: ''
         });
+
+        // Show success message
+        document.getElementById('addressSuccess')?.classList.remove('hidden');
+        setTimeout(() => {
+          document.getElementById('addressSuccess')?.classList.add('hidden');
+        }, 3000);
       }
     } catch (error) {
       console.error('Error saving address:', error);
@@ -430,8 +387,11 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
 
   return (
     <div className="!space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900">Saved Addresses</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">My Addresses</h2>
+          <p className="text-gray-600">Manage your shipping addresses</p>
+        </div>
         <button
           onClick={() => {
             setShowAddForm(true);
@@ -446,84 +406,83 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
               phoneNo: ''
             });
           }}
-          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-6 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 font-medium flex items-center !space-x-2 shadow-lg"
         >
-          Add New Address
+          <Plus size={20} />
+          <span>Add New Address</span>
         </button>
       </div>
 
+      {/* Success Message */}
+      <div
+        id="addressSuccess"
+        className="hidden bg-green-50 border border-green-200 text-green-700 !px-4 !py-3 rounded-xl"
+      >
+        Address {editingAddress ? 'updated' : 'added'} successfully!
+      </div>
+
       {showAddForm && (
-        <div className="bg-white border border-gray-200 rounded-lg !p-6">
-          <h3 className="text-lg font-semibold text-gray-900 !mb-4">
-            {editingAddress ? 'Edit Address' : 'Add New Address'}
-          </h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">Flat/House No</label>
-              <input
-                type="text"
-                required
-                value={formData.flatNo}
-                onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
-                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border border-blue-200 !p-6 transform transition-all duration-500 animate-slide-up">
+          <div className="flex items-center justify-between !mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {editingAddress ? 'Edit Address' : 'Add New Address'}
+            </h3>
+            <button
+              onClick={() => {
+                setShowAddForm(false);
+                setEditingAddress(null);
+              }}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { label: 'Flat/House No', name: 'flatNo', type: 'text' },
+              { label: 'Street', name: 'street', type: 'text' },
+              { label: 'City', name: 'city', type: 'text' },
+              { label: 'State', name: 'state', type: 'text' },
+              { label: 'ZIP Code', name: 'zipCode', type: 'text' },
+              { label: 'Phone Number', name: 'phoneNo', type: 'tel' }
+            ].map((field) => (
+              <div key={field.name}>
+                <label className="block text-sm font-medium text-gray-700 !mb-2">
+                  {field.label}
+                </label>
+                <input
+                  type={field.type}
+                  required
+                  value={formData[field.name]}
+                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                  className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                />
+              </div>
+            ))}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 !mb-2">Country</label>
+              <select
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full !px-4 !py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+              >
+                <option value="India">India</option>
+                <option value="United States">United States</option>
+                <option value="United Kingdom">United Kingdom</option>
+                <option value="Canada">Canada</option>
+                <option value="Australia">Australia</option>
+              </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">Street</label>
-              <input
-                type="text"
-                required
-                value={formData.street}
-                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">City</label>
-              <input
-                type="text"
-                required
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">State</label>
-              <input
-                type="text"
-                required
-                value={formData.state}
-                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">ZIP Code</label>
-              <input
-                type="text"
-                required
-                value={formData.zipCode}
-                onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
-                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">Phone Number</label>
-              <input
-                type="tel"
-                required
-                value={formData.phoneNo}
-                onChange={(e) => setFormData({ ...formData, phoneNo: e.target.value })}
-                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div className="md:col-span-2 flex !space-x-3">
+
+            <div className="md:col-span-2 flex !space-x-4">
               <button
                 type="submit"
-                className="bg-blue-600 text-white !px-6 !py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-8 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 font-medium flex items-center !space-x-2"
               >
-                {editingAddress ? 'Update Address' : 'Save Address'}
+                <Save size={18} />
+                <span>{editingAddress ? 'Update Address' : 'Save Address'}</span>
               </button>
               <button
                 type="button"
@@ -531,7 +490,7 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
                   setShowAddForm(false);
                   setEditingAddress(null);
                 }}
-                className="bg-gray-200 text-gray-700 !px-6 !py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                className="bg-gray-200 text-gray-700 !px-6 !py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
               >
                 Cancel
               </button>
@@ -541,27 +500,41 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {addresses.map(address => (
-          <div key={address._id} className="bg-gray-50 rounded-lg !p-6">
-            <div className="!mb-4">
-              <p className="font-semibold text-gray-900">{address.flatNo}, {address.street}</p>
-              <p className="text-gray-600">{address.city}, {address.state} {address.zipCode}</p>
-              <p className="text-gray-600">{address.country}</p>
-              <p className="text-gray-600">Phone: {address.phoneNo}</p>
-            </div>
-            <div className="flex !space-x-2">
-              <button
-                onClick={() => handleEdit(address)}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => handleDelete(address._id)}
-                className="text-red-600 hover:text-red-800 text-sm"
-              >
-                Delete
-              </button>
+        {addresses.map((address, index) => (
+          <div
+            key={address._id}
+            className="bg-white rounded-2xl border border-gray-200 !p-6 hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <div className="flex items-start justify-between !mb-4">
+              <div className="flex-1">
+                <div className="flex items-center !space-x-2 !mb-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-gray-900">Address {index + 1}</h3>
+                </div>
+                <div className="!space-y-2 text-gray-600">
+                  <p className="font-medium">{address.flatNo}, {address.street}</p>
+                  <p>{address.city}, {address.state} {address.zipCode}</p>
+                  <p>{address.country}</p>
+                  <p className="text-sm text-gray-500">📞 {address.phoneNo}</p>
+                </div>
+              </div>
+              <div className="flex !space-x-2">
+                <button
+                  onClick={() => handleEdit(address)}
+                  className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-200 transition-colors"
+                  title="Edit address"
+                >
+                  <Edit3 size={14} />
+                </button>
+                <button
+                  onClick={() => handleDelete(address._id)}
+                  className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-200 transition-colors"
+                  title="Delete address"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -569,64 +542,65 @@ const AddressesTab = ({ addresses, fetchAddresses, token }) => {
 
       {addresses.length === 0 && !showAddForm && (
         <div className="text-center !py-12">
-          <div className="text-gray-400 mb-4">
-            <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center !mx-auto !mb-4">
+            <MapPin className="w-12 h-12 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 !mb-2">No addresses saved</h3>
-          <p className="text-gray-500">Add your first address to get started</p>
+          <h3 className="text-xl font-semibold text-gray-900 !mb-2">No addresses saved</h3>
+          <p className="text-gray-600 !mb-6">Add your first address to get started with shopping</p>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white !px-8 !py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 font-medium"
+          >
+            Add Your First Address
+          </button>
         </div>
       )}
     </div>
   );
 };
 
-// Settings Tab Component
-const SettingsTab = ({ user }) => {
-  return (
-    <div className="!space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Account Settings</h2>
-      
-      <div className="bg-white border border-gray-200 rounded-lg !p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 !mb-4">Personal Information</h3>
-            <div className="!space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                <p className="!mt-1 text-gray-900">{user?.name}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email Address</label>
-                <p className="!mt-1 text-gray-900">{user?.email}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                <p className="!mt-1 text-gray-900">{user?.phoneNumber}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 !mb-4">Account Security</h3>
-            <div className="!space-y-3">
-              <button className="w-full text-left !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                Change Password
-              </button>
-              <button className="w-full text-left !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                Two-Factor Authentication
-              </button>
-              <button className="w-full text-left !p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                Privacy Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Add this missing icon component
+const FileText = ({ size = 24, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
+
+// Add CSS animations
+const styles = `
+  @keyframes bounce-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes slide-up {
+    0% { transform: translateY(20px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  
+  .animate-bounce-in {
+    animation: bounce-in 0.6s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
+  }
+`;
+
+// Add styles to document
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = styles;
+  document.head.appendChild(styleSheet);
+}
 
 export default Profile;

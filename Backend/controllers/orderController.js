@@ -99,24 +99,22 @@ export const applyCoupon = async (req, res) => {
 // @route   POST /api/v1/orders
 // @access  Private
 export const createOrder = async (req, res) => {
-  const session = await Order.startSession();
+  const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { shippingAddress, couponCode, paymentMethod = 'card', notes } = req.body;
 
-    // Get user with cart
+    // Get user with populated cart
     const user = await User.findById(req.user.id)
       .populate({
         path: 'cart.product',
-        select: 'name price image stock active author medium dimensions',
-
+        select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
         populate: {
           path: 'author',
-          select: 'name' // Select only the fields you need from the author
+          select: 'name'
         }
       })
-      
       .session(session);
 
     if (!user) {
@@ -159,10 +157,21 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // Calculate subtotal
+    // Calculate subtotal using mrpPrice/discountPrice
     const subtotal = user.cart.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
+      const currentPrice = getCurrentPrice(item.product);
+      return total + (currentPrice * item.quantity);
     }, 0);
+
+    // Ensure subtotal is a valid number
+    if (isNaN(subtotal) || subtotal < 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid cart total calculation'
+      });
+    }
 
     // Calculate shipping cost
     const shippingCost = subtotal > 200 ? 0 : 15;
@@ -220,16 +229,29 @@ export const createOrder = async (req, res) => {
 
     const totalAmount = subtotal + shippingCost - discountAmount;
 
-    // Prepare order items
-    const orderItems = user.cart.map(item => ({
-      product: item.product._id,
-      quantity: item.quantity,
-      priceAtOrder: item.product.price,
-      name: item.product.name,
-      image: item.product.image,
-      author: item.product.author?.name || 'Unknown Artist',
-      medium: item.product.medium
-    }));
+    // Ensure totalAmount is valid
+    if (isNaN(totalAmount) || totalAmount < 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid total amount calculation'
+      });
+    }
+
+    // Prepare order items with priceAtOrder
+    const orderItems = user.cart.map(item => {
+      const currentPrice = getCurrentPrice(item.product);
+      return {
+        product: item.product._id,
+        quantity: item.quantity,
+        priceAtOrder: currentPrice, // Use current price at order time
+        name: item.product.name,
+        image: item.product.images?.[0] || item.product.image,
+        author: item.product.author?.name || 'Unknown Artist',
+        medium: item.product.medium
+      };
+    });
 
     // Generate order number
     const date = new Date();
@@ -818,4 +840,14 @@ export const getOrderInvoiceAdmin = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Helper function to calculate current price
+const getCurrentPrice = (product) => {
+  if (!product) return 0;
+  
+  if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
+    return product.discountPrice;
+  }
+  return product.mrpPrice || 0;
 };
