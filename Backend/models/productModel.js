@@ -19,10 +19,20 @@ const productSchema = new mongoose.Schema({
     trim: true,
     maxlength: [2000, 'Description cannot exceed 2000 characters']
   },
-  price: {
+  mrpPrice: {
     type: Number,
-    required: [true, 'Product price is required'],
-    min: [0, 'Price cannot be negative']
+    required: [true, 'MRP price is required'],
+    min: [0, 'MRP price cannot be negative']
+  },
+  discountPrice: {
+    type: Number,
+    min: [0, 'Discount price cannot be negative'],
+    validate: {
+      validator: function(value) {
+        return value <= this.mrpPrice;
+      },
+      message: 'Discount price cannot be greater than MRP price'
+    }
   },
   stock: {
     type: Number,
@@ -30,10 +40,10 @@ const productSchema = new mongoose.Schema({
     min: [0, 'Stock cannot be negative'],
     default: 1
   },
-  image: {
+  images: [{
     type: String,
-    required: [true, 'Product image is required']
-  },
+    required: [true, 'At least one product image is required']
+  }],
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
@@ -66,6 +76,11 @@ const productSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Medium cannot exceed 100 characters']
   },
+  tags: [{
+    type: String,
+    trim: true,
+    lowercase: true
+  }],
   metaTitle: {
     type: String,
     trim: true,
@@ -76,10 +91,6 @@ const productSchema = new mongoose.Schema({
     trim: true,
     maxlength: [160, 'Meta description cannot exceed 160 characters']
   },
-  tags: [{
-    type: String,
-    trim: true
-  }],
   featured: {
     type: Boolean,
     default: false
@@ -87,6 +98,20 @@ const productSchema = new mongoose.Schema({
   active: {
     type: Boolean,
     default: true
+  },
+  offer: {
+    isActive: {
+      type: Boolean,
+      default: false
+    },
+    discountPercentage: {
+      type: Number,
+      min: [0, 'Discount percentage cannot be negative'],
+      max: [100, 'Discount percentage cannot exceed 100%']
+    },
+    validUntil: {
+      type: Date
+    }
   }
 }, {
   timestamps: true
@@ -112,15 +137,41 @@ productSchema.pre('save', function(next) {
   if (!this.metaDescription) {
     this.metaDescription = this.description.substring(0, 160);
   }
+  
+  // Auto-calculate discount percentage if discount price is set
+  if (this.discountPrice && this.discountPrice < this.mrpPrice) {
+    const discountPercentage = Math.round(((this.mrpPrice - this.discountPrice) / this.mrpPrice) * 100);
+    this.offer = {
+      isActive: true,
+      discountPercentage: discountPercentage,
+      validUntil: this.offer?.validUntil || null
+    };
+  } else if (this.discountPrice === this.mrpPrice || !this.discountPrice) {
+    this.offer = {
+      isActive: false,
+      discountPercentage: 0,
+      validUntil: null
+    };
+  }
+  
   next();
 });
 
-// Index for better search performance
-productSchema.index({ name: 'text', description: 'text', tags: 'text' });
-productSchema.index({ slug: 1 });
-productSchema.index({ category: 1, author: 1 });
-productSchema.index({ price: 1 });
-productSchema.index({ featured: 1, active: 1 });
+// Virtual for current price (considers discount)
+productSchema.virtual('currentPrice').get(function() {
+  if (this.offer?.isActive && this.discountPrice && this.discountPrice < this.mrpPrice) {
+    return this.discountPrice;
+  }
+  return this.mrpPrice;
+});
+
+// Virtual for discount percentage
+productSchema.virtual('calculatedDiscount').get(function() {
+  if (this.discountPrice && this.discountPrice < this.mrpPrice) {
+    return Math.round(((this.mrpPrice - this.discountPrice) / this.mrpPrice) * 100);
+  }
+  return 0;
+});
 
 // Virtual for formatted dimensions
 productSchema.virtual('formattedDimensions').get(function() {
@@ -129,6 +180,14 @@ productSchema.virtual('formattedDimensions').get(function() {
   }
   return `${this.dimensions.height}H × ${this.dimensions.width}W cm`;
 });
+
+// Index for better search performance
+productSchema.index({ name: 'text', description: 'text', tags: 'text' });
+productSchema.index({ slug: 1 });
+productSchema.index({ category: 1, author: 1 });
+productSchema.index({ 'offer.isActive': 1 });
+productSchema.index({ discountPrice: 1 });
+productSchema.index({ featured: 1, active: 1 });
 
 // Ensure virtual fields are serialized
 productSchema.set('toJSON', { virtuals: true });

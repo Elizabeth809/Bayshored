@@ -9,7 +9,8 @@ export const createProduct = async (req, res) => {
     const {
       name,
       description,
-      price,
+      mrpPrice,
+      discountPrice,
       stock,
       category,
       author,
@@ -18,14 +19,29 @@ export const createProduct = async (req, res) => {
       metaTitle,
       metaDescription,
       tags,
-      featured
+      featured,
+      offer
     } = req.body;
 
-    // Check if image was uploaded
-    if (!req.file) {
+    // Check if images were uploaded
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Product image is required'
+        message: 'At least one product image is required'
+      });
+    }
+
+    // Maximum 5 images allowed
+    if (req.files.length > 5) {
+      // Delete uploaded images if more than 5
+      await Promise.all(
+        req.files.map(file => 
+          cloudinary.uploader.destroy(file.filename)
+        )
+      );
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum 5 images allowed per product'
       });
     }
 
@@ -48,17 +64,31 @@ export const createProduct = async (req, res) => {
       try {
         parsedTags = JSON.parse(tags);
       } catch (error) {
-        parsedTags = tags.split(',').map(tag => tag.trim());
+        parsedTags = tags.split(',').map(tag => tag.trim().toLowerCase());
       }
     }
+
+    // Parse offer if it's a string
+    let parsedOffer = offer;
+    if (typeof offer === 'string') {
+      try {
+        parsedOffer = JSON.parse(offer);
+      } catch (error) {
+        parsedOffer = {};
+      }
+    }
+
+    // Get image URLs from uploaded files
+    const imageUrls = req.files.map(file => file.path);
 
     // Create product
     const product = await Product.create({
       name,
       description,
-      price: parseFloat(price),
+      mrpPrice: parseFloat(mrpPrice),
+      discountPrice: discountPrice ? parseFloat(discountPrice) : null,
       stock: parseInt(stock),
-      image: req.file.path, // Cloudinary URL
+      images: imageUrls,
       category,
       author,
       dimensions: parsedDimensions,
@@ -66,7 +96,8 @@ export const createProduct = async (req, res) => {
       metaTitle,
       metaDescription,
       tags: parsedTags,
-      featured: featured === 'true'
+      featured: featured === 'true',
+      offer: parsedOffer
     });
 
     // Populate category and author details
@@ -82,13 +113,16 @@ export const createProduct = async (req, res) => {
   } catch (error) {
     console.error('Create product error:', error);
     
-    // Delete uploaded image from Cloudinary if product creation fails
-    if (req.file) {
+    // Delete uploaded images from Cloudinary if product creation fails
+    if (req.files) {
       try {
-        const publicId = req.file.filename;
-        await cloudinary.uploader.destroy(publicId);
+        await Promise.all(
+          req.files.map(file => 
+            cloudinary.uploader.destroy(file.filename)
+          )
+        );
       } catch (cloudinaryError) {
-        console.error('Error deleting image from Cloudinary:', cloudinaryError);
+        console.error('Error deleting images from Cloudinary:', cloudinaryError);
       }
     }
 
@@ -128,6 +162,8 @@ export const getAllProducts = async (req, res) => {
       minPrice,
       maxPrice,
       search,
+      tags,
+      onSale,
       sortBy = 'createdAt_desc',
       page = 1,
       limit = 12
@@ -148,10 +184,15 @@ export const getAllProducts = async (req, res) => {
       filter.featured = featured === 'true';
     }
 
+    if (onSale === 'true') {
+      filter['offer.isActive'] = true;
+      filter.discountPrice = { $exists: true, $lt: filter.mrpPrice };
+    }
+
     if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = parseFloat(minPrice);
-      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+      filter.currentPrice = {};
+      if (minPrice) filter.currentPrice.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.currentPrice.$lte = parseFloat(maxPrice);
     }
 
     // Search functionality
@@ -163,20 +204,29 @@ export const getAllProducts = async (req, res) => {
       ];
     }
 
+    // Filter by tags
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : tags.split(',');
+      filter.tags = { $in: tagArray.map(tag => new RegExp(tag, 'i')) };
+    }
+
     // Sort options
     const sortOptions = {};
     switch (sortBy) {
       case 'price_asc':
-        sortOptions.price = 1;
+        sortOptions.currentPrice = 1;
         break;
       case 'price_desc':
-        sortOptions.price = -1;
+        sortOptions.currentPrice = -1;
         break;
       case 'name_asc':
         sortOptions.name = 1;
         break;
       case 'name_desc':
         sortOptions.name = -1;
+        break;
+      case 'discount_desc':
+        sortOptions.calculatedDiscount = -1;
         break;
       case 'createdAt_asc':
         sortOptions.createdAt = 1;
@@ -255,6 +305,274 @@ export const getProductBySlug = async (req, res) => {
   }
 };
 
+// @desc    Update product
+// @route   PUT /api/v1/products/:id
+// @access  Private/Admin
+export const updateProduct = async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      mrpPrice,
+      discountPrice,
+      stock,
+      category,
+      author,
+      dimensions,
+      medium,
+      metaTitle,
+      metaDescription,
+      tags,
+      featured,
+      active,
+      offer
+    } = req.body;
+
+    // Find existing product
+    let product = await Product.findById(req.params.id);
+    if (!product) {
+      // Delete newly uploaded images if product not found
+      if (req.files) {
+        await Promise.all(
+          req.files.map(file => 
+            cloudinary.uploader.destroy(file.filename)
+          )
+        );
+      }
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Parse dimensions if it's a string
+    let parsedDimensions = dimensions;
+    if (typeof dimensions === 'string') {
+      try {
+        parsedDimensions = JSON.parse(dimensions);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid dimensions format'
+        });
+      }
+    }
+
+    // Parse tags if it's a string
+    let parsedTags = tags;
+    if (typeof tags === 'string') {
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch (error) {
+        parsedTags = tags.split(',').map(tag => tag.trim().toLowerCase());
+      }
+    }
+
+    // Parse offer if it's a string
+    let parsedOffer = offer;
+    if (typeof offer === 'string') {
+      try {
+        parsedOffer = JSON.parse(offer);
+      } catch (error) {
+        parsedOffer = product.offer;
+      }
+    }
+
+    // Prepare update data
+    const updateData = {
+      name,
+      description,
+      mrpPrice: parseFloat(mrpPrice),
+      discountPrice: discountPrice ? parseFloat(discountPrice) : null,
+      stock: parseInt(stock),
+      category,
+      author,
+      dimensions: parsedDimensions,
+      medium,
+      metaTitle,
+      metaDescription,
+      tags: parsedTags,
+      featured: featured === 'true',
+      active: active === 'true',
+      offer: parsedOffer
+    };
+
+    // If new images are uploaded, update images array and delete old ones from Cloudinary
+    if (req.files && req.files.length > 0) {
+      // Delete old images from Cloudinary
+      if (product.images && product.images.length > 0) {
+        try {
+          await Promise.all(
+            product.images.map(imageUrl => {
+              const publicId = imageUrl.split('/').pop().split('.')[0];
+              return cloudinary.uploader.destroy(`mern_art/products/${publicId}`);
+            })
+          );
+        } catch (cloudinaryError) {
+          console.error('Error deleting old images from Cloudinary:', cloudinaryError);
+        }
+      }
+
+      // Add new images
+      const newImageUrls = req.files.map(file => file.path);
+      updateData.images = newImageUrls;
+    }
+
+    // Update product
+    product = await Product.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('category', 'name').populate('author', 'name');
+
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      data: product
+    });
+
+  } catch (error) {
+    console.error('Update product error:', error);
+    
+    // Delete newly uploaded images if update fails
+    if (req.files) {
+      try {
+        await Promise.all(
+          req.files.map(file => 
+            cloudinary.uploader.destroy(file.filename)
+          )
+        );
+      } catch (cloudinaryError) {
+        console.error('Error deleting images from Cloudinary:', cloudinaryError);
+      }
+    }
+
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating product',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get featured products
+// @route   GET /api/v1/products/featured
+// @access  Public
+export const getFeaturedProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ 
+      featured: true, 
+      active: true 
+    })
+    .populate('category', 'name')
+    .populate('author', 'name')
+    .sort({ createdAt: -1 })
+    .limit(8);
+
+    res.json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+
+  } catch (error) {
+    console.error('Get featured products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching featured products',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get products on sale
+// @route   GET /api/v1/products/on-sale
+// @access  Public
+export const getProductsOnSale = async (req, res) => {
+  try {
+    const products = await Product.find({ 
+      'offer.isActive': true,
+      active: true 
+    })
+    .populate('category', 'name')
+    .populate('author', 'name')
+    .sort({ 'offer.discountPercentage': -1 })
+    .limit(12);
+
+    res.json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+
+  } catch (error) {
+    console.error('Get products on sale error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching products on sale',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get products by tags
+// @route   GET /api/v1/products/tags/:tag
+// @access  Public
+export const getProductsByTag = async (req, res) => {
+  try {
+    const { tag } = req.params;
+    const { page = 1, limit = 12 } = req.query;
+
+    const products = await Product.find({ 
+      tags: { $in: [new RegExp(tag, 'i')] },
+      active: true 
+    })
+    .populate('category', 'name')
+    .populate('author', 'name')
+    .sort({ createdAt: -1 })
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+    const total = await Product.countDocuments({ 
+      tags: { $in: [new RegExp(tag, 'i')] },
+      active: true 
+    });
+
+    res.json({
+      success: true,
+      count: products.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      data: products
+    });
+
+  } catch (error) {
+    console.error('Get products by tag error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching products by tag',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get single product by ID
 // @route   GET /api/v1/products/:id
 // @access  Public
@@ -289,143 +607,6 @@ export const getProductById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching product',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Update product
-// @route   PUT /api/v1/products/:id
-// @access  Private/Admin
-export const updateProduct = async (req, res) => {
-  try {
-    const {
-      name,
-      description,
-      price,
-      stock,
-      category,
-      author,
-      dimensions,
-      medium,
-      metaTitle,
-      metaDescription,
-      tags,
-      featured,
-      active
-    } = req.body;
-
-    // Find existing product
-    let product = await Product.findById(req.params.id);
-    if (!product) {
-      // Delete newly uploaded image if product not found
-      if (req.file) {
-        await cloudinary.uploader.destroy(req.file.filename);
-      }
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
-    }
-
-    // Parse dimensions if it's a string
-    let parsedDimensions = dimensions;
-    if (typeof dimensions === 'string') {
-      try {
-        parsedDimensions = JSON.parse(dimensions);
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid dimensions format'
-        });
-      }
-    }
-
-    // Parse tags if it's a string
-    let parsedTags = tags;
-    if (typeof tags === 'string') {
-      try {
-        parsedTags = JSON.parse(tags);
-      } catch (error) {
-        parsedTags = tags.split(',').map(tag => tag.trim());
-      }
-    }
-
-    // Prepare update data
-    const updateData = {
-      name,
-      description,
-      price: parseFloat(price),
-      stock: parseInt(stock),
-      category,
-      author,
-      dimensions: parsedDimensions,
-      medium,
-      metaTitle,
-      metaDescription,
-      tags: parsedTags,
-      featured: featured === 'true',
-      active: active === 'true'
-    };
-
-    // If new image is uploaded, update image and delete old one from Cloudinary
-    if (req.file) {
-      // Delete old image from Cloudinary
-      if (product.image) {
-        try {
-          const oldPublicId = product.image.split('/').pop().split('.')[0];
-          await cloudinary.uploader.destroy(`mern_art/products/${oldPublicId}`);
-        } catch (cloudinaryError) {
-          console.error('Error deleting old image from Cloudinary:', cloudinaryError);
-        }
-      }
-      updateData.image = req.file.path;
-    }
-
-    // Update product
-    product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('category', 'name').populate('author', 'name');
-
-    res.json({
-      success: true,
-      message: 'Product updated successfully',
-      data: product
-    });
-
-  } catch (error) {
-    console.error('Update product error:', error);
-    
-    // Delete newly uploaded image if update fails
-    if (req.file) {
-      try {
-        await cloudinary.uploader.destroy(req.file.filename);
-      } catch (cloudinaryError) {
-        console.error('Error deleting image from Cloudinary:', cloudinaryError);
-      }
-    }
-
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: messages
-      });
-    }
-
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error while updating product',
       error: error.message
     });
   }
@@ -476,36 +657,6 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while deleting product',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Get featured products
-// @route   GET /api/v1/products/featured
-// @access  Public
-export const getFeaturedProducts = async (req, res) => {
-  try {
-    const products = await Product.find({ 
-      featured: true, 
-      active: true 
-    })
-    .populate('category', 'name')
-    .populate('author', 'name')
-    .sort({ createdAt: -1 })
-    .limit(8);
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    console.error('Get featured products error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching featured products',
       error: error.message
     });
   }

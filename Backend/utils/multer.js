@@ -2,8 +2,8 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary.js';
 
-// Configure Cloudinary storage for products
-const productStorage = new CloudinaryStorage({
+// Configure Cloudinary storage
+const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'mern_art/products',
@@ -14,23 +14,11 @@ const productStorage = new CloudinaryStorage({
   },
 });
 
-// Configure Cloudinary storage for authors
-const authorStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'mern_art/authors',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [
-      { width: 400, height: 400, crop: 'fill', gravity: 'face', quality: 'auto' }
-    ]
-  },
-});
-
-// Create separate upload instances
-export const productUpload = multer({
-  storage: productStorage,
+const upload = multer({
+  storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    files: 5 // Maximum 5 files
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
@@ -41,19 +29,7 @@ export const productUpload = multer({
   }
 });
 
-export const authorUpload = multer({
-  storage: authorStorage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'), false);
-    }
-  }
-});
+// Multiple file upload middleware
+export const uploadMultiple = upload.array('images', 5);
 
-// Default export (for backward compatibility)
-export default productUpload;
+export default upload;
