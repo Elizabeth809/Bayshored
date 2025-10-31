@@ -28,14 +28,14 @@ const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow all origins in development, specific origins in production
+    if (!origin || process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
     
-    const allowedOrigins = process.env.ALLOWED_ORIGINS 
-      ? process.env.ALLOWED_ORIGINS.split(',') 
-      : [process.env.FRONTEND_URL, process.env.ADMIN_URL];
+    const allowedOrigins = [process.env.FRONTEND_URL, process.env.ADMIN_URL].filter(Boolean);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -52,6 +52,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(compression());
 app.use(helmet());
 
+// Mount routes BEFORE starting the server
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/authors", authorRoutes);
+app.use("/api/v1/products", productRoutes);
+app.use("/api/v1/cart", cartRoutes);
+app.use("/api/v1/wishlist", wishlistRoutes);
+app.use("/api/v1/coupons", couponRoutes);
+app.use("/api/v1/orders", orderRoutes);
+app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/users", usersRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);
+app.use('/api/v1/subscribers', subscriberRoutes);
+
 // Basic route
 app.get("/", (req, res) => {
   res.json({
@@ -67,9 +81,24 @@ app.get("/", (req, res) => {
       coupons: "/api/v1/coupons",
       orders: "/api/v1/orders",
       user: "/api/v1/user",
-      dashboard: "api/v1/dashboard",
-      subscribe:"/api/v1/subscribers",
+      users: "/api/v1/users",
+      dashboard: "/api/v1/dashboard",
+      subscribers: "/api/v1/subscribers",
     },
+    subscriberEndpoints: {
+      subscribe: "POST /api/v1/subscribers/subscribe",
+      unsubscribe: "POST /api/v1/subscribers/unsubscribe",
+      getSubscribers: "GET /api/v1/subscribers",
+      getStats: "GET /api/v1/subscribers/stats"
+    }
+  });
+});
+
+// 404 handler for undefined routes - FIXED
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.originalUrl}`,
   });
 });
 
@@ -131,6 +160,14 @@ app.use((error, req, res, next) => {
     });
   }
 
+  // CORS error
+  if (error.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS policy: Origin not allowed',
+    });
+  }
+
   res.status(error.status || 500).json({
     success: false,
     message: errorMessage,
@@ -148,25 +185,18 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌎 Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(`📋 Available endpoints:`);
+      console.log(`   - POST   /api/v1/subscribers/subscribe`);
+      console.log(`   - POST   /api/v1/subscribers/unsubscribe`);
+      console.log(`   - GET    /api/v1/subscribers`);
+      console.log(`   - GET    /api/v1/subscribers/stats`);
+      console.log(`   - DELETE /api/v1/subscribers/:id`);
+      console.log(`📍 Health check: http://localhost:${PORT}/`);
     });
-
-    // Mount routes AFTER connection
-    app.use("/api/v1/auth", authRoutes);
-    app.use("/api/v1/categories", categoryRoutes);
-    app.use("/api/v1/authors", authorRoutes);
-    app.use("/api/v1/products", productRoutes);
-    app.use("/api/v1/cart", cartRoutes);
-    app.use("/api/v1/wishlist", wishlistRoutes);
-    app.use("/api/v1/coupons", couponRoutes);
-    app.use("/api/v1/orders", orderRoutes);
-    app.use("/api/v1/user", userRoutes);
-    //admin user routes
-    app.use("/api/v1/users", usersRoutes);
-    app.use("/api/v1/dashboard", dashboardRoutes);
-    app.use('/api/v1/subscribers', subscriberRoutes);
   } catch (err) {
     console.error("❌ Failed to connect to MongoDB:", err.message);
     process.exit(1); // Exit if DB fails
   }
 };
+
 startServer();

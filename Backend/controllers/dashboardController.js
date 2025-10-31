@@ -3,6 +3,8 @@ import User from "../models/userModel.js";
 import Product from "../models/productModel.js";
 import Category from "../models/categoryModel.js";
 import Author from "../models/authorModel.js";
+import Coupon from "../models/couponModel.js";
+import Subscriber from "../models/subscriberModel.js"; // Import Subscriber model
 
 // @desc    Get dashboard statistics
 // @route   GET /api/v1/dashboard
@@ -26,6 +28,8 @@ export const getDashboardStats = async (req, res) => {
       recentOrders,
       topProducts,
       userRegistrations,
+      couponStats,
+      subscriberStats,
     ] = await Promise.all([
       // Total Statistics
       Promise.all([
@@ -98,7 +102,7 @@ export const getDashboardStats = async (req, res) => {
         .limit(10)
         .select("orderNumber user totalAmount orderStatus createdAt"),
 
-      // Top Selling Products
+      // Top Selling Products - FIXED: using images array
       Order.aggregate([
         { $unwind: "$items" },
         {
@@ -124,7 +128,7 @@ export const getDashboardStats = async (req, res) => {
         {
           $project: {
             name: "$product.name",
-            image: "$product.image",
+            images: "$product.images",
             totalSold: 1,
             totalRevenue: 1,
           },
@@ -151,6 +155,62 @@ export const getDashboardStats = async (req, res) => {
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } },
       ]),
+
+      // Coupon Statistics
+      Coupon.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalCoupons: { $sum: 1 },
+            activeCoupons: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: ["$isActive", { $gt: ["$expiryDate", new Date()] }],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            totalUsage: { $sum: "$usedCount" },
+          },
+        },
+      ]),
+
+      // Subscriber Statistics - FIXED: Proper implementation
+      Promise.all([
+        // Total subscribers
+        Subscriber.countDocuments({ isActive: true }),
+
+        Subscriber.countDocuments({
+          isActive: true,
+          subscribedAt: { $gte: currentMonthStart },
+        }),
+
+        // Subscriber growth data for charts (last 6 months)
+        Subscriber.aggregate([
+          {
+            $match: {
+              isActive: true,
+              subscribedAt: {
+                // Changed to subscribedAt
+                $gte: new Date(now.getFullYear(), now.getMonth() - 5, 1),
+              },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                year: { $year: "$subscribedAt" }, // Change this
+                month: { $month: "$subscribedAt" }, // Change this
+              },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { "_id.year": 1, "_id.month": 1 } },
+        ]),
+      ]),
     ]);
 
     // Process total stats
@@ -163,6 +223,10 @@ export const getDashboardStats = async (req, res) => {
       currentMonthStats,
       previousMonthStats,
     ] = totalStats;
+
+    // Process subscriber stats
+    const [totalSubscribers, newSubscribersThisMonth, subscriberGrowthData] =
+      subscriberStats;
 
     const totalRevenue = orderStats[0]?.totalRevenue || 0;
     const totalOrders = orderStats[0]?.totalOrders || 0;
@@ -217,6 +281,29 @@ export const getDashboardStats = async (req, res) => {
       };
     }).reverse();
 
+    // Process subscriber growth data
+    const subscriberChartData = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+
+      const monthData = subscriberGrowthData.find(
+        (m) => m._id.year === year && m._id.month === month
+      );
+
+      return {
+        month: date.toLocaleString("default", { month: "short" }),
+        subscribers: monthData?.count || 0,
+      };
+    }).reverse();
+
+    // Process coupon stats
+    const couponData = couponStats[0] || {
+      totalCoupons: 0,
+      activeCoupons: 0,
+      totalUsage: 0,
+    };
+
     res.json({
       success: true,
       data: {
@@ -238,10 +325,17 @@ export const getDashboardStats = async (req, res) => {
         charts: {
           sales: monthlySalesData,
           users: userRegistrationData,
+          subscribers: subscriberChartData,
         },
         recent: {
           orders: recentOrders,
           products: topProducts,
+        },
+        coupons: couponData,
+        subscribers: {
+          totalSubscribers,
+          newThisMonth: newSubscribersThisMonth,
+          growthData: subscriberChartData,
         },
       },
     });

@@ -1,10 +1,5 @@
 import { useState, useEffect } from 'react';
-
-// --- MOCK DEPENDENCIES TO FIX IMPORT ERRORS ---
-
-// Mock for './clientApiUrl'
-// We use an empty string so fetch requests are relative to the current origin.
-const CLIENT_BASE_URL = '';
+import { CLIENT_BASE_URL } from './clientApiUrl';
 
 // Mock for './LoadingSpinner'
 const LoadingSpinner = ({ size = 'small', className = '' }) => {
@@ -35,10 +30,6 @@ const LoadingSpinner = ({ size = 'small', className = '' }) => {
     </svg>
   );
 };
-
-// Mock for '../../context/AuthContext'
-// --- FIX: Define mock data outside the hook to prevent re-creation ---
-// This ensures the 'user' object is stable and doesn't trigger the infinite loop.
 const mockAuthData = {
   isAuthenticated: true,
   user: {
@@ -46,19 +37,11 @@ const mockAuthData = {
     email: 'alice@example.com'
   }
 };
-// const mockAuthData = { isAuthenticated: false, user: null }; // For testing logged-out state
 
 const useAuth = () => {
   // Return the stable mock data object
   return mockAuthData;
 };
-
-// --- END OF MOCK DEPENDENCIES ---
-
-
-// --- Style Injector Component ---
-// This adds the Google Font and all our custom animations
-// directly into the component for a single-file solution.
 const StyleInjector = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
@@ -202,9 +185,6 @@ const NewsletterSubscription = ({ variant = 'default' }) => {
       });
 
       const data = await response.json();
-
-      // --- BUG FIX ---
-      // Added check for `response.ok` to catch server errors
       if (!response.ok) {
         throw new Error(data.message || 'An error occurred. Please try again.');
       }
