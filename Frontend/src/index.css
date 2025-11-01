@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Lobster&family=Manrope:wght@200..800&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Oswald:wght@200..700&family=Parisienne&family=Playwrite+AU+TAS+Guides&family=Roboto+Slab:wght@100..900&display=swap');
+/* In your main index.css or equivalent global stylesheet */
+@import url('https://fonts.googleapis.com/css2?family=Parisienne&family=Playfair+Display:wght@400;700&display=swap');
 
 @import "tailwindcss";
 
@@ -8,14 +10,30 @@
   box-sizing: border-box;
 }
 
-.parisienne-regular {
-  font-family: "Parisienne", cursive;
-  font-weight: 400;
-  font-style: normal;
+.font-parisienne {
+  font-family: 'Parisienne', cursive;
 }
 
-/* body{
-  font-family: "Parisienne", cursive;
-  font-weight: 400;
-  font-style: normal;
-} */
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+@keyframes float {
+  0% { transform: translateY(0); opacity: 0.8; }
+  50% { transform: translateY(-20px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0.8; }
+}
+
+@keyframes fadeInScale {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animated-dot {
+  position: absolute;
+  background-color: rgba(144, 238, 144, 0.3); /* Light green */
+  border-radius: 50%;
+  animation: float 6s ease-in-out infinite, fadeInScale 1s ease-out forwards;
+  pointer-events: none;
+  z-index: 0;
+}
