@@ -27,9 +27,18 @@ const productSchema = new mongoose.Schema({
   discountPrice: {
     type: Number,
     min: [0, 'Discount price cannot be negative'],
+    default: undefined, // This helps with update operations
     validate: {
       validator: function(value) {
-        return value <= this.mrpPrice;
+        // Skip validation for null/undefined or empty values
+        if (value === null || value === undefined || value === '') {
+          return true;
+        }
+        // Only validate if both discountPrice and mrpPrice are numbers
+        if (typeof value === 'number' && typeof this.mrpPrice === 'number') {
+          return value <= this.mrpPrice;
+        }
+        return true;
       },
       message: 'Discount price cannot be greater than MRP price'
     }
@@ -107,10 +116,12 @@ const productSchema = new mongoose.Schema({
     discountPercentage: {
       type: Number,
       min: [0, 'Discount percentage cannot be negative'],
-      max: [100, 'Discount percentage cannot exceed 100%']
+      max: [100, 'Discount percentage cannot exceed 100%'],
+      default: 0
     },
     validUntil: {
-      type: Date
+      type: Date,
+      default: null
     }
   }
 }, {
@@ -191,5 +202,22 @@ productSchema.index({ featured: 1, active: 1 });
 
 // Ensure virtual fields are serialized
 productSchema.set('toJSON', { virtuals: true });
+
+// Middleware to handle discountPrice updates properly
+productSchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  
+  // If discountPrice is explicitly set to null or empty string, remove it from the update
+  if (update.discountPrice === null || update.discountPrice === '') {
+    this.set({ discountPrice: undefined });
+  }
+  
+  // Handle nested update operators
+  if (update.$set && (update.$set.discountPrice === null || update.$set.discountPrice === '')) {
+    update.$set.discountPrice = undefined;
+  }
+  
+  next();
+});
 
 export default mongoose.model('Product', productSchema);

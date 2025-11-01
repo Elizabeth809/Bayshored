@@ -424,7 +424,6 @@ export const updateProduct = async (req, res) => {
       name,
       description,
       mrpPrice: parseFloat(mrpPrice),
-      discountPrice: discountPrice ? parseFloat(discountPrice) : null,
       stock: parseInt(stock),
       category,
       author,
@@ -437,6 +436,14 @@ export const updateProduct = async (req, res) => {
       active: active === "true",
       offer: parsedOffer,
     };
+
+    // Handle discountPrice carefully - only include if provided
+    if (discountPrice && discountPrice !== '' && !isNaN(discountPrice)) {
+      updateData.discountPrice = parseFloat(discountPrice);
+    } else if (discountPrice === '' || discountPrice === null) {
+      // Explicitly set to undefined to remove the field from update
+      updateData.discountPrice = undefined;
+    }
 
     // If new images are uploaded, update images array and delete old ones from Cloudinary
     if (req.files && req.files.length > 0) {
@@ -464,11 +471,15 @@ export const updateProduct = async (req, res) => {
       updateData.images = newImageUrls;
     }
 
-    // Update product
-    product = await Product.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    })
+    // Update product using findByIdAndUpdate
+    product = await Product.findByIdAndUpdate(
+      req.params.id, 
+      { $set: updateData }, // Use $set to update only provided fields
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
       .populate("category", "name")
       .populate("author", "name");
 
