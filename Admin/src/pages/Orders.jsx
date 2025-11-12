@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import Modal from '../components/Modal';
+import Modal from '../components/Modal'; // Now this import will work
 import { ADMIN_BASE_URL } from '../components/adminApiUrl';
+import { AlertTriangle } from 'lucide-react'; // Import icon for modal
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -16,6 +17,11 @@ const Orders = () => {
     limit: 10,
     sortBy: 'createdAt_desc'
   });
+
+  // State for the new delete modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { token } = useAuth();
 
@@ -103,6 +109,50 @@ const Orders = () => {
     }
   };
 
+  // Opens the delete confirmation modal
+  const handleOpenDeleteModal = (orderId) => {
+    setOrderToDelete(orderId);
+    setIsDeleteModalOpen(true);
+  };
+  
+  // Closes the delete confirmation modal
+  const handleCloseDeleteModal = () => {
+    setOrderToDelete(null);
+    setIsDeleteModalOpen(false);
+  };
+
+  // Runs the actual delete logic
+  const handleConfirmDelete = async () => {
+    if (!orderToDelete) return;
+
+    setIsDeleting(true); // Start loading
+    try {
+      const response = await fetch(`${ADMIN_BASE_URL}/api/v1/orders/admin/${orderToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        fetchOrders(); // Refresh the list
+        if (selectedOrder && selectedOrder._id === orderToDelete) {
+          setSelectedOrder(null); // Close main modal if it was open
+        }
+      } else {
+        alert(data.message); // Show error
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      alert('Failed to delete order');
+    } finally {
+      setIsDeleting(false); // Stop loading
+      handleCloseDeleteModal(); // Close confirmation modal
+    }
+  };
+
   const downloadInvoice = async (orderId) => {
     try {
       const response = await fetch(`${ADMIN_BASE_URL}/api/v1/orders/admin/${orderId}/invoice`, {
@@ -156,6 +206,17 @@ const Orders = () => {
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
+  
+  const getPaymentStatusColor = (status) => {
+    const colors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      paid: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800',
+      refunded: 'bg-gray-100 text-gray-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
 
   return (
     <div className="!space-y-6">
@@ -165,7 +226,8 @@ const Orders = () => {
           <p className="text-gray-600 !mt-1">Manage and track all customer orders</p>
         </div>
         {stats && (
-          <div className="flex !space-x-4 text-sm">
+          // STATS DISPLAY (Pending Amount Removed)
+          <div className="flex !space-x-6 text-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">{stats.totalOrders}</div>
               <div className="text-gray-600">Total Orders</div>
@@ -173,6 +235,10 @@ const Orders = () => {
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{formatPrice(stats.totalRevenue)}</div>
               <div className="text-gray-600">Total Revenue</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{formatPrice(stats.totalFailedAmount)}</div>
+              <div className="text-gray-600">Failed Payments</div>
             </div>
           </div>
         )}
@@ -259,6 +325,9 @@ const Orders = () => {
                     Amount
                   </th>
                   <th className="!px-6 !py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th className="!px-6 !py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="!px-6 !py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -286,6 +355,11 @@ const Orders = () => {
                       </div>
                     </td>
                     <td className="!px-6 !py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
+                        {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                      </span>
+                    </td>
+                    <td className="!px-6 !py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.orderStatus)}`}>
                         {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
                       </span>
@@ -297,6 +371,16 @@ const Orders = () => {
                       >
                         View Details
                       </button>
+                      
+                      {/* DELETE BUTTON (shows for 'pending' or 'failed') */}
+                      {(order.paymentStatus === 'pending' || order.paymentStatus === 'failed') && order.paymentMethod !== 'COD' && (
+                        <button
+                          onClick={() => handleOpenDeleteModal(order._id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -329,12 +413,58 @@ const Orders = () => {
             onUpdateStatus={updateOrderStatus}
             onAddShippingUpdate={addShippingUpdate}
             onDownloadInvoice={downloadInvoice}
+            onDeleteOrder={handleOpenDeleteModal} // Pass the "open" function
             onClose={() => setSelectedOrder(null)}
             formatPrice={formatPrice}
             formatDate={formatDate}
             getStatusColor={getStatusColor}
+            getPaymentStatusColor={getPaymentStatusColor}
           />
         )}
+      </Modal>
+
+      {/* NEW Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        title="Confirm Deletion"
+        size="small"
+      >
+        <div className="!p-6">
+          <div className="sm:flex sm:items-start">
+            <div className="!mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:!mx-0 sm:h-10 sm:w-10">
+              <AlertTriangle className="h-6 w-6 text-red-600" aria-hidden="true" />
+            </div>
+            <div className="!mt-3 text-center sm:!mt-0 sm:!ml-4 sm:text-left">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Delete Abandoned Order?
+              </h3>
+              <div className="!mt-2">
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to delete this order? This will permanently remove the order record. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="!mt-5 sm:!mt-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm !px-4 !py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:!ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? <LoadingSpinner size="small" /> : 'Delete'}
+            </button>
+            <button
+              type="button"
+              className="!mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm !px-4 !py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:!mt-0 sm:w-auto sm:text-sm"
+              onClick={handleCloseDeleteModal}
+              disabled={isDeleting}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
@@ -346,10 +476,12 @@ const OrderDetailModal = ({
   onUpdateStatus,
   onAddShippingUpdate,
   onDownloadInvoice,
+  onDeleteOrder, // This is now handleOpenDeleteModal
   onClose,
   formatPrice,
   formatDate,
-  getStatusColor
+  getStatusColor,
+  getPaymentStatusColor
 }) => {
   const [newStatus, setNewStatus] = useState(order.orderStatus);
   const [shippingUpdate, setShippingUpdate] = useState('');
@@ -388,7 +520,11 @@ const OrderDetailModal = ({
                 {order.orderStatus}
               </span>
             </p>
-            <p><strong>Payment:</strong> {order.paymentStatus}</p>
+            <p><strong>Payment:</strong>
+              <span className={`!ml-2 inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
+                {order.paymentStatus}
+              </span>
+            </p>
             {order.couponApplied && (
               <p><strong>Coupon:</strong> {order.couponApplied.code} (-{formatPrice(order.discountAmount)})</p>
             )}
@@ -493,20 +629,36 @@ const OrderDetailModal = ({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between !pt-4 border-t border-gray-200">
+      {/* MODAL FOOTER */}
+      <div className="flex justify-between items-center !pt-4 border-t border-gray-200">
         <button
           onClick={() => onDownloadInvoice(order._id)}
           className="bg-gray-600 text-white !px-4 !py-2 rounded-lg hover:bg-gray-700"
         >
           Download Invoice
         </button>
-        <button
-          onClick={onClose}
-          className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700"
-        >
-          Close
-        </button>
+        
+        <div className="flex !space-x-3">
+          <button
+            onClick={onClose}
+            className="bg-blue-600 text-white !px-4 !py-2 rounded-lg hover:bg-blue-700"
+          >
+            Close
+          </button>
+          
+          {/* Conditional Delete Button */}
+          {(order.paymentStatus === 'pending' || order.paymentStatus === 'failed') && order.paymentMethod !== 'COD' && (
+            <button
+              onClick={() => {
+                onClose(); // Close this modal first
+                onDeleteOrder(order._id); // Then open the delete confirm modal
+              }}
+              className="bg-red-600 text-white !px-4 !py-2 rounded-lg hover:bg-red-700"
+            >
+              Delete Order
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

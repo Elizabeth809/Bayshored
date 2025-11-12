@@ -11,8 +11,16 @@ const Modal = ({ isOpen, onClose, title, children, size = 'medium' }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center !p-4 z-50">
-      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col`}>
+    // Backdrop: Closes modal on click
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center !p-4 z-50"
+      onClick={onClose} 
+    >
+      {/* Modal Content: Does NOT close on click */}
+      <div 
+        className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col`}
+        onClick={(e) => e.stopPropagation()} // 👈 ✅ THIS LINE IS ADDED
+      >
         <div className="flex items-center justify-between !p-6 border-b flex-shrink-0">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button

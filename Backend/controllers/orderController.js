@@ -507,7 +507,7 @@ export const updateOrderStatus = async (req, res) => {
     console.error("Update order status error:", error);
 
     if (error.kind === "ObjectId") {
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
         message: "Order not found",
       });
@@ -534,12 +534,15 @@ export const getAllOrdersAdmin = async (req, res) => {
       sortBy = 'createdAt_desc' 
     } = req.query;
     
-    // Build filter object
-    const filter = {};
+    // Filter for the main list (respects status filter)
+    const listFilter = {};
     
     if (status && status !== 'all') {
-      filter.orderStatus = status;
+      listFilter.orderStatus = status;
     }
+
+    // Filter for the stats (ignores status, but respects search)
+    const statsFilter = {};
 
     if (search) {
       const users = await User.find({
@@ -550,7 +553,10 @@ export const getAllOrdersAdmin = async (req, res) => {
       }).select('_id');
       
       const userIds = users.map(user => user._id);
-      filter.user = { $in: userIds };
+      
+      // Apply search to both filters
+      listFilter.user = { $in: userIds };
+      statsFilter.user = { $in: userIds };
     }
 
     // Sort options
@@ -569,30 +575,34 @@ export const getAllOrdersAdmin = async (req, res) => {
         sortOptions.createdAt = -1;
     }
 
-    const orders = await Order.find(filter)
+    // Use listFilter for finding orders
+    const orders = await Order.find(listFilter)
       .populate('user', 'name email phoneNumber')
       .populate('couponApplied', 'code discountType discountValue')
       .sort(sortOptions)
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await Order.countDocuments(filter);
+    // Use listFilter for counting total
+    const total = await Order.countDocuments(listFilter);
 
-    // --- 💡 START OF FIX ---
-    // Calculate summary stats correctly
+    // Use statsFilter for calculating stats
     const stats = await Order.aggregate([
-      { $match: filter }, // Match the same filters as the main query
+      { $match: statsFilter }, // Match only by search (if present), not status
       {
         $group: {
           _id: null,
           
-          // Total Revenue (ONLY 'paid' orders + 'COD' orders)
+          // Total Revenue (ONLY 'paid' orders + 'COD' orders that are not 'cancelled')
           totalRevenue: {
             $sum: {
               $cond: [
                 { $or: [
                     { $eq: ["$paymentStatus", "paid"] },
-                    { $eq: ["$paymentMethod", "COD"] } // Count COD as revenue
+                    { $and: [
+                        { $eq: ["$paymentMethod", "COD"] },
+                        { $ne: ["$orderStatus", "cancelled"] }
+                    ]}
                 ]},
                 "$totalAmount",
                 0
@@ -630,7 +640,10 @@ export const getAllOrdersAdmin = async (req, res) => {
               $cond: [
                 { $or: [
                     { $eq: ["$paymentStatus", "paid"] },
-                    { $eq: ["$paymentMethod", "COD"] }
+                    { $and: [
+                        { $eq: ["$paymentMethod", "COD"] },
+                        { $ne: ["$orderStatus", "cancelled"] }
+                    ]}
                 ]},
                 1,
                 0
@@ -658,7 +671,6 @@ export const getAllOrdersAdmin = async (req, res) => {
         }
       }
     ]);
-    // --- 💡 END OF FIX ---
 
     res.json({
       success: true,
@@ -762,7 +774,7 @@ export const updateOrderStatusAdmin = async (req, res) => {
 
     if (statusMessages[orderStatus] && oldStatus !== orderStatus) {
       order.shippingUpdates.push({
-        message: message || statusMessages[orderStatus],
+        message: message || statusMessages[orderSjrtatus],
         timestamp: new Date()
       });
     }
@@ -901,9 +913,74 @@ export const getOrderInvoiceAdmin = async (req, res) => {
 const getCurrentPrice = (product) => {
   if (!product) return 0;
   
-  // A typo was here in your original code: mRrpPrice. Fixed to mrpPrice.
   if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
     return product.discountPrice;
   }
   return product.mrpPrice || 0;
+};
+
+// ---
+// ---
+// --- ⬇️ FUNCTION RENAMED AND UPDATED ⬇️ ---
+// ---
+
+// @desc    Delete a pending or failed order (Admin)
+// @route   DELETE /api/v1/orders/admin/:id
+// @access  Private/Admin
+export const deleteAbandonedOrder = async (req, res) => {
+  try {
+    const { id: orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+
+    // Check if order exists
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // --- 💡 START OF FIX ---
+    // Check if payment is 'pending' OR 'failed'
+    if (order.paymentStatus !== 'pending' && order.paymentStatus !== 'failed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only orders with a "pending" or "failed" payment status can be deleted.',
+      });
+    }
+    // --- 💡 END OF FIX ---
+    
+    // Check it's not a COD order (these should be 'cancelled')
+    if (order.paymentMethod === 'COD') {
+      return res.status(400).json({
+        success: false,
+        message: 'Pending COD orders cannot be deleted. They must be "cancelled" via status update.',
+      });
+    }
+
+    // Delete the order
+    await Order.findByIdAndDelete(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: "Abandoned order deleted successfully.",
+    });
+
+  } catch (error) {
+    console.error("Delete abandoned order error:", error);
+
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting order",
+      error: error.message,
+    });
+  }
 };
