@@ -100,7 +100,7 @@ const orderSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  
+
   razorpayOrderId: {
     type: String
   },
@@ -116,10 +116,10 @@ const orderSchema = new mongoose.Schema({
     default: 'pending'
   },
   paymentMethod: {
-    type: String,
-    enum: ['card', 'upi', 'netbanking', 'wallet', 'emi'],
-    default: 'card'
-  },
+    type: String,
+    enum: ['card', 'upi', 'netbanking', 'wallet', 'emi', 'razorpay', 'COD'], // <-- ✅ FIX
+    required: true // It's better to make this required
+  },
 
   orderStatus: {
     type: String,

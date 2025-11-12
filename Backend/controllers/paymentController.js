@@ -1,6 +1,11 @@
 import razorpay from '../config/razorpay.js';
 import Order from '../models/orderModel.js';
+import User from '../models/userModel.js';
+import Product from '../models/productModel.js'; // 1. Import Product
 import crypto from 'crypto';
+import mongoose from 'mongoose';
+import { createInvoice } from '../utils/createInvoice.js'; // 2. Import utils
+import { sendEmail } from '../utils/sendEmail.js';
 
 // @desc    Create Razorpay order
 // @route   POST /api/v1/payments/create-order
@@ -9,7 +14,6 @@ export const createRazorpayOrder = async (req, res) => {
   try {
     const { orderId, amount, currency = 'INR' } = req.body;
 
-    // Validate order exists and belongs to user
     const order = await Order.findOne({ 
       _id: orderId, 
       user: req.user.id 
@@ -22,7 +26,6 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    // Create Razorpay order
     const options = {
       amount: Math.round(amount * 100), // Convert to paise
       currency,
@@ -35,7 +38,6 @@ export const createRazorpayOrder = async (req, res) => {
 
     const razorpayOrder = await razorpay.orders.create(options);
 
-    // Update order with Razorpay order ID
     order.razorpayOrderId = razorpayOrder.id;
     await order.save();
 
@@ -63,7 +65,7 @@ export const createRazorpayOrder = async (req, res) => {
 // @route   POST /api/v1/payments/verify-payment
 // @access  Private
 export const verifyPayment = async (req, res) => {
-  const session = await Order.startSession();
+  const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
@@ -74,7 +76,7 @@ export const verifyPayment = async (req, res) => {
       orderId 
     } = req.body;
 
-    // Verify the order belongs to the user
+    // 1. Find the order
     const order = await Order.findOne({ 
       _id: orderId, 
       user: req.user.id 
@@ -89,7 +91,7 @@ export const verifyPayment = async (req, res) => {
       });
     }
 
-    // Verify payment signature
+    // 2. Verify payment signature
     const generatedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
@@ -99,9 +101,8 @@ export const verifyPayment = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       
-      // Update order status to failed
       order.paymentStatus = 'failed';
-      await order.save();
+      await order.save(); // Save outside transaction
       
       return res.status(400).json({
         success: false,
@@ -109,25 +110,76 @@ export const verifyPayment = async (req, res) => {
       });
     }
 
-    // Payment successful - update order
+    // --- 💡 START OF FIX ---
+    // Payment is successful!
+    // Now we do all the steps that orderController used to do.
+
+    // 3. Update Order
     order.razorpayOrderId = razorpay_order_id;
     order.razorpayPaymentId = razorpay_payment_id;
     order.razorpaySignature = razorpay_signature;
     order.paymentStatus = 'paid';
-    order.orderStatus = 'confirmed';
+    order.orderStatus = 'confirmed'; // Mark order as confirmed
     
-    // Add shipping update
     order.shippingUpdates.push({
       message: 'Payment received. Order confirmed and being processed.',
       timestamp: new Date()
     });
 
     await order.save({ session });
+
+    // 4. Update Product Stock
+    for (const item of order.items) {
+      await Product.findByIdAndUpdate(
+        item.product,
+        { $inc: { stock: -item.quantity } },
+        { session }
+      );
+    }
+
+    // 5. Clear User's Cart
+    await User.findOneAndUpdate(
+      { _id: req.user.id },
+      { $set: { cart: [] } },
+      { session }
+    );
+    // --- 💡 END OF FIX ---
+
+    // 6. Commit the transaction
     await session.commitTransaction();
     session.endSession();
 
-    // Send confirmation email (you can reuse your email function here)
-    // await sendOrderConfirmationEmail(order);
+    // 7. Send confirmation email (outside the transaction)
+    try {
+      const populatedOrder = await Order.findById(order._id)
+        .populate('user', 'name email')
+        .populate('couponApplied', 'code discountType discountValue');
+
+      const invoiceBuffer = await createInvoice(populatedOrder);
+      
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Thank you for your order!</h2>
+          <p>Dear ${populatedOrder.user.name},</p>
+          <p>Your payment was successful and your order <strong>#${populatedOrder.orderNumber}</strong> has been confirmed.</p>
+        </div>
+      `;
+
+      await sendEmail(
+        populatedOrder.user.email,
+        `Order Confirmation - #${populatedOrder.orderNumber}`,
+        emailHtml,
+        [
+          {
+            filename: `invoice-${populatedOrder.orderNumber}.pdf`,
+            content: invoiceBuffer
+          }
+        ]
+      );
+    } catch (emailError) {
+      console.error('Error sending payment confirmation email:', emailError);
+      // Do not fail the request if email fails
+    }
 
     res.json({
       success: true,
@@ -171,14 +223,14 @@ export const handlePaymentFailure = async (req, res) => {
       });
     }
 
-    // Update order status
-    order.paymentStatus = 'failed';
-    order.shippingUpdates.push({
-      message: `Payment failed: ${error.description || 'Unknown error'}`,
-      timestamp: new Date()
-    });
-
-    await order.save();
+    if (order.paymentStatus === 'pending') {
+      order.paymentStatus = 'failed';
+      order.shippingUpdates.push({
+        message: `Payment failed or was cancelled by user: ${error.description || 'User closed modal'}`,
+        timestamp: new Date()
+      });
+      await order.save();
+    }
 
     res.json({
       success: true,

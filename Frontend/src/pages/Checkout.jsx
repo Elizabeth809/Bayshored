@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/others/LoadingSpinner';
 import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
-import { 
-  CreditCard, 
-  Truck, 
-  Shield, 
+import {
+  CreditCard,
+  Truck,
+  Shield,
   ArrowLeft,
   MapPin,
   Plus,
@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Star
 } from 'lucide-react';
+import { usePayment } from '../context/PaymentContext';
 
 const Checkout = () => {
   const [cart, setCart] = useState(null);
@@ -170,18 +171,18 @@ const Checkout = () => {
       if (data.success) {
         const newAddresses = data.data;
         setAddresses(newAddresses);
-        
+
         // Find and select the newly added address
-        const addedAddress = newAddresses.find(addr => 
-          addr.flatNo === newAddress.flatNo && 
+        const addedAddress = newAddresses.find(addr =>
+          addr.flatNo === newAddress.flatNo &&
           addr.street === newAddress.street &&
           addr.phoneNo === newAddress.phoneNo
         );
-        
+
         if (addedAddress) {
           setSelectedAddress(addedAddress._id);
         }
-        
+
         setShowNewAddress(false);
         setNewAddress({
           flatNo: '',
@@ -203,53 +204,34 @@ const Checkout = () => {
     }
   };
 
+  const { initiatePayment, loading: paymentLoading, paymentError } = usePayment();
+
+  // Replace the existing handlePlaceOrder function
   const handlePlaceOrder = async () => {
-    // Validate address selection
     if (!selectedAddress && !showNewAddress) {
       alert('Please select a shipping address');
       return;
     }
 
-    // Validate new address if showing form
-    if (showNewAddress) {
-      const { flatNo, street, city, state, zipCode, phoneNo } = newAddress;
-      if (!flatNo || !street || !city || !state || !zipCode || !phoneNo) {
-        alert('Please fill all address fields');
-        return;
-      }
-    }
-
-    // Validate payment method
-    if (!paymentMethod) {
-      alert('Please select a payment method');
+    if (showNewAddress && (!newAddress.flatNo || !newAddress.street || !newAddress.city || !newAddress.state || !newAddress.zipCode || !newAddress.phoneNo)) {
+      alert('Please fill all address fields');
       return;
     }
 
     setPlacingOrder(true);
     try {
-      let shippingAddress;
-      
-      if (showNewAddress) {
-        // Use the new address from form
-        shippingAddress = newAddress;
-      } else {
-        // Find the selected address from saved addresses
-        const selectedAddr = addresses.find(addr => addr._id === selectedAddress);
-        if (!selectedAddr) {
-          alert('Selected address not found');
-          return;
-        }
-        shippingAddress = selectedAddr;
-      }
+      const shippingAddress = showNewAddress
+        ? newAddress
+        : addresses.find(addr => addr._id === selectedAddress);
 
       const orderData = {
         shippingAddress,
         couponCode: appliedCoupon?.coupon?.code || '',
-        paymentMethod: paymentMethod,
+        paymentMethod: 'razorpay', // Change to razorpay
         notes: ''
       };
 
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders`, {
+      const response = await fetch('http://localhost:5000/api/v1/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,18 +243,11 @@ const Checkout = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Clear applied coupon after successful order
-        localStorage.removeItem('appliedCoupon');
-        setAppliedCoupon(null);
-        setCouponCode('');
-        
+        // Update cart count
         updateCartCount(0);
-        navigate('/profile', {
-          state: {
-            message: 'Order placed successfully! Check your email for the invoice.',
-            orderId: data.data._id
-          }
-        });
+
+        // Initiate payment instead of redirecting
+        await initiatePayment(data.data);
       } else {
         alert(data.message || 'Failed to place order');
       }
@@ -283,6 +258,87 @@ const Checkout = () => {
       setPlacingOrder(false);
     }
   };
+
+  // const handlePlaceOrder = async () => {
+  //   // Validate address selection
+  //   if (!selectedAddress && !showNewAddress) {
+  //     alert('Please select a shipping address');
+  //     return;
+  //   }
+
+  //   // Validate new address if showing form
+  //   if (showNewAddress) {
+  //     const { flatNo, street, city, state, zipCode, phoneNo } = newAddress;
+  //     if (!flatNo || !street || !city || !state || !zipCode || !phoneNo) {
+  //       alert('Please fill all address fields');
+  //       return;
+  //     }
+  //   }
+
+  //   // Validate payment method
+  //   if (!paymentMethod) {
+  //     alert('Please select a payment method');
+  //     return;
+  //   }
+
+  //   setPlacingOrder(true);
+  //   try {
+  //     let shippingAddress;
+
+  //     if (showNewAddress) {
+  //       // Use the new address from form
+  //       shippingAddress = newAddress;
+  //     } else {
+  //       // Find the selected address from saved addresses
+  //       const selectedAddr = addresses.find(addr => addr._id === selectedAddress);
+  //       if (!selectedAddr) {
+  //         alert('Selected address not found');
+  //         return;
+  //       }
+  //       shippingAddress = selectedAddr;
+  //     }
+
+  //     const orderData = {
+  //       shippingAddress,
+  //       couponCode: appliedCoupon?.coupon?.code || '',
+  //       paymentMethod: paymentMethod,
+  //       notes: ''
+  //     };
+
+  //     const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': `Bearer ${token}`
+  //       },
+  //       body: JSON.stringify(orderData)
+  //     });
+
+  //     const data = await response.json();
+
+  //     if (data.success) {
+  //       // Clear applied coupon after successful order
+  //       localStorage.removeItem('appliedCoupon');
+  //       setAppliedCoupon(null);
+  //       setCouponCode('');
+
+  //       updateCartCount(0);
+  //       navigate('/profile', {
+  //         state: {
+  //           message: 'Order placed successfully! Check your email for the invoice.',
+  //           orderId: data.data._id
+  //         }
+  //       });
+  //     } else {
+  //       alert(data.message || 'Failed to place order');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error placing order:', error);
+  //     alert('Failed to place order');
+  //   } finally {
+  //     setPlacingOrder(false);
+  //   }
+  // };
 
   const formatPrice = (price) => {
     if (isNaN(price) || price === null || price === undefined) {
@@ -297,7 +353,7 @@ const Checkout = () => {
   // Calculate current price for products
   const getCurrentPrice = (product) => {
     if (!product) return 0;
-    
+
     if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
       return product.discountPrice;
     }
@@ -306,14 +362,14 @@ const Checkout = () => {
 
   // Calculate shipping cost
   const shippingCost = cart && cart.total > 200 ? 0 : 15;
-  
+
   // Calculate discount amount properly for both percentage and fixed coupons
   const calculateDiscountAmount = () => {
     if (!appliedCoupon || !cart) return 0;
-    
+
     const subtotal = cart.total;
     const coupon = appliedCoupon.coupon;
-    
+
     if (coupon.discountType === 'percentage') {
       // For percentage coupons, use the discountAmount from the backend response
       return appliedCoupon.discountAmount;
@@ -443,13 +499,12 @@ const Checkout = () => {
                   {addresses.length > 0 ? (
                     <div className="!space-y-3 !mb-4">
                       {addresses.map(address => (
-                        <label 
-                          key={address._id} 
-                          className={`flex items-start !space-x-4 !p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                            selectedAddress === address._id 
-                              ? 'border-blue-500 bg-blue-50' 
+                        <label
+                          key={address._id}
+                          className={`flex items-start !space-x-4 !p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedAddress === address._id
+                              ? 'border-blue-500 bg-blue-50'
                               : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -610,11 +665,10 @@ const Checkout = () => {
                 <h2 className="text-xl font-bold text-gray-900">Payment Method</h2>
               </div>
               <div className="!space-y-3">
-                <label className={`flex items-center !space-x-4 !p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  paymentMethod === 'card' 
-                    ? 'border-purple-500 bg-purple-50' 
+                <label className={`flex items-center !space-x-4 !p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'card'
+                    ? 'border-purple-500 bg-purple-50'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}>
+                  }`}>
                   <input
                     type="radio"
                     name="payment"
@@ -630,12 +684,11 @@ const Checkout = () => {
                   </div>
                   {paymentMethod === 'card' && <Check className="w-5 h-5 text-green-500" />}
                 </label>
-                
-                <label className={`flex items-center !space-x-4 !p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  paymentMethod === 'cod' 
-                    ? 'border-purple-500 bg-purple-50' 
+
+                <label className={`flex items-center !space-x-4 !p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'cod'
+                    ? 'border-purple-500 bg-purple-50'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}>
+                  }`}>
                   <input
                     type="radio"
                     name="payment"
@@ -698,8 +751,8 @@ const Checkout = () => {
                     <Check className="w-5 h-5 text-green-500" />
                   </div>
                   <p className="text-green-700">
-                    <strong>{appliedCoupon.coupon.code}</strong> - {appliedCoupon.coupon.discountType === 'percentage' 
-                      ? `${appliedCoupon.coupon.discountValue}% OFF` 
+                    <strong>{appliedCoupon.coupon.code}</strong> - {appliedCoupon.coupon.discountType === 'percentage'
+                      ? `${appliedCoupon.coupon.discountValue}% OFF`
                       : `${formatPrice(appliedCoupon.coupon.discountValue)} OFF`}
                   </p>
                   <p className="text-green-700 font-semibold">
@@ -721,7 +774,7 @@ const Checkout = () => {
                   const currentPrice = getCurrentPrice(item.product);
                   const itemTotal = currentPrice * item.quantity;
                   const mainImage = item.product.images?.[0] || item.product.image || '/placeholder-image.jpg';
-                  
+
                   return (
                     <div key={item._id} className="flex items-center !space-x-4 !p-3 bg-gray-50 rounded-xl">
                       <img
@@ -812,20 +865,25 @@ const Checkout = () => {
               {/* Place Order Button */}
               <button
                 onClick={handlePlaceOrder}
-                disabled={placingOrder || (!selectedAddress && !showNewAddress) || !paymentMethod}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white !py-4 !px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all transform hover:scale-105 font-bold text-lg !mt-6 shadow-lg"
+                disabled={placingOrder || paymentLoading || (!selectedAddress && !showNewAddress)}
+                className="w-full bg-blue-600 text-white !py-4 !px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-semibold text-lg mt-6"
               >
-                {placingOrder ? (
+                {placingOrder || paymentLoading ? (
                   <div className="flex items-center justify-center">
-                    <LoadingSpinner size="small" className="!mr-3" />
-                    Placing Order...
+                    <LoadingSpinner size="small" className="!mr-2" />
+                    {placingOrder ? 'Creating Order...' : 'Processing Payment...'}
                   </div>
-                ) : paymentMethod === 'cod' ? (
-                  `Place COD Order • ${formatPrice(finalTotal)}`
                 ) : (
-                  `Place Order • ${formatPrice(finalTotal)}`
+                  `Pay Now • ${formatPrice(finalTotal)}`
                 )}
               </button>
+
+              {/* Add payment error display */}
+              {paymentError && (
+                <div className="!mt-4 !p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700">{paymentError}</p>
+                </div>
+              )}
 
               <div className="!mt-4 text-center">
                 <p className="text-xs text-gray-500">

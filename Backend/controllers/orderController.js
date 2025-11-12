@@ -21,7 +21,6 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Find active coupon
     const coupon = await Coupon.findOne({
       code: code.toUpperCase(),
       isActive: true,
@@ -35,7 +34,6 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Check usage limit
     if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
       return res.status(400).json({
         success: false,
@@ -43,7 +41,6 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Check minimum order amount
     if (subtotal < coupon.minOrderAmount) {
       return res.status(400).json({
         success: false,
@@ -51,13 +48,11 @@ export const applyCoupon = async (req, res) => {
       });
     }
 
-    // Calculate discount
     let discountAmount = 0;
     
     if (coupon.discountType === 'percentage') {
       discountAmount = (subtotal * coupon.discountValue) / 100;
       
-      // Apply max discount limit if set
       if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
         discountAmount = coupon.maxDiscountAmount;
       }
@@ -65,7 +60,6 @@ export const applyCoupon = async (req, res) => {
       discountAmount = coupon.discountValue;
     }
 
-    // Ensure discount doesn't exceed subtotal
     discountAmount = Math.min(discountAmount, subtotal);
 
     const finalAmount = subtotal - discountAmount;
@@ -126,7 +120,6 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Check if cart is empty
     if (user.cart.length === 0) {
       await session.abortTransaction();
       session.endSession();
@@ -157,13 +150,12 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // Calculate subtotal using mrpPrice/discountPrice
+    // Calculate subtotal
     const subtotal = user.cart.reduce((total, item) => {
       const currentPrice = getCurrentPrice(item.product);
       return total + (currentPrice * item.quantity);
     }, 0);
 
-    // Ensure subtotal is a valid number
     if (isNaN(subtotal) || subtotal < 0) {
       await session.abortTransaction();
       session.endSession();
@@ -172,7 +164,7 @@ export const createOrder = async (req, res) => {
         message: 'Invalid cart total calculation'
       });
     }
-
+    
     // Calculate shipping cost
     const shippingCost = subtotal > 200 ? 0 : 15;
 
@@ -188,7 +180,6 @@ export const createOrder = async (req, res) => {
       }).session(session);
 
       if (coupon) {
-        // Check usage limit
         if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
           await session.abortTransaction();
           session.endSession();
@@ -197,8 +188,6 @@ export const createOrder = async (req, res) => {
             message: 'Coupon usage limit reached'
           });
         }
-
-        // Check minimum order amount
         if (subtotal < coupon.minOrderAmount) {
           await session.abortTransaction();
           session.endSession();
@@ -207,21 +196,15 @@ export const createOrder = async (req, res) => {
             message: `Minimum order amount of $${coupon.minOrderAmount} required for this coupon`
           });
         }
-
-        // Calculate discount
         if (coupon.discountType === 'percentage') {
           discountAmount = (subtotal * coupon.discountValue) / 100;
-          
           if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
             discountAmount = coupon.maxDiscountAmount;
           }
         } else {
           discountAmount = coupon.discountValue;
         }
-
         discountAmount = Math.min(discountAmount, subtotal);
-
-        // Increment coupon usage
         coupon.usedCount += 1;
         await coupon.save({ session });
       }
@@ -229,7 +212,6 @@ export const createOrder = async (req, res) => {
 
     const totalAmount = subtotal + shippingCost - discountAmount;
 
-    // Ensure totalAmount is valid
     if (isNaN(totalAmount) || totalAmount < 0) {
       await session.abortTransaction();
       session.endSession();
@@ -239,13 +221,13 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Prepare order items with priceAtOrder
+    // Prepare order items
     const orderItems = user.cart.map(item => {
       const currentPrice = getCurrentPrice(item.product);
       return {
         product: item.product._id,
         quantity: item.quantity,
-        priceAtOrder: currentPrice, // Use current price at order time
+        priceAtOrder: currentPrice,
         name: item.product.name,
         image: item.product.images?.[0] || item.product.image,
         author: item.product.author?.name || 'Unknown Artist',
@@ -271,7 +253,8 @@ export const createOrder = async (req, res) => {
       discountAmount,
       totalAmount,
       paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
+      orderStatus: paymentMethod === 'COD' ? 'confirmed' : 'pending',
+      paymentStatus: 'pending', // Always pending at creation
       notes,
       shippingUpdates: [{
         message: 'Order placed successfully',
@@ -282,76 +265,69 @@ export const createOrder = async (req, res) => {
     const order = new Order(orderData);
     await order.save({ session });
 
-    // Update product stock
-    for (const item of user.cart) {
-      await Product.findByIdAndUpdate(
-        item.product._id,
-        { $inc: { stock: -item.quantity } },
-        { session }
-      );
-    }
+    // --- 💡 FIX ---
+    // Only update stock and clear cart if it's a COD order
+    if (paymentMethod === 'COD') {
+      
+      // Update product stock
+      for (const item of user.cart) {
+        await Product.findByIdAndUpdate(
+          item.product._id,
+          { $inc: { stock: -item.quantity } },
+          { session }
+        );
+      }
 
-    // Clear user's cart
-    user.cart = [];
-    await user.save({ session });
+      // Clear user's cart
+      user.cart = [];
+      await user.save({ session });
+    }
+    // --- 💡 END OF FIX ---
 
     await session.commitTransaction();
     session.endSession();
 
-    // Populate order details
-    const populatedOrder = await Order.findById(order._id)
-      .populate('user', 'name email')
-      .populate('couponApplied', 'code discountType discountValue');
+    // --- 💡 FIX ---
+    // Only send the invoice email if it's a COD order
+    if (paymentMethod === 'COD') {
+      try {
+        const populatedOrder = await Order.findById(order._id)
+          .populate('user', 'name email')
+          .populate('couponApplied', 'code discountType discountValue');
 
-    // Generate and send invoice
-    try {
-      const invoiceBuffer = await createInvoice(populatedOrder);
-      
-      const emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Thank you for your order!</h2>
-          <p>Dear ${populatedOrder.user.name},</p>
-          <p>Your order <strong>#${populatedOrder.orderNumber}</strong> has been received and is being processed.</p>
-          
-          <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Order Summary</h3>
-            <p><strong>Items:</strong> ${populatedOrder.items.length}</p>
-            <p><strong>Total Amount:</strong> $${populatedOrder.totalAmount.toFixed(2)}</p>
-            <p><strong>Shipping Address:</strong> ${populatedOrder.shippingAddress.street}, ${populatedOrder.shippingAddress.city}, ${populatedOrder.shippingAddress.state} ${populatedOrder.shippingAddress.zipCode}</p>
+        const invoiceBuffer = await createInvoice(populatedOrder);
+        
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Thank you for your order!</h2>
+            <p>Dear ${populatedOrder.user.name},</p>
+            <p>Your order <strong>#${populatedOrder.orderNumber}</strong> has been received and is being processed.</p>
+            <p><strong>Payment Method:</strong> Cash on Delivery (COD)</p>
+            <p>Please keep $${populatedOrder.totalAmount.toFixed(2)} ready.</p>
           </div>
-          
-          <p>You can track your order status from your account dashboard.</p>
-          <p>Thank you for choosing MERN Art Gallery!</p>
-          
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #666; font-size: 12px;">
-            MERN ART GALLERY<br>
-            123 Art Street, Creative District, Mumbai, Maharashtra 400001<br>
-            Email: support@mernart.com | Phone: +91 9876543210
-          </p>
-        </div>
-      `;
+        `;
 
-      await sendEmail(
-        populatedOrder.user.email,
-        `Order Confirmation - #${populatedOrder.orderNumber}`,
-        emailHtml,
-        [
-          {
-            filename: `invoice-${populatedOrder.orderNumber}.pdf`,
-            content: invoiceBuffer
-          }
-        ]
-      );
-    } catch (emailError) {
-      console.error('Error sending invoice email:', emailError);
-      // Don't fail the order if email fails
+        await sendEmail(
+          populatedOrder.user.email,
+          `Order Confirmation - #${populatedOrder.orderNumber}`,
+          emailHtml,
+          [
+            {
+              filename: `invoice-${populatedOrder.orderNumber}.pdf`,
+              content: invoiceBuffer
+            }
+          ]
+        );
+      } catch (emailError) {
+        console.error('Error sending COD invoice email:', emailError);
+      }
     }
+    // --- 💡 END OF FIX ---
 
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
-      data: populatedOrder
+      data: order // Send back the pending order
     });
 
   } catch (error) {
@@ -418,7 +394,6 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    // Check if user owns the order or is admin
     if (order.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -554,14 +529,12 @@ export const getAllOrdersAdmin = async (req, res) => {
       sortBy = 'createdAt_desc' 
     } = req.query;
     
-    // Build filter object
     const filter = {};
     
     if (status && status !== 'all') {
       filter.orderStatus = status;
     }
 
-    // Search by order number or customer name/email
     if (search) {
       const users = await User.find({
         $or: [
@@ -574,7 +547,6 @@ export const getAllOrdersAdmin = async (req, res) => {
       filter.user = { $in: userIds };
     }
 
-    // Sort options
     const sortOptions = {};
     switch (sortBy) {
       case 'totalAmount_asc':
@@ -599,7 +571,6 @@ export const getAllOrdersAdmin = async (req, res) => {
 
     const total = await Order.countDocuments(filter);
 
-    // Calculate summary stats
     const stats = await Order.aggregate([
       { $match: filter },
       {
@@ -696,7 +667,6 @@ export const updateOrderStatusAdmin = async (req, res) => {
     const oldStatus = order.orderStatus;
     order.orderStatus = orderStatus;
     
-    // Add automatic shipping update when status changes
     const statusMessages = {
       confirmed: 'Order has been confirmed and is being prepared for processing',
       processing: 'Order is being processed and prepared for shipment',

@@ -22,71 +22,74 @@ import VirtualGallery from './pages/VirtualGallery';
 import Authors from './pages/author/Authors';
 import AuthorDetail from './pages/author/AuthorDetail';
 import Orders from './pages/Orders';
+import { PaymentProvider } from './context/PaymentContext';
 
 function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <Router>
-          <Header />
-          <div className="min-h-screen bg-gray-50">
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/verify-otp" element={<VerifyOtp />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/store" element={<Store />} />
-              <Route path="/product/:slug" element={<ProductDetail />} />
-              <Route path="/virtual-gallery" element={<VirtualGallery />} />
-              <Route path="/artists" element={<Authors />} /> {/* <-- Add Authors Route */}
-              <Route path="/artist/:authorId" element={<AuthorDetail />} /> {/* <-- Add Author Detail Route */}
+          <PaymentProvider>
+            <Header />
+            <div className="min-h-screen bg-gray-50">
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/verify-otp" element={<VerifyOtp />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/store" element={<Store />} />
+                <Route path="/product/:slug" element={<ProductDetail />} />
+                <Route path="/virtual-gallery" element={<VirtualGallery />} />
+                <Route path="/artists" element={<Authors />} /> {/* <-- Add Authors Route */}
+                <Route path="/artist/:authorId" element={<AuthorDetail />} /> {/* <-- Add Author Detail Route */}
 
-              {/* Protected Routes */}
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/cart"
-                element={
-                  <ProtectedRoute>
-                    <Cart />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/wishlist"
-                element={
-                  <ProtectedRoute>
-                    <Wishlist />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/checkout"
-                element={
-                  <ProtectedRoute>
-                    <Checkout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/orders"
-                element={
-                  <ProtectedRoute>
-                    <Orders />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </div>
+                {/* Protected Routes */}
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/cart"
+                  element={
+                    <ProtectedRoute>
+                      <Cart />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/wishlist"
+                  element={
+                    <ProtectedRoute>
+                      <Wishlist />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/checkout"
+                  element={
+                    <ProtectedRoute>
+                      <Checkout />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/orders"
+                  element={
+                    <ProtectedRoute>
+                      <Orders />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </div>
+          </PaymentProvider>
         </Router>
       </CartProvider>
     </AuthProvider>
