@@ -4,7 +4,7 @@ import Product from "../models/productModel.js";
 import Category from "../models/categoryModel.js";
 import Author from "../models/authorModel.js";
 import Coupon from "../models/couponModel.js";
-import Subscriber from "../models/subscriberModel.js"; // Import Subscriber model
+import Subscriber from "../models/subscriberModel.js";
 
 // @desc    Get dashboard statistics
 // @route   GET /api/v1/dashboard
@@ -19,13 +19,40 @@ export const getDashboardStats = async (req, res) => {
       now.getMonth() - 1,
       1
     );
-    const currentYearStart = new Date(now.getFullYear(), 0, 1);
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+    // --- 💡 FIX 1: Filter object for $match (queries) ---
+    const successfulOrderFilter = {
+      $or: [
+        { paymentStatus: "paid" },
+        { 
+          $and: [
+            { paymentMethod: "COD" },
+            { orderStatus: { $ne: "cancelled" } }
+          ]
+        }
+      ]
+    };
+
+    // --- 💡 FIX 2: Expression for $cond (aggregations) ---
+    const successfulOrderCond = {
+      $or: [
+        { $eq: ["$paymentStatus", "paid"] },
+        { 
+          $and: [
+            { $eq: ["$paymentMethod", "COD"] },
+            { $ne: ["$orderStatus", "cancelled"] }
+          ]
+        }
+      ]
+    };
 
     // Execute all aggregations in parallel
     const [
       totalStats,
       monthlySales,
       recentOrders,
+      recentSubscribers,
       topProducts,
       userRegistrations,
       couponStats,
@@ -37,73 +64,125 @@ export const getDashboardStats = async (req, res) => {
           {
             $group: {
               _id: null,
-              totalRevenue: { $sum: "$totalAmount" },
+              // Total Revenue
+              totalRevenue: {
+                // --- 💡 FIX 3: Use the correct 'cond' variable ---
+                $sum: {
+                  $cond: [ successfulOrderCond, "$totalAmount", 0 ]
+                }
+              },
+              // Total "Successful" Orders
+              totalSuccessfulOrders: {
+                // --- 💡 FIX 4: Use the correct 'cond' variable ---
+                $sum: {
+                  $cond: [ successfulOrderCond, 1, 0 ]
+                }
+              },
+              // Total Pending Amount
+              totalPendingAmount: {
+                $sum: {
+                  $cond: [
+                    { $and: [
+                        { $eq: ["$paymentStatus", "pending"] },
+                        { $ne: ["$paymentMethod", "COD"] }
+                    ]},
+                    "$totalAmount", 0
+                  ]
+                }
+              },
+              // Total Failed Amount
+              totalFailedAmount: {
+                $sum: {
+                  $cond: [ { $eq: ["$paymentStatus", "failed"] }, "$totalAmount", 0 ]
+                }
+              },
+              // Total Orders (all)
               totalOrders: { $sum: 1 },
-              averageOrderValue: { $avg: "$totalAmount" },
-            },
+            }
           },
+          {
+            $project: {
+              _id: 0,
+              totalRevenue: 1,
+              totalSuccessfulOrders: 1,
+              totalPendingAmount: 1,
+              totalFailedAmount: 1,
+              totalOrders: 1,
+              averageOrderValue: {
+                $cond: [
+                  { $eq: ["$totalSuccessfulOrders", 0] },
+                  0,
+                  { $divide: ["$totalRevenue", "$totalSuccessfulOrders"] }
+                ]
+              }
+            }
+          }
         ]),
         User.countDocuments(),
         Product.countDocuments(),
         Category.countDocuments(),
         Author.countDocuments(),
         Order.aggregate([
-          { $match: { createdAt: { $gte: currentMonthStart } } },
-          {
-            $group: {
+          // Use 'filter' variable for $match
+          { $match: { 
+              createdAt: { $gte: currentMonthStart },
+              ...successfulOrderFilter
+          } },
+          { $group: {
               _id: null,
               monthlyRevenue: { $sum: "$totalAmount" },
               monthlyOrders: { $sum: 1 },
-            },
-          },
+          } },
         ]),
         Order.aggregate([
-          {
-            $match: {
+          // Use 'filter' variable for $match
+          { $match: { 
               createdAt: { $gte: previousMonthStart, $lt: currentMonthStart },
-            },
-          },
-          {
-            $group: {
+              ...successfulOrderFilter
+          } },
+          { $group: {
               _id: null,
               previousMonthRevenue: { $sum: "$totalAmount" },
               previousMonthOrders: { $sum: 1 },
-            },
-          },
+          } },
         ]),
       ]),
 
       // Monthly Sales Data (Last 6 months)
       Order.aggregate([
-        {
-          $match: {
-            createdAt: {
-              $gte: new Date(now.getFullYear(), now.getMonth() - 5, 1),
-            },
-          },
-        },
-        {
-          $group: {
+        // Use 'filter' variable for $match
+        { $match: { 
+            createdAt: { $gte: sixMonthsAgo },
+            ...successfulOrderFilter
+        } },
+        { $group: {
             _id: {
               year: { $year: "$createdAt" },
               month: { $month: "$createdAt" },
             },
             revenue: { $sum: "$totalAmount" },
             orders: { $sum: 1 },
-          },
-        },
+        } },
         { $sort: { "_id.year": 1, "_id.month": 1 } },
       ]),
 
-      // Recent Orders (Last 10)
-      Order.find()
+      // Recent Orders (Last 5 successful)
+      // Use 'filter' variable for find()
+      Order.find(successfulOrderFilter)
         .populate("user", "name email")
         .sort({ createdAt: -1 })
-        .limit(10)
+        .limit(5)
         .select("orderNumber user totalAmount orderStatus createdAt"),
+      
+      // Recent Subscribers (Last 5)
+      Subscriber.find({ isActive: true })
+        .sort({ subscribedAt: -1 })
+        .limit(5)
+        .select("email subscribedAt"),
 
-      // Top Selling Products - FIXED: using images array
+      // Top Selling Products
       Order.aggregate([
+        { $match: successfulOrderFilter }, // Use 'filter' variable for $match
         { $unwind: "$items" },
         {
           $group: {
@@ -137,13 +216,7 @@ export const getDashboardStats = async (req, res) => {
 
       // User Registrations (Last 6 months)
       User.aggregate([
-        {
-          $match: {
-            createdAt: {
-              $gte: new Date(now.getFullYear(), now.getMonth() - 5, 1),
-            },
-          },
-        },
+        { $match: { createdAt: { $gte: sixMonthsAgo } } },
         {
           $group: {
             _id: {
@@ -165,11 +238,8 @@ export const getDashboardStats = async (req, res) => {
             activeCoupons: {
               $sum: {
                 $cond: [
-                  {
-                    $and: ["$isActive", { $gt: ["$expiryDate", new Date()] }],
-                  },
-                  1,
-                  0,
+                  { $and: ["$isActive", { $gt: ["$expiryDate", new Date()] }] },
+                  1, 0,
                 ],
               },
             },
@@ -178,32 +248,23 @@ export const getDashboardStats = async (req, res) => {
         },
       ]),
 
-      // Subscriber Statistics - FIXED: Proper implementation
+      // Subscriber Statistics
       Promise.all([
-        // Total subscribers
         Subscriber.countDocuments({ isActive: true }),
-
         Subscriber.countDocuments({
           isActive: true,
           subscribedAt: { $gte: currentMonthStart },
         }),
-
-        // Subscriber growth data for charts (last 6 months)
         Subscriber.aggregate([
-          {
-            $match: {
+          { $match: { 
               isActive: true,
-              subscribedAt: {
-                // Changed to subscribedAt
-                $gte: new Date(now.getFullYear(), now.getMonth() - 5, 1),
-              },
-            },
-          },
+              subscribedAt: { $gte: sixMonthsAgo }
+          } },
           {
             $group: {
               _id: {
-                year: { $year: "$subscribedAt" }, // Change this
-                month: { $month: "$subscribedAt" }, // Change this
+                year: { $year: "$subscribedAt" },
+                month: { $month: "$subscribedAt" },
               },
               count: { $sum: 1 },
             },
@@ -228,9 +289,14 @@ export const getDashboardStats = async (req, res) => {
     const [totalSubscribers, newSubscribersThisMonth, subscriberGrowthData] =
       subscriberStats;
 
-    const totalRevenue = orderStats[0]?.totalRevenue || 0;
-    const totalOrders = orderStats[0]?.totalOrders || 0;
-    const averageOrderValue = orderStats[0]?.averageOrderValue || 0;
+    const orderStatsData = orderStats[0] || {};
+    const totalRevenue = orderStatsData.totalRevenue || 0;
+    const totalOrders = orderStatsData.totalOrders || 0;
+    const totalSuccessfulOrders = orderStatsData.totalSuccessfulOrders || 0;
+    const averageOrderValue = orderStatsData.averageOrderValue || 0;
+    const totalPendingAmount = orderStatsData.totalPendingAmount || 0;
+    const totalFailedAmount = orderStatsData.totalFailedAmount || 0;
+    
     const monthlyRevenue = currentMonthStats[0]?.monthlyRevenue || 0;
     const monthlyOrders = currentMonthStats[0]?.monthlyOrders || 0;
     const previousMonthRevenue =
@@ -241,23 +307,21 @@ export const getDashboardStats = async (req, res) => {
     const revenueGrowth =
       previousMonthRevenue > 0
         ? ((monthlyRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
-        : 0;
+        : (monthlyRevenue > 0 ? 100 : 0);
 
     const ordersGrowth =
       previousMonthOrders > 0
         ? ((monthlyOrders - previousMonthOrders) / previousMonthOrders) * 100
-        : 0;
+        : (monthlyOrders > 0 ? 100 : 0);
 
     // Process monthly sales data
     const monthlySalesData = Array.from({ length: 6 }, (_, i) => {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
-
       const monthData = monthlySales.find(
         (m) => m._id.year === year && m._id.month === month
       );
-
       return {
         month: date.toLocaleString("default", { month: "short" }),
         revenue: monthData?.revenue || 0,
@@ -270,11 +334,9 @@ export const getDashboardStats = async (req, res) => {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
-
       const monthData = userRegistrations.find(
         (m) => m._id.year === year && m._id.month === month
       );
-
       return {
         month: date.toLocaleString("default", { month: "short" }),
         users: monthData?.count || 0,
@@ -286,11 +348,9 @@ export const getDashboardStats = async (req, res) => {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
-
       const monthData = subscriberGrowthData.find(
         (m) => m._id.year === year && m._id.month === month
       );
-
       return {
         month: date.toLocaleString("default", { month: "short" }),
         subscribers: monthData?.count || 0,
@@ -310,6 +370,9 @@ export const getDashboardStats = async (req, res) => {
         overview: {
           totalRevenue,
           totalOrders,
+          totalSuccessfulOrders,
+          totalPendingAmount,
+          totalFailedAmount,
           totalUsers,
           totalProducts,
           totalCategories,
@@ -330,6 +393,7 @@ export const getDashboardStats = async (req, res) => {
         recent: {
           orders: recentOrders,
           products: topProducts,
+          subscribers: recentSubscribers,
         },
         coupons: couponData,
         subscribers: {

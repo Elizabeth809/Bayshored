@@ -26,7 +26,10 @@ import {
   DollarSign,
   ShoppingCart,
   Award,
-  Star
+  Star,
+  UserPlus,      // Icon for new subscriber
+  Bell,          // Icon for activity feed
+  AlertCircle    // Icon for failed payments
 } from 'lucide-react';
 
 // Register ChartJS components
@@ -41,6 +44,100 @@ ChartJS.register(
   Legend,
   ArcElement
 );
+
+// --- New Activity Feed Component ---
+const ActivityFeed = ({ orders, subscribers, formatPrice, formatDate }) => {
+  const [feed, setFeed] = useState([]);
+
+  useEffect(() => {
+    // Combine orders and subscribers into one feed
+    const orderFeed = orders.map(order => ({
+      type: 'order',
+      date: order.createdAt,
+      data: order
+    }));
+
+    const subscriberFeed = subscribers.map(sub => ({
+      type: 'subscriber',
+      date: sub.subscribedAt,
+      data: sub
+    }));
+
+    // Combine, sort by date (newest first), and take top 10
+    const combinedFeed = [...orderFeed, ...subscriberFeed]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+      
+    setFeed(combinedFeed);
+  }, [orders, subscribers]);
+
+  const renderItem = (item) => {
+    if (item.type === 'order') {
+      return (
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+            <ShoppingCart className="w-5 h-5 text-green-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              New Order: #{item.data.orderNumber}
+            </p>
+            <p className="text-sm text-gray-500 truncate">
+              By {item.data.user?.name || 'Unknown'} for {formatPrice(item.data.totalAmount)}
+            </p>
+          </div>
+          <div className="text-xs text-gray-400 whitespace-nowrap">
+            {formatDate(item.date, true)}
+          </div>
+        </div>
+      );
+    }
+
+    if (item.type === 'subscriber') {
+      return (
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <UserPlus className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              New Subscriber
+            </p>
+            <p className="text-sm text-gray-500 truncate">
+              {item.data.email}
+            </p>
+          </div>
+          <div className="text-xs text-gray-400 whitespace-nowrap">
+            {formatDate(item.date, true)}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
+      <div className="flex items-center justify-between !mb-6">
+        <h3 className="text-xl font-bold text-gray-900">Recent Activity</h3>
+        <Bell className="w-5 h-5 text-blue-600" />
+      </div>
+      <div className="!space-y-4 max-h-96 overflow-y-auto">
+        {feed.length > 0 ? (
+          feed.map((item, index) => (
+            <div key={index} className="!p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+              {renderItem(item)}
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-gray-500 text-center !py-4">No recent activity.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+// --- End of New Component ---
+
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -91,6 +188,23 @@ const Dashboard = () => {
 
   const formatNumber = (num) => {
     return new Intl.NumberFormat('en-US').format(num);
+  };
+
+  // Helper for formatting date in feed
+  const formatFeedDate = (dateString, simple = false) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.round((now - date) / (1000 * 60)); // minutes ago
+
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff}m ago`;
+    if (diff < 1440) return `${Math.round(diff / 60)}h ago`;
+    if (simple) return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   if (loading) {
@@ -183,7 +297,7 @@ const Dashboard = () => {
       },
       title: {
         display: true,
-        text: 'Sales Overview (Last 6 Months)',
+        text: 'Successful Sales Overview (Last 6 Months)',
         font: {
           size: 16,
           weight: 'bold'
@@ -347,20 +461,20 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Main Stats Grid */}
+        {/* --- Main Stats Grid (UPDATED) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Total Revenue"
             value={formatPrice(overview.totalRevenue)}
-            subtitle="All time revenue"
+            subtitle="Successful orders"
             icon={<DollarSign className="w-6 h-6" />}
             trend={monthly.revenueGrowth}
             color="blue"
           />
           <StatCard
-            title="Total Orders"
-            value={formatNumber(overview.totalOrders)}
-            subtitle="All time orders"
+            title="Successful Orders"
+            value={formatNumber(overview.totalSuccessfulOrders)}
+            subtitle="Paid & COD orders"
             icon={<ShoppingCart className="w-6 h-6" />}
             trend={monthly.ordersGrowth}
             color="green"
@@ -373,16 +487,23 @@ const Dashboard = () => {
             color="purple"
           />
           <StatCard
+            title="Failed Payments"
+            value={formatPrice(overview.totalFailedAmount)}
+            subtitle="Abandoned checkouts"
+            icon={<AlertCircle className="w-6 h-6" />}
+            color="rose"
+          />
+        </div>
+
+        {/* Secondary Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+           <StatCard
             title="Total Products"
             value={formatNumber(overview.totalProducts)}
             subtitle="Available artworks"
             icon={<Image className="w-6 h-6" />}
             color="orange"
           />
-        </div>
-
-        {/* Secondary Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Categories"
             value={formatNumber(overview.totalCategories)}
@@ -397,26 +518,24 @@ const Dashboard = () => {
             icon={<UserCheck className="w-6 h-6" />}
             color="pink"
           />
-          
-          {/* Coupon Stats */}
           <StatCard
-            title="Total Coupons"
-            value={formatNumber(coupons?.totalCoupons || 0)}
-            subtitle="All coupons"
-            icon={<Award className="w-6 h-6" />}
-            color="emerald"
-          />
-          <StatCard
-            title="Active Coupons"
-            value={formatNumber(coupons?.activeCoupons || 0)}
-            subtitle="Currently valid"
-            icon={<Star className="w-6 h-6" />}
-            color="amber"
+            title="Avg. Order Value"
+            value={formatPrice(overview.averageOrderValue)}
+            subtitle="Per successful order"
+            icon={<DollarSign className="w-6 h-6" />}
+            color="lime"
           />
         </div>
 
         {/* Third Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Active Coupons"
+            value={formatNumber(coupons?.activeCoupons || 0)}
+            subtitle="Currently valid"
+            icon={<Award className="w-6 h-6" />}
+            color="amber"
+          />
           <StatCard
             title="Coupon Uses"
             value={formatNumber(coupons?.totalUsage || 0)}
@@ -425,7 +544,7 @@ const Dashboard = () => {
             color="cyan"
           />
           <StatCard
-            title="Subscribers"
+            title="Total Subscribers"
             value={formatNumber(subscribers?.totalSubscribers || 0)}
             subtitle="Newsletter subscribers"
             icon={<Mail className="w-6 h-6" />}
@@ -435,101 +554,66 @@ const Dashboard = () => {
             title="New Subscribers"
             value={formatNumber(subscribers?.newThisMonth || 0)}
             subtitle="This month"
-            icon={<Users className="w-6 h-6" />}
-            color="rose"
-          />
-          <StatCard
-            title="Avg Order Value"
-            value={formatPrice(overview.averageOrderValue)}
-            subtitle="Average per order"
-            icon={<DollarSign className="w-6 h-6" />}
-            color="lime"
+            icon={<UserPlus className="w-6 h-6" />}
+            color="emerald"
           />
         </div>
 
         {/* Monthly Performance */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6 lg:col-span-2">
-            <div className="flex items-center justify-between !mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Monthly Performance</h3>
-              <div className="flex items-center !space-x-4">
-                <div className="flex items-center !space-x-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-600">Current Month</span>
-                </div>
-                <div className="flex items-center !space-x-2">
-                  <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                  <span className="text-sm text-gray-600">Previous Month</span>
-                </div>
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
+          <div className="flex items-center justify-between !mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Monthly Performance (Successful Sales)</h3>
+            <div className="flex items-center !space-x-4">
+              <div className="flex items-center !space-x-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">Current Month</span>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{formatPrice(monthly.revenue)}</div>
-                <p className="text-gray-600 !mt-1">Monthly Revenue</p>
-                <div className={`inline-flex items-center !px-3 !py-1 rounded-full text-sm font-medium !mt-2 ${
-                  monthly.revenueGrowth >= 0 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {monthly.revenueGrowth >= 0 ? '↗' : '↘'} {Math.abs(monthly.revenueGrowth).toFixed(1)}%
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{monthly.orders}</div>
-                <p className="text-gray-600 !mt-1">Monthly Orders</p>
-                <div className={`inline-flex items-center !px-3 !py-1 rounded-full text-sm font-medium !mt-2 ${
-                  monthly.ordersGrowth >= 0 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {monthly.ordersGrowth >= 0 ? '↗' : '↘'} {Math.abs(monthly.ordersGrowth).toFixed(1)}%
-                </div>
-              </div>
-            </div>
-            
-            <div className="border-t border-gray-200 !mt-6 !pt-6">
-              <div className="flex justify-between items-center">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{formatPrice(overview.averageOrderValue)}</div>
-                  <p className="text-gray-600 text-sm">Average Order Value</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{coupons?.activeCoupons || 0}</div>
-                  <p className="text-gray-600 text-sm">Active Coupons</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{subscribers?.totalSubscribers || 0}</div>
-                  <p className="text-gray-600 text-sm">Total Subscribers</p>
-                </div>
+              <div className="flex items-center !space-x-2">
+                <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                <span className="text-sm text-gray-600">Previous Month</span>
               </div>
             </div>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
-            <h3 className="text-xl font-bold text-gray-900 !mb-6">Quick Insights</h3>
-            <div className="!space-y-4">
-              <div className="flex items-center justify-between !p-3 bg-blue-50 rounded-xl">
-                <span className="text-sm font-medium text-blue-900">Conversion Rate</span>
-                <span className="text-lg font-bold text-blue-600">{(overview.totalOrders / overview.totalUsers * 100).toFixed(1)}%</span>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600">{formatPrice(monthly.revenue)}</div>
+              <p className="text-gray-600 !mt-1">Monthly Revenue</p>
+              <div className={`inline-flex items-center !px-3 !py-1 rounded-full text-sm font-medium !mt-2 ${
+                monthly.revenueGrowth >= 0 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {monthly.revenueGrowth >= 0 ? '↗' : '↘'} {Math.abs(monthly.revenueGrowth).toFixed(1)}%
               </div>
-              <div className="flex items-center justify-between !p-3 bg-green-50 rounded-xl">
-                <span className="text-sm font-medium text-green-900">Customer Value</span>
-                <span className="text-lg font-bold text-green-600">{formatPrice(overview.totalRevenue / overview.totalUsers)}</span>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-600">{monthly.orders}</div>
+              <p className="text-gray-600 !mt-1">Monthly Orders</p>
+              <div className={`inline-flex items-center !px-3 !py-1 rounded-full text-sm font-medium !mt-2 ${
+                monthly.ordersGrowth >= 0 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {monthly.ordersGrowth >= 0 ? '↗' : '↘'} {Math.abs(monthly.ordersGrowth).toFixed(1)}%
               </div>
-              <div className="flex items-center justify-between !p-3 bg-purple-50 rounded-xl">
-                <span className="text-sm font-medium text-purple-900">Inventory Items</span>
-                <span className="text-lg font-bold text-purple-600">{overview.totalProducts}</span>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-200 !mt-6 !pt-6">
+            <div className="flex justify-between items-center">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900">{formatPrice(overview.averageOrderValue)}</div>
+                <p className="text-gray-600 text-sm">Average Order Value</p>
               </div>
-              <div className="flex items-center justify-between !p-3 bg-cyan-50 rounded-xl">
-                <span className="text-sm font-medium text-cyan-900">Coupon Usage Rate</span>
-                <span className="text-lg font-bold text-cyan-600">
-                  {coupons?.totalCoupons > 0 
-                    ? Math.round((coupons.totalUsage / coupons.totalCoupons) * 100) 
-                    : 0}%
-                </span>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900">{coupons?.activeCoupons || 0}</div>
+                <p className="text-gray-600 text-sm">Active Coupons</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900">{subscribers?.totalSubscribers || 0}</div>
+                <p className="text-gray-600 text-sm">Total Subscribers</p>
               </div>
             </div>
           </div>
@@ -537,26 +621,24 @@ const Dashboard = () => {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
-            <Line data={salesChartData} options={salesChartOptions} height={300} />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6 lg:col-span-2">
+            <Line data={salesChartData} options={salesChartOptions} />
           </div>
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
-            <Bar data={usersChartData} options={usersChartOptions} height={300} />
-          </div>
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
-            <Bar data={subscribersChartData} options={subscribersChartOptions} height={300} />
+            <Bar data={usersChartData} options={usersChartOptions} />
           </div>
         </div>
-
-        {/* Recent Data & Top Products */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* --- Grid updated to 3 columns --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
           {/* Recent Orders */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
             <div className="flex items-center justify-between !mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Recent Orders</h3>
-              <span className="text-sm text-blue-600 font-medium">Last 10 orders</span>
+              <h3 className="text-xl font-bold text-gray-900">Recent Successful Orders</h3>
+              <span className="text-sm text-blue-600 font-medium">Last 5</span>
             </div>
-            <div className="!space-y-4">
+            <div className="!space-y-4 max-h-96 overflow-y-auto">
               {recent.orders.map(order => (
                 <div key={order._id} className="flex items-center justify-between !p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                   <div className="flex items-center !space-x-3">
@@ -593,7 +675,7 @@ const Dashboard = () => {
               <h3 className="text-xl font-bold text-gray-900">Top Performing Products</h3>
               <span className="text-sm text-blue-600 font-medium">By revenue</span>
             </div>
-            <div className="!space-y-4">
+            <div className="!space-y-4 max-h-96 overflow-y-auto">
               {recent.products.map((product, index) => {
                 const productImage = product.images?.[0] || '/placeholder-image.jpg';
                 return (
@@ -626,7 +708,7 @@ const Dashboard = () => {
                     </div>
                     <div className="text-right">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                        {Math.round((product.totalRevenue / recent.products.reduce((sum, p) => sum + p.totalRevenue, 0)) * 100)}%
+                        {Math.round((product.totalRevenue / recent.products.reduce((sum, p) => sum + p.totalRevenue, 1)) * 100)}%
                       </div>
                     </div>
                   </div>
@@ -634,18 +716,29 @@ const Dashboard = () => {
               })}
             </div>
           </div>
+          
+          {/* New Activity Feed Column */}
+          <ActivityFeed 
+            orders={recent.orders} 
+            subscribers={recent.subscribers} 
+            formatPrice={formatPrice} 
+            formatDate={formatFeedDate}
+          />
         </div>
 
-        {/* Top Products Chart */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
-          <div className="flex items-center justify-between !mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Product Performance Analysis</h3>
-            <span className="text-sm text-blue-600 font-medium">Revenue distribution</span>
+        {/* Top Products Chart & Subscriber Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
+            <h3 className="text-xl font-bold text-gray-900 !mb-6">Product Performance Analysis</h3>
+            <div className="h-80">
+              <Doughnut data={topProductsData} options={topProductsOptions} />
+            </div>
           </div>
-          <div className="h-80">
-            <Doughnut data={topProductsData} options={topProductsOptions} />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 !p-6">
+            <Bar data={subscribersChartData} options={subscribersChartOptions} />
           </div>
         </div>
+
       </div>
     </div>
   );
