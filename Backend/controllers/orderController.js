@@ -265,7 +265,6 @@ export const createOrder = async (req, res) => {
     const order = new Order(orderData);
     await order.save({ session });
 
-    // --- 💡 FIX ---
     // Only update stock and clear cart if it's a COD order
     if (paymentMethod === 'COD') {
       
@@ -282,12 +281,10 @@ export const createOrder = async (req, res) => {
       user.cart = [];
       await user.save({ session });
     }
-    // --- 💡 END OF FIX ---
 
     await session.commitTransaction();
     session.endSession();
 
-    // --- 💡 FIX ---
     // Only send the invoice email if it's a COD order
     if (paymentMethod === 'COD') {
       try {
@@ -322,7 +319,6 @@ export const createOrder = async (req, res) => {
         console.error('Error sending COD invoice email:', emailError);
       }
     }
-    // --- 💡 END OF FIX ---
 
     res.status(201).json({
       success: true,
@@ -358,7 +354,16 @@ export const createOrder = async (req, res) => {
 // @access  Private
 export const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user.id })
+    // This filter hides abandoned 'pending' Razorpay orders
+    const filter = {
+      user: req.user.id,
+      $or: [
+        { paymentStatus: { $ne: 'pending' } }, // Show 'paid', 'failed', 'refunded'
+        { paymentMethod: 'COD' } // Also show all 'COD' orders
+      ]
+    };
+
+    const orders = await Order.find(filter)
       .populate('couponApplied', 'code discountType discountValue')
       .sort({ createdAt: -1 });
 
@@ -502,7 +507,7 @@ export const updateOrderStatus = async (req, res) => {
     console.error("Update order status error:", error);
 
     if (error.kind === "ObjectId") {
-      return res.status(404).json({
+      return res.status(400).json({
         success: false,
         message: "Order not found",
       });
@@ -529,6 +534,7 @@ export const getAllOrdersAdmin = async (req, res) => {
       sortBy = 'createdAt_desc' 
     } = req.query;
     
+    // Build filter object
     const filter = {};
     
     if (status && status !== 'all') {
@@ -547,6 +553,7 @@ export const getAllOrdersAdmin = async (req, res) => {
       filter.user = { $in: userIds };
     }
 
+    // Sort options
     const sortOptions = {};
     switch (sortBy) {
       case 'totalAmount_asc':
@@ -571,17 +578,87 @@ export const getAllOrdersAdmin = async (req, res) => {
 
     const total = await Order.countDocuments(filter);
 
+    // --- 💡 START OF FIX ---
+    // Calculate summary stats correctly
     const stats = await Order.aggregate([
-      { $match: filter },
+      { $match: filter }, // Match the same filters as the main query
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: '$totalAmount' },
+          
+          // Total Revenue (ONLY 'paid' orders + 'COD' orders)
+          totalRevenue: {
+            $sum: {
+              $cond: [
+                { $or: [
+                    { $eq: ["$paymentStatus", "paid"] },
+                    { $eq: ["$paymentMethod", "COD"] } // Count COD as revenue
+                ]},
+                "$totalAmount",
+                0
+              ]
+            }
+          },
+          
+          // Total Pending Amount (ONLY 'pending' ONLINE orders)
+          totalPendingAmount: {
+            $sum: {
+              $cond: [
+                { $and: [
+                    { $eq: ["$paymentStatus", "pending"] },
+                    { $ne: ["$paymentMethod", "COD"] }
+                ]},
+                "$totalAmount",
+                0
+              ]
+            }
+          },
+
+          // Total Failed Amount
+          totalFailedAmount: {
+            $sum: {
+              $cond: [ { $eq: ["$paymentStatus", "failed"] }, "$totalAmount", 0 ]
+            }
+          },
+
+          // Total Orders (all)
           totalOrders: { $sum: 1 },
-          averageOrderValue: { $avg: '$totalAmount' }
+
+          // Total "Successful" Orders
+          totalSuccessfulOrders: {
+            $sum: {
+              $cond: [
+                { $or: [
+                    { $eq: ["$paymentStatus", "paid"] },
+                    { $eq: ["$paymentMethod", "COD"] }
+                ]},
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalRevenue: 1,
+          totalPendingAmount: 1,
+          totalFailedAmount: 1,
+          totalOrders: 1,
+          totalSuccessfulOrders: 1,
+          // Calculate true Average Order Value (AOV)
+          averageOrderValue: {
+            $cond: [
+              { $eq: ["$totalSuccessfulOrders", 0] },
+              0, // Avoid division by zero
+              { $divide: ["$totalRevenue", "$totalSuccessfulOrders"] }
+            ]
+          }
         }
       }
     ]);
+    // --- 💡 END OF FIX ---
 
     res.json({
       success: true,
@@ -589,7 +666,15 @@ export const getAllOrdersAdmin = async (req, res) => {
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
-      stats: stats[0] || { totalRevenue: 0, totalOrders: 0, averageOrderValue: 0 },
+      // Return the first object from the stats array, or default values
+      stats: stats[0] || { 
+        totalRevenue: 0, 
+        totalPendingAmount: 0, 
+        totalFailedAmount: 0,
+        totalOrders: 0, 
+        totalSuccessfulOrders: 0,
+        averageOrderValue: 0 
+      },
       data: orders
     });
 
@@ -816,6 +901,7 @@ export const getOrderInvoiceAdmin = async (req, res) => {
 const getCurrentPrice = (product) => {
   if (!product) return 0;
   
+  // A typo was here in your original code: mRrpPrice. Fixed to mrpPrice.
   if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
     return product.discountPrice;
   }

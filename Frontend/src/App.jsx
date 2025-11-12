@@ -23,6 +23,8 @@ import Authors from './pages/author/Authors';
 import AuthorDetail from './pages/author/AuthorDetail';
 import Orders from './pages/Orders';
 import { PaymentProvider } from './context/PaymentContext';
+import OrderSuccess from './pages/ordersStatus/OrderSuccess';
+import PaymentFailed from './pages/ordersStatus/PaymentFailed';
 
 function App() {
   return (
@@ -84,6 +86,22 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Orders />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/order-success"
+                  element={
+                    <ProtectedRoute>
+                      <OrderSuccess />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payment-failed"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentFailed />
                     </ProtectedRoute>
                   }
                 />
