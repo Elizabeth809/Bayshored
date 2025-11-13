@@ -216,13 +216,25 @@ const ProductCard = ({ product, index }) => {
     }
   };
 
-  // Helper Functions
+  // FIXED: Helper Functions - No more recursion!
   const formatPrice = (price) => {
-    if (!price) return formatPrice(0);
+    // Handle null, undefined, or invalid prices
+    if (price === null || price === undefined || isNaN(price)) {
+      return '$0.00';
+    }
+    
+    // Convert to number if it's a string
+    const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+    
+    // Handle invalid numeric values
+    if (isNaN(numericPrice)) {
+      return '$0.00';
+    }
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(price);
+    }).format(numericPrice);
   };
 
   const getDiscountPercentage = () => {
@@ -243,6 +255,9 @@ const ProductCard = ({ product, index }) => {
   const discountPercentage = getDiscountPercentage();
   const currentPrice = getCurrentPrice();
   const mainImage = product.images?.[0] || product.image || 'https://via.placeholder.com/600x600?text=Image+Not+Found';
+
+  // NEW: Check if product has Ask for Price feature
+  const hasAskForPrice = product.askForPrice === true;
 
   return (
     <>
@@ -321,35 +336,46 @@ const ProductCard = ({ product, index }) => {
               <Eye className="!text-gray-700 !hover:!text-emerald-600" size={20} />
             </motion.button>
 
-            {/* Add to Cart Button */}
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={isHovered ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 0.8 }}
-              whileHover={{ scale: 1.1, backgroundColor: "#ffffff" }}
-              whileTap={{ scale: 0.95 }}
-              onClick={isSoldOut ? undefined : handleAddToCart}
-              disabled={addingToCart || isSoldOut}
-              className={`!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 ${isSoldOut
-                ? '!cursor-not-allowed'
-                : '!disabled:!opacity-50'
-                }`}
-              title={isSoldOut ? "Sold Out" : "Add to Cart"}
-            >
-              {addingToCart ? (
-                <LoadingSpinner size="small" />
-              ) : isSoldOut ? (
-                <Info className="!text-red-500" size={20} />
-              ) : (
-                <ShoppingCart className="!text-gray-700 !hover:!text-emerald-600" size={20} />
-              )}
-            </motion.button>
+            {/* Add to Cart Button - Hide for Ask for Price products */}
+            {!hasAskForPrice && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={isHovered ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 0.8 }}
+                whileHover={{ scale: 1.1, backgroundColor: "#ffffff" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={isSoldOut ? undefined : handleAddToCart}
+                disabled={addingToCart || isSoldOut}
+                className={`!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 ${isSoldOut
+                  ? '!cursor-not-allowed'
+                  : '!disabled:!opacity-50'
+                  }`}
+                title={isSoldOut ? "Sold Out" : "Add to Cart"}
+              >
+                {addingToCart ? (
+                  <LoadingSpinner size="small" />
+                ) : isSoldOut ? (
+                  <Info className="!text-red-500" size={20} />
+                ) : (
+                  <ShoppingCart className="!text-gray-700 !hover:!text-emerald-600" size={20} />
+                )}
+              </motion.button>
+            )}
           </div>
 
           {/* Discount Badge */}
-          {discountPercentage > 0 && (
+          {discountPercentage > 0 && !hasAskForPrice && (
             <div className="!absolute !top-4 !left-4 !z-10">
               <span className="!bg-emerald-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
                 {discountPercentage}% OFF
+              </span>
+            </div>
+          )}
+
+          {/* Ask for Price Badge */}
+          {hasAskForPrice && (
+            <div className="!absolute !top-4 !left-4 !z-10">
+              <span className="!bg-purple-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
+                Ask for Price
               </span>
             </div>
           )}
@@ -384,15 +410,23 @@ const ProductCard = ({ product, index }) => {
               by {product.author?.name || 'Unknown Artist'}
             </p>
 
-            {/* Price Section */}
+            {/* Price Section - Updated for Ask for Price */}
             <div className="!flex !items-baseline !justify-center !space-x-2">
-              <span className="font-playfair !text-2xl !font-bold !text-gray-900">
-                {formatPrice(currentPrice)}
-              </span>
-              {discountPercentage > 0 && (
-                <span className="!text-lg !text-gray-400 !line-through">
-                  {formatPrice(product.mrpPrice)}
+              {hasAskForPrice ? (
+                <span className="font-playfair !text-2xl !font-bold !text-purple-700">
+                  Price on Request
                 </span>
+              ) : (
+                <>
+                  <span className="font-playfair !text-2xl !font-bold !text-gray-900">
+                    {formatPrice(currentPrice)}
+                  </span>
+                  {discountPercentage > 0 && (
+                    <span className="!text-lg !text-gray-400 !line-through">
+                      {formatPrice(product.mrpPrice)}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </Link>
@@ -456,23 +490,37 @@ const ProductCard = ({ product, index }) => {
                     <p className="font-parisienne !text-2xl !text-emerald-700 !mb-4">
                       by {product.author?.name || 'Unknown Artist'}
                     </p>
+                    
+                    {/* Price Section in Quick View - Updated for Ask for Price */}
                     <div className="!mb-4">
-                      <div className="!flex !items-baseline !space-x-2 !mb-2">
-                        <span className="!text-3xl !font-bold !text-gray-900">
-                          {formatPrice(currentPrice)}
-                        </span>
-                        {discountPercentage > 0 && (
-                          <>
-                            <span className="!text-xl !text-gray-400 !line-through">
-                              {formatPrice(product.mrpPrice)}
-                            </span>
-                            <span className="!bg-red-100 !text-red-800 !px-2 !py-1 !rounded-full !text-sm !font-bold">
-                              {discountPercentage}% OFF
-                            </span>
-                          </>
-                        )}
-                      </div>
+                      {hasAskForPrice ? (
+                        <div className="!flex !items-center !space-x-2 !mb-2">
+                          <span className="!text-3xl !font-bold !text-purple-700">
+                            Price on Request
+                          </span>
+                          <span className="!bg-purple-100 !text-purple-800 !px-2 !py-1 !rounded-full !text-sm !font-bold">
+                            Ask for Price
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="!flex !items-baseline !space-x-2 !mb-2">
+                          <span className="!text-3xl !font-bold !text-gray-900">
+                            {formatPrice(currentPrice)}
+                          </span>
+                          {discountPercentage > 0 && (
+                            <>
+                              <span className="!text-xl !text-gray-400 !line-through">
+                                {formatPrice(product.mrpPrice)}
+                              </span>
+                              <span className="!bg-red-100 !text-red-800 !px-2 !py-1 !rounded-full !text-sm !font-bold">
+                                {discountPercentage}% OFF
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
+                    
                     <p className="!text-gray-600 !text-base !leading-relaxed !mb-6 !line-clamp-4">
                       {product.description || 'No description available.'}
                     </p>
@@ -487,9 +535,16 @@ const ProductCard = ({ product, index }) => {
                           {product.dimensions?.height || 0} × {product.dimensions?.width || 0} cm
                         </span>
                       </div>
+                      {/* NEW: Ask for Price indicator in quick view */}
+                      {hasAskForPrice && (
+                        <div className="!flex !justify-between">
+                          <span className="!text-gray-600">Pricing:</span>
+                          <span className="!font-medium !text-purple-700">Available on Request</span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Tags Section - Fixed Structure */}
+                    {/* Tags Section */}
                     {product.tags && product.tags.length > 0 && (
                       <div className="!mb-6">
                         <h3 className="!font-bold !text-gray-900 !text-lg !mb-2">Tags</h3>

@@ -15,10 +15,14 @@ import {
   ChevronRight as RightIcon,
   Search,
   ShoppingCart,
-  CheckCircle
+  CheckCircle,
+  MessageCircle,
+  Mail,
+  Phone,
+  User
 } from 'lucide-react';
 import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
-import { motion, AnimatePresence } from 'framer-motion'; // Import motion
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -35,7 +39,7 @@ const ProductDetail = () => {
   // Image gallery states
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [slideDirection, setSlideDirection] = useState(1); // 1 for next, -1 for prev
+  const [slideDirection, setSlideDirection] = useState(1);
   
   // Related products states
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -53,7 +57,19 @@ const ProductDetail = () => {
   const [authors, setAuthors] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // NEW: Feedback state (replaces alerts)
+  // NEW: Ask for Price states
+  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [submittingInquiry, setSubmittingInquiry] = useState(false);
+  const [inquiryForm, setInquiryForm] = useState({
+    fullName: '',
+    email: '',
+    mobile: '',
+    message: '',
+    budget: '',
+    purpose: 'personal'
+  });
+
+  // Feedback state
   const [feedback, setFeedback] = useState({ active: false, message: '', type: 'success' });
 
   const { isAuthenticated, token, updateCartCount, updateWishlistCount } = useAuth();
@@ -76,11 +92,10 @@ const ProductDetail = () => {
 
   useEffect(() => {
     if (product) {
-      // Set initial filters based on the product
       setFilters(prev => ({
         ...prev,
-        category: product.category?._id || '', // <--- THIS WAS THE FIX
-        author: product.author?._id || ''     // <--- THIS WAS THE FIX
+        category: product.category?._id || '',
+        author: product.author?._id || ''
       }));
       fetchFilterData();
     }
@@ -91,9 +106,9 @@ const ProductDetail = () => {
     if (product) {
       fetchRelatedProducts();
     }
-  }, [product, filters]); // Re-fetch when filters change
+  }, [product, filters]);
 
-  // --- NEW: Feedback Helper ---
+  // Feedback Helper
   const showFeedback = (message, type = 'success') => {
     setFeedback({ active: true, message, type });
     setTimeout(() => {
@@ -180,7 +195,7 @@ const ProductDetail = () => {
     }
   };
 
-  // --- Add to Cart Handler (NO ALERTS) ---
+  // Add to Cart Handler
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
       showFeedback('Please login to add items to cart', 'error');
@@ -213,7 +228,7 @@ const ProductDetail = () => {
     }
   };
 
-  // --- Add to Wishlist Handler (NO ALERTS) ---
+  // Add to Wishlist Handler
   const handleAddToWishlist = async () => {
     if (!isAuthenticated) {
       showFeedback('Please login to add items to wishlist', 'error');
@@ -249,7 +264,7 @@ const ProductDetail = () => {
     }
   };
 
-  // --- Remove from Wishlist Handler (NO ALERTS) ---
+  // Remove from Wishlist Handler
   const handleRemoveFromWishlist = async () => {
     if (!isAuthenticated || !product) return;
     setAddingToWishlist(true);
@@ -274,7 +289,63 @@ const ProductDetail = () => {
     }
   };
 
-  // --- Image gallery functions ---
+  // NEW: Ask for Price Handlers
+  const handleAskForPrice = () => {
+    setIsInquiryModalOpen(true);
+  };
+
+  const handleInquiryFormChange = (e) => {
+    const { name, value } = e.target;
+    setInquiryForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmitInquiry = async (e) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!inquiryForm.fullName.trim() || !inquiryForm.email.trim() || !inquiryForm.mobile.trim()) {
+      showFeedback('Please fill in all required fields', 'error');
+      return;
+    }
+
+    setSubmittingInquiry(true);
+    try {
+      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/products/${product._id}/price-inquiry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(inquiryForm),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showFeedback('Price inquiry submitted successfully! We will contact you soon.');
+        setIsInquiryModalOpen(false);
+        // Reset form
+        setInquiryForm({
+          fullName: '',
+          email: '',
+          mobile: '',
+          message: '',
+          budget: '',
+          purpose: 'personal'
+        });
+      } else {
+        showFeedback(data.message || 'Failed to submit inquiry', 'error');
+      }
+    } catch (err) {
+      console.error('Error submitting price inquiry:', err);
+      showFeedback('Failed to submit inquiry', 'error');
+    } finally {
+      setSubmittingInquiry(false);
+    }
+  };
+
+  // Image gallery functions
   const openLightbox = (index) => {
     setSelectedImageIndex(index);
     setIsLightboxOpen(true);
@@ -305,7 +376,7 @@ const ProductDetail = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isLightboxOpen]);
 
-  // --- Helper Functions ---
+  // Helper Functions
   const formatPrice = (price) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -340,7 +411,7 @@ const ProductDetail = () => {
     setSearchTerm('');
   };
 
-  // --- Framer Motion Variants for Lightbox ---
+  // Framer Motion Variants for Lightbox
   const lightboxVariants = {
     enter: (direction) => ({
       x: direction > 0 ? 500 : -500,
@@ -360,7 +431,6 @@ const ProductDetail = () => {
       scale: 0.9
     }),
   };
-
 
   if (loading) {
     return (
@@ -394,7 +464,7 @@ const ProductDetail = () => {
 
   return (
     <div className="!min-h-screen !bg-neutral-50 font-playfair">
-      {/* === NEW Lightbox Modal === */}
+      {/* Lightbox Modal */}
       <AnimatePresence>
         {isLightboxOpen && (
           <motion.div
@@ -440,7 +510,7 @@ const ProductDetail = () => {
                   x: { type: 'spring', stiffness: 300, damping: 30 },
                   opacity: { duration: 0.2 },
                 }}
-                onClick={(e) => e.stopPropagation()} // Prevent closing on image click
+                onClick={(e) => e.stopPropagation()}
               />
             </AnimatePresence>
 
@@ -450,8 +520,182 @@ const ProductDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* NEW: Ask for Price Modal */}
+      <AnimatePresence>
+        {isInquiryModalOpen && (
+          <motion.div
+            className="!fixed !inset-0 !bg-black/50 !backdrop-blur-sm !z-50 !flex !items-center !justify-center !p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsInquiryModalOpen(false)}
+          >
+            <motion.div
+              className="!bg-white !rounded-2xl !shadow-2xl !max-w-md !w-full !max-h-[90vh] !overflow-y-auto"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="!p-6">
+                <div className="!flex !justify-between !items-center !mb-6">
+                  <h3 className="!text-2xl !font-bold !text-gray-900 !flex !items-center !gap-2">
+                    <MessageCircle className="!text-green-700" size={24} />
+                    Request Price Information
+                  </h3>
+                  <button
+                    onClick={() => setIsInquiryModalOpen(false)}
+                    className="!text-gray-400 !hover:text-gray-600 !transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="!bg-purple-50 !border !border-purple-200 !rounded-lg !p-4 !mb-6">
+                  <div className="!flex !items-start !gap-3">
+                    <div className="!flex-shrink-0">
+                      <MessageCircle className="!text-purple-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="!text-sm !font-medium !text-purple-800">Interested in this artwork?</p>
+                      <p className="!text-xs !text-purple-600 !mt-1">
+                        Fill out the form below and our team will contact you with pricing details and availability.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSubmitInquiry} className="!space-y-4">
+                  <div>
+                    <label className="!block !text-sm !font-medium !text-gray-700 !mb-1">
+                      Full Name <span className="!text-red-500">*</span>
+                    </label>
+                    <div className="!relative">
+                      <User className="!absolute !left-3 !top-1/2 !transform !-translate-y-1/2 !text-gray-400" size={18} />
+                      <input
+                        type="text"
+                        name="fullName"
+                        value={inquiryForm.fullName}
+                        onChange={handleInquiryFormChange}
+                        required
+                        className="!w-full !pl-10 !pr-4 !py-3 !border !border-gray-300 !rounded-lg !focus:ring-2 !focus:ring-green-600 !focus:border-green-600"
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="!block !text-sm !font-medium !text-gray-700 !mb-1">
+                      Email Address <span className="!text-red-500">*</span>
+                    </label>
+                    <div className="!relative">
+                      <Mail className="!absolute !left-3 !top-1/2 !transform !-translate-y-1/2 !text-gray-400" size={18} />
+                      <input
+                        type="email"
+                        name="email"
+                        value={inquiryForm.email}
+                        onChange={handleInquiryFormChange}
+                        required
+                        className="!w-full !pl-10 !pr-4 !py-3 !border !border-gray-300 !rounded-lg !focus:ring-2 !focus:ring-green-600 !focus:border-green-600"
+                        placeholder="Enter your email"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="!block !text-sm !font-medium !text-gray-700 !mb-1">
+                      Mobile Number <span className="!text-red-500">*</span>
+                    </label>
+                    <div className="!relative">
+                      <Phone className="!absolute !left-3 !top-1/2 !transform !-translate-y-1/2 !text-gray-400" size={18} />
+                      <input
+                        type="tel"
+                        name="mobile"
+                        value={inquiryForm.mobile}
+                        onChange={handleInquiryFormChange}
+                        required
+                        className="!w-full !pl-10 !pr-4 !py-3 !border !border-gray-300 !rounded-lg !focus:ring-2 !focus:ring-green-600 !focus:border-green-600"
+                        placeholder="Enter your mobile number"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="!block !text-sm !font-medium !text-gray-700 !mb-1">
+                      Budget Range
+                    </label>
+                    <input
+                      type="text"
+                      name="budget"
+                      value={inquiryForm.budget}
+                      onChange={handleInquiryFormChange}
+                      className="!w-full !px-4 !py-3 !border !border-gray-300 !rounded-lg !focus:ring-2 !focus:ring-green-600 !focus:border-green-600"
+                      placeholder="e.g., $500 - $1000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="!block !text-sm !font-medium !text-gray-700 !mb-1">
+                      Purpose
+                    </label>
+                    <select
+                      name="purpose"
+                      value={inquiryForm.purpose}
+                      onChange={handleInquiryFormChange}
+                      className="!w-full !px-4 !py-3 !border !border-gray-300 !rounded-lg !focus:ring-2 !focus:ring-green-600 !focus:border-green-600"
+                    >
+                      <option value="personal">Personal Collection</option>
+                      <option value="corporate">Corporate Office</option>
+                      <option value="gift">Gift</option>
+                      <option value="investment">Investment</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="!block !text-sm !font-medium !text-gray-700 !mb-1">
+                      Additional Message
+                    </label>
+                    <textarea
+                      name="message"
+                      rows="4"
+                      value={inquiryForm.message}
+                      onChange={handleInquiryFormChange}
+                      className="!w-full !px-4 !py-3 !border !border-gray-300 !rounded-lg !focus:ring-2 !focus:ring-green-600 !focus:border-green-600"
+                      placeholder="Tell us more about your interest in this artwork..."
+                    />
+                  </div>
+
+                  <div className="!flex !space-x-3 !pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsInquiryModalOpen(false)}
+                      className="!flex-1 !px-4 !py-3 !border !border-gray-300 !rounded-lg !text-gray-700 !hover:bg-gray-50 !transition-colors !font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingInquiry}
+                      className="!flex-1 !bg-green-700 !text-white !px-4 !py-3 !rounded-lg !hover:bg-green-800 !transition-colors !font-semibold !disabled:bg-gray-400 !disabled:cursor-not-allowed !flex !items-center !justify-center !gap-2"
+                    >
+                      {submittingInquiry ? (
+                        <LoadingSpinner size="small" />
+                      ) : (
+                        <MessageCircle size={18} />
+                      )}
+                      {submittingInquiry ? 'Submitting...' : 'Submit Inquiry'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
-      {/* === NEW Feedback Toast === */}
+      {/* Feedback Toast */}
       <AnimatePresence>
         {feedback.active && (
           <motion.div
@@ -541,27 +785,44 @@ const ProductDetail = () => {
               </div>
 
               <div className="!mb-6">
-                <div className="!flex !items-baseline !space-x-3 !mb-2">
-                  {product.discountPrice ? (
-                    <>
-                      <p className="!text-4xl !font-bold !text-gray-900">
-                        {formatPrice(product.discountPrice)}
+                {/* NEW: Ask for Price Display */}
+                {product.askForPrice ? (
+                  <div className="!mb-4">
+                    <div className="!flex !items-center !space-x-3 !mb-3">
+                      <p className="!text-4xl !font-bold !text-purple-700">
+                        Price on Request
                       </p>
-                      <p className="!text-2xl !text-gray-400 !line-through">
-                        {formatPrice(product.mrpPrice)}
-                      </p>
-                      {discountPercentage > 0 && (
-                        <span className="!bg-green-100 !text-green-800 !px-3 !py-1 !rounded-full !text-sm !font-bold">
-                          {discountPercentage}% OFF
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <p className="!text-4xl !font-bold !text-gray-900">
-                      {formatPrice(product.mrpPrice || product.price)}
+                      <span className="!bg-purple-100 !text-purple-800 !px-3 !py-1 !rounded-full !text-sm !font-bold">
+                        Ask for Price
+                      </span>
+                    </div>
+                    <p className="!text-gray-600 !text-lg">
+                      Contact us for pricing information and availability
                     </p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="!flex !items-baseline !space-x-3 !mb-2">
+                    {product.discountPrice ? (
+                      <>
+                        <p className="!text-4xl !font-bold !text-gray-900">
+                          {formatPrice(product.discountPrice)}
+                        </p>
+                        <p className="!text-2xl !text-gray-400 !line-through">
+                          {formatPrice(product.mrpPrice)}
+                        </p>
+                        {discountPercentage > 0 && (
+                          <span className="!bg-green-100 !text-green-800 !px-3 !py-1 !rounded-full !text-sm !font-bold">
+                            {discountPercentage}% OFF
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <p className="!text-4xl !font-bold !text-gray-900">
+                        {formatPrice(product.mrpPrice || product.price)}
+                      </p>
+                    )}
+                  </div>
+                )}
                 
                 <span
                   className={`!px-3 !py-1 !rounded-full !text-sm !font-semibold ${
@@ -618,46 +879,60 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Add to Cart Section */}
+              {/* Add to Cart / Ask for Price Section */}
               <div className="!border-t !border-gray-100 !pt-6">
                 {product.stock > 0 ? (
                   <div className="!space-y-4">
-                    <div className="!flex !items-center !space-x-4">
-                      <label className="!font-semibold !text-gray-900">Quantity:</label>
-                      <div className="!flex !items-center !border !border-gray-300 !rounded-lg">
-                        <button
-                          onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                          className="!px-3 !py-3 !text-gray-600 !hover:text-black !transition-colors"
-                        >
-                          <Minus size={18} />
-                        </button>
-                        <span className="!px-5 !py-2 !border-l !border-r !border-gray-300 !font-semibold !text-lg">
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setQuantity((prev) => Math.min(product.stock, prev + 1))
-                          }
-                          className="!px-3 !py-3 !text-gray-600 !hover:text-black !transition-colors"
-                        >
-                          <Plus size={18} />
-                        </button>
+                    {/* Quantity Selector - Only show for regular products */}
+                    {!product.askForPrice && (
+                      <div className="!flex !items-center !space-x-4">
+                        <label className="!font-semibold !text-gray-900">Quantity:</label>
+                        <div className="!flex !items-center !border !border-gray-300 !rounded-lg">
+                          <button
+                            onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                            className="!px-3 !py-3 !text-gray-600 !hover:text-black !transition-colors"
+                          >
+                            <Minus size={18} />
+                          </button>
+                          <span className="!px-5 !py-2 !border-l !border-r !border-gray-300 !font-semibold !text-lg">
+                            {quantity}
+                          </span>
+                          <button
+                            onClick={() =>
+                              setQuantity((prev) => Math.min(product.stock, prev + 1))
+                            }
+                            className="!px-3 !py-3 !text-gray-600 !hover:text-black !transition-colors"
+                          >
+                            <Plus size={18} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="!flex !space-x-4">
-                      <button
-                        onClick={handleAddToCart}
-                        disabled={addingToCart}
-                        className="!flex-1 !bg-green-700 !text-white !py-3 !px-6 !rounded-lg !hover:bg-green-800 !transition-colors !font-semibold !disabled:bg-gray-400 !disabled:cursor-not-allowed !flex !items-center !justify-center !gap-2"
-                      >
-                        {addingToCart ? (
-                          <LoadingSpinner size="small" />
-                        ) : (
-                          <ShoppingCart size={20} />
-                        )}
-                        {addingToCart ? 'Adding...' : 'Add to Cart'}
-                      </button>
+                      {/* NEW: Conditional Button - Ask for Price vs Add to Cart */}
+                      {product.askForPrice ? (
+                        <button
+                          onClick={handleAskForPrice}
+                          className="!flex-1 !bg-purple-700 !text-white !py-3 !px-6 !rounded-lg !hover:bg-purple-800 !transition-colors !font-semibold !flex !items-center !justify-center !gap-2"
+                        >
+                          <MessageCircle size={20} />
+                          Ask for Price
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleAddToCart}
+                          disabled={addingToCart}
+                          className="!flex-1 !bg-green-700 !text-white !py-3 !px-6 !rounded-lg !hover:bg-green-800 !transition-colors !font-semibold !disabled:bg-gray-400 !disabled:cursor-not-allowed !flex !items-center !justify-center !gap-2"
+                        >
+                          {addingToCart ? (
+                            <LoadingSpinner size="small" />
+                          ) : (
+                            <ShoppingCart size={20} />
+                          )}
+                          {addingToCart ? 'Adding...' : 'Add to Cart'}
+                        </button>
+                      )}
 
                       <button
                         onClick={handleAddToWishlist}
@@ -768,15 +1043,12 @@ const ProductDetail = () => {
             </div>
           </div>
           
-          {/* Note: Search bar removed for cleaner filter UI, logic is still present if you want to add it back */}
-
           {loadingRelated ? (
             <div className="!flex !justify-center !py-8">
               <LoadingSpinner size="medium" />
             </div>
           ) : relatedProducts.length > 0 ? (
             <div className="!grid !grid-cols-1 md:!grid-cols-2 lg:!grid-cols-4 !gap-6">
-              {/* Using a simple card design here as ProductCard component is not provided */}
               {relatedProducts
                 .filter(product => 
                   searchTerm === '' || 
@@ -796,7 +1068,11 @@ const ProductDetail = () => {
                         <h3 className="font-playfair !font-semibold !text-gray-900 !mb-1 !truncate">{relatedProduct.name}</h3>
                         <p className="font-parisienne !text-gray-600 !text-lg !mb-2">{relatedProduct.author?.name}</p>
                         <div className="!flex !items-center !justify-center !space-x-2">
-                          {relatedProduct.discountPrice ? (
+                          {relatedProduct.askForPrice ? (
+                            <span className="!font-bold !text-lg !text-purple-700">
+                              Ask for Price
+                            </span>
+                          ) : relatedProduct.discountPrice ? (
                             <>
                               <span className="!font-bold !text-lg !text-gray-900">
                                 {formatPrice(relatedProduct.discountPrice)}

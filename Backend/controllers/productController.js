@@ -1,5 +1,7 @@
 import Product from "../models/productModel.js";
 import cloudinary from "../config/cloudinary.js";
+import PriceInquiry from "../models/priceInquiryModel.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 // @desc    Create a new product
 // @route   POST /api/v1/products
