@@ -14,6 +14,7 @@ import Orders from './pages/Orders';
 import Coupons from './pages/Coupons';
 import UserManagement from './pages/UserManagement';
 import Subscribers from './pages/Subscribers';
+import PriceInquiries from './pages/PriceInquiries';
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
             <Route path="coupons" element={<Coupons />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="subscribers" element={<Subscribers/>} />
+            <Route path="price-inquiries" element={<PriceInquiries/>} />
           </Route>
 
           {/* Catch all route */}

@@ -18,6 +18,7 @@ import usersRoutes from './routes/adminUsersRoutes.js';
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import subscriberRoutes from './routes/subscriberRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import priceInquiryRoutes from './routes/priceInquiryRoutes.js';
 
 import helmet from 'helmet';
 import compression from 'compression';
@@ -67,6 +68,7 @@ app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use('/api/v1/subscribers', subscriberRoutes);
 app.use('/api/v1/payments', paymentRoutes);
+app.use("/api/v1/price-inquiries", priceInquiryRoutes);
 
 // Basic route
 app.get("/", (req, res) => {
@@ -87,6 +89,7 @@ app.get("/", (req, res) => {
       dashboard: "/api/v1/dashboard",
       subscribers: "/api/v1/subscribers",
       payments: "/api/v1/payments",
+      Inquiry: "/api/v1/price-inquiries"
     },
     subscriberEndpoints: {
       subscribe: "POST /api/v1/subscribers/subscribe",

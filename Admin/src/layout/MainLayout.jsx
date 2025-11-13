@@ -17,6 +17,7 @@ const MainLayout = () => {
     { name: 'Coupons', href: '/coupons', icon: '🎫' },
     { name: 'Users', href: '/users', icon: '👥' },
     { name: 'Subscribers', href: '/subscribers', icon: '🔔' },
+    { name: 'Price Inquary', href: '/price-inquiries', icon: '📩' },
   ];
 
   const handleLogout = () => {
