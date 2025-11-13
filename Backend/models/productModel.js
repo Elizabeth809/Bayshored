@@ -27,14 +27,12 @@ const productSchema = new mongoose.Schema({
   discountPrice: {
     type: Number,
     min: [0, 'Discount price cannot be negative'],
-    default: undefined, // This helps with update operations
+    default: undefined,
     validate: {
       validator: function(value) {
-        // Skip validation for null/undefined or empty values
         if (value === null || value === undefined || value === '') {
           return true;
         }
-        // Only validate if both discountPrice and mrpPrice are numbers
         if (typeof value === 'number' && typeof this.mrpPrice === 'number') {
           return value <= this.mrpPrice;
         }
@@ -107,6 +105,10 @@ const productSchema = new mongoose.Schema({
   active: {
     type: Boolean,
     default: true
+  },
+  askForPrice: {
+    type: Boolean,
+    default: false
   },
   offer: {
     isActive: {
@@ -199,6 +201,7 @@ productSchema.index({ category: 1, author: 1 });
 productSchema.index({ 'offer.isActive': 1 });
 productSchema.index({ discountPrice: 1 });
 productSchema.index({ featured: 1, active: 1 });
+productSchema.index({ askForPrice: 1 });
 
 // Ensure virtual fields are serialized
 productSchema.set('toJSON', { virtuals: true });
