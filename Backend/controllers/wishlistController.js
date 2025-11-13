@@ -9,11 +9,17 @@ export const getWishlist = async (req, res) => {
     const user = await User.findById(req.user.id)
       .populate({
         path: 'wishlist',
-        select: 'name price image slug stock active dimensions medium author',
-        populate: {
-          path: 'author',
-          select: 'name'
-        }
+        select: 'name description mrpPrice discountPrice stock images slug active dimensions medium author category tags askForPrice offer',
+        populate: [
+          {
+            path: 'author',
+            select: 'name profileImage bio'
+          },
+          {
+            path: 'category',
+            select: 'name'
+          }
+        ]
       });
 
     if (!user) {
@@ -23,7 +29,7 @@ export const getWishlist = async (req, res) => {
       });
     }
 
-    // Filter out products that are no longer active
+    // Filter out products that are no longer active or don't exist
     const validWishlist = user.wishlist.filter(product => 
       product && product.active
     );
@@ -102,11 +108,17 @@ export const addToWishlist = async (req, res) => {
     // Populate the wishlist to return complete data
     await user.populate({
       path: 'wishlist',
-      select: 'name price image slug stock active dimensions medium author',
-      populate: {
-        path: 'author',
-        select: 'name'
-      }
+      select: 'name description mrpPrice discountPrice stock images slug active dimensions medium author category tags askForPrice offer',
+      populate: [
+        {
+          path: 'author',
+          select: 'name profileImage bio'
+        },
+        {
+          path: 'category',
+          select: 'name'
+        }
+      ]
     });
 
     res.status(200).json({
@@ -169,11 +181,17 @@ export const removeFromWishlist = async (req, res) => {
     // Populate the wishlist to return complete data
     await user.populate({
       path: 'wishlist',
-      select: 'name price image slug stock active dimensions medium author',
-      populate: {
-        path: 'author',
-        select: 'name'
-      }
+      select: 'name description mrpPrice discountPrice stock images slug active dimensions medium author category tags askForPrice offer',
+      populate: [
+        {
+          path: 'author',
+          select: 'name profileImage bio'
+        },
+        {
+          path: 'category',
+          select: 'name'
+        }
+      ]
     });
 
     res.json({
