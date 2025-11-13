@@ -23,6 +23,7 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
     tags: '',
     featured: false,
     active: true,
+    askForPrice: false,
     offer: {
       isActive: false,
       discountPercentage: '',
@@ -59,6 +60,7 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
         tags: product.tags?.join(', ') || '',
         featured: product.featured || false,
         active: product.active !== undefined ? product.active : true,
+        askForPrice: product.askForPrice || false,
         offer: product.offer || {
           isActive: false,
           discountPercentage: '',
@@ -176,10 +178,15 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
 
     if (!formData.name.trim()) newErrors.name = 'Product name is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.mrpPrice || formData.mrpPrice <= 0) newErrors.mrpPrice = 'Valid MRP price is required';
-    if (formData.discountPrice && formData.discountPrice > formData.mrpPrice) {
-      newErrors.discountPrice = 'Discount price cannot be greater than MRP price';
+    
+    // Only validate price fields if askForPrice is disabled
+    if (!formData.askForPrice) {
+      if (!formData.mrpPrice || formData.mrpPrice <= 0) newErrors.mrpPrice = 'Valid MRP price is required';
+      if (formData.discountPrice && formData.discountPrice > formData.mrpPrice) {
+        newErrors.discountPrice = 'Discount price cannot be greater than MRP price';
+      }
     }
+    
     if (!formData.stock || formData.stock < 0) newErrors.stock = 'Valid stock quantity is required';
     if (!formData.category) newErrors.category = 'Category is required';
     if (!formData.author) newErrors.author = 'Author is required';
@@ -190,8 +197,8 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
       newErrors.images = 'At least one product image is required';
     }
 
-    // Offer validation
-    if (formData.offer.isActive) {
+    // Offer validation - only if askForPrice is disabled
+    if (formData.offer.isActive && !formData.askForPrice) {
       if (!formData.offer.discountPercentage || formData.offer.discountPercentage <= 0) {
         newErrors.discountPercentage = 'Discount percentage is required when offer is active';
       }
@@ -205,36 +212,47 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    const submitData = new FormData();
+  const submitData = new FormData();
 
-    // Append basic fields
-    submitData.append('name', formData.name);
-    submitData.append('description', formData.description);
-    submitData.append('mrpPrice', formData.mrpPrice);
+  // Append basic fields
+  submitData.append('name', formData.name);
+  submitData.append('description', formData.description);
+  
+  // Handle pricing based on askForPrice
+  if (formData.askForPrice) {
+    // For ask for price products, send empty values
+    submitData.append('mrpPrice', '');
+    submitData.append('discountPrice', '');
+  } else {
+    // For regular products, send actual prices
+    submitData.append('mrpPrice', formData.mrpPrice || '');
     submitData.append('discountPrice', formData.discountPrice || '');
-    submitData.append('stock', formData.stock);
-    submitData.append('category', formData.category);
-    submitData.append('author', formData.author);
-    submitData.append('medium', formData.medium);
-    submitData.append('dimensions', JSON.stringify(formData.dimensions));
-    submitData.append('metaTitle', formData.metaTitle);
-    submitData.append('metaDescription', formData.metaDescription);
-    submitData.append('tags', formData.tags);
-    submitData.append('featured', formData.featured);
-    submitData.append('active', formData.active);
-    submitData.append('offer', JSON.stringify(formData.offer));
+  }
+  
+  submitData.append('stock', formData.stock);
+  submitData.append('category', formData.category);
+  submitData.append('author', formData.author);
+  submitData.append('medium', formData.medium);
+  submitData.append('dimensions', JSON.stringify(formData.dimensions));
+  submitData.append('metaTitle', formData.metaTitle);
+  submitData.append('metaDescription', formData.metaDescription);
+  submitData.append('tags', formData.tags);
+  submitData.append('featured', formData.featured);
+  submitData.append('active', formData.active);
+  submitData.append('askForPrice', formData.askForPrice);
+  submitData.append('offer', JSON.stringify(formData.offer));
 
-    // Append images if new files are selected
-    imageFiles.forEach(file => {
-      submitData.append('images', file);
-    });
+  // Append images if new files are selected
+  imageFiles.forEach(file => {
+    submitData.append('images', file);
+  });
 
-    await onSave(submitData);
-  };
+  await onSave(submitData);
+};
 
   const discountPercentage = calculateDiscountPercentage();
 
@@ -350,52 +368,94 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 !mb-1">
-                MRP Price ($) <span className="text-red-500">*</span>
-              </label>
+          {/* Ask for Price Toggle */}
+          <div className="bg-gray-50 !p-4 rounded-lg border border-gray-200">
+            <label className="flex items-center !space-x-3 cursor-pointer">
               <input
-                type="number"
-                name="mrpPrice"
-                step="0.01"
-                min="0"
-                value={formData.mrpPrice}
+                type="checkbox"
+                name="askForPrice"
+                checked={formData.askForPrice}
                 onChange={handleInputChange}
-                className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.mrpPrice ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                placeholder="0.00"
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              {errors.mrpPrice && (
-                <p className="text-red-500 text-xs !mt-1">{errors.mrpPrice}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Discount Price ($)
-              </label>
-              <input
-                type="number"
-                name="discountPrice"
-                step="0.01"
-                min="0"
-                value={formData.discountPrice}
-                onChange={handleInputChange}
-                className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.discountPrice ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                placeholder="0.00"
-              />
-              {errors.discountPrice && (
-                <p className="text-red-500 text-xs !mt-1">{errors.discountPrice}</p>
-              )}
-              {discountPercentage > 0 && (
-                <p className="text-green-600 text-xs !mt-1">
-                  {discountPercentage}% discount
+              <div>
+                <span className="text-sm font-medium text-gray-700">Enable Ask for Price</span>
+                <p className="text-xs text-gray-500 !mt-1">
+                  When enabled, customers can submit price inquiries instead of seeing the price directly
                 </p>
-              )}
-            </div>
+              </div>
+            </label>
           </div>
+
+          {/* Price Fields - Conditionally rendered based on askForPrice */}
+          {!formData.askForPrice && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 !mb-1">
+                  MRP Price ($) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="mrpPrice"
+                  step="0.01"
+                  min="0"
+                  value={formData.mrpPrice}
+                  onChange={handleInputChange}
+                  className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.mrpPrice ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  placeholder="0.00"
+                />
+                {errors.mrpPrice && (
+                  <p className="text-red-500 text-xs !mt-1">{errors.mrpPrice}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Discount Price ($)
+                </label>
+                <input
+                  type="number"
+                  name="discountPrice"
+                  step="0.01"
+                  min="0"
+                  value={formData.discountPrice}
+                  onChange={handleInputChange}
+                  className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.discountPrice ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  placeholder="0.00"
+                />
+                {errors.discountPrice && (
+                  <p className="text-red-500 text-xs !mt-1">{errors.discountPrice}</p>
+                )}
+                {discountPercentage > 0 && (
+                  <p className="text-green-600 text-xs !mt-1">
+                    {discountPercentage}% discount
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Show message when askForPrice is enabled */}
+          {formData.askForPrice && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg !p-4">
+              <div className="flex items-start !space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Ask for Price Enabled</p>
+                  <p className="text-xs text-blue-600 !mt-1">
+                    Customers will see a "Ask for Price" button instead of the product price. 
+                    They can submit their contact details for price inquiries.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 !mb-1">
@@ -542,61 +602,63 @@ const ProductForm = ({ product, onSave, onCancel, loading }) => {
         </div>
       </div>
 
-      {/* Offer Settings */}
-      <div className="border-t !pt-6">
-        <h3 className="text-lg font-medium text-gray-900 !mb-4">Offer Settings</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="offer.isActive"
-              checked={formData.offer.isActive}
-              onChange={handleInputChange}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label className="!ml-2 text-sm text-gray-700">Active Offer</label>
-          </div>
+      {/* Offer Settings - Only show when askForPrice is disabled */}
+      {!formData.askForPrice && (
+        <div className="border-t !pt-6">
+          <h3 className="text-lg font-medium text-gray-900 !mb-4">Offer Settings</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="offer.isActive"
+                checked={formData.offer.isActive}
+                onChange={handleInputChange}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label className="!ml-2 text-sm text-gray-700">Active Offer</label>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 !mb-1">
-              Discount Percentage
-            </label>
-            <input
-              type="number"
-              name="offer.discountPercentage"
-              min="1"
-              max="100"
-              value={formData.offer.discountPercentage}
-              onChange={handleInputChange}
-              disabled={!formData.offer.isActive}
-              className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.discountPercentage ? 'border-red-500' : 'border-gray-300'
-                } ${!formData.offer.isActive ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-              placeholder="0"
-            />
-            {errors.discountPercentage && (
-              <p className="text-red-500 text-xs !mt-1">{errors.discountPercentage}</p>
-            )}
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">
+                Discount Percentage
+              </label>
+              <input
+                type="number"
+                name="offer.discountPercentage"
+                min="1"
+                max="100"
+                value={formData.offer.discountPercentage}
+                onChange={handleInputChange}
+                disabled={!formData.offer.isActive}
+                className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.discountPercentage ? 'border-red-500' : 'border-gray-300'
+                  } ${!formData.offer.isActive ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                placeholder="0"
+              />
+              {errors.discountPercentage && (
+                <p className="text-red-500 text-xs !mt-1">{errors.discountPercentage}</p>
+              )}
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 !mb-1">
-              Valid Until
-            </label>
-            <input
-              type="date"
-              name="offer.validUntil"
-              value={formData.offer.validUntil}
-              onChange={handleInputChange}
-              disabled={!formData.offer.isActive}
-              className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.validUntil ? 'border-red-500' : 'border-gray-300'
-                } ${!formData.offer.isActive ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            />
-            {errors.validUntil && (
-              <p className="text-red-500 text-xs !mt-1">{errors.validUntil}</p>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">
+                Valid Until
+              </label>
+              <input
+                type="date"
+                name="offer.validUntil"
+                value={formData.offer.validUntil}
+                onChange={handleInputChange}
+                disabled={!formData.offer.isActive}
+                className={`w-full !px-3 !py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.validUntil ? 'border-red-500' : 'border-gray-300'
+                  } ${!formData.offer.isActive ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              />
+              {errors.validUntil && (
+                <p className="text-red-500 text-xs !mt-1">{errors.validUntil}</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* SEO & Additional Settings */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

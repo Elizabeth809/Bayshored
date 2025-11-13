@@ -77,15 +77,16 @@ export const createProduct = async (req, res) => {
       }
     }
 
+    // Parse askForPrice
+    const isAskForPrice = askForPrice === "true";
+
     // Get image URLs from uploaded files
     const imageUrls = req.files.map((file) => file.path);
 
-    // Create product
-    const product = await Product.create({
+    // Prepare product data
+    const productData = {
       name,
       description,
-      mrpPrice: parseFloat(mrpPrice),
-      discountPrice: discountPrice ? parseFloat(discountPrice) : null,
       stock: parseInt(stock),
       images: imageUrls,
       category,
@@ -96,9 +97,39 @@ export const createProduct = async (req, res) => {
       metaDescription,
       tags: parsedTags,
       featured: featured === "true",
-      askForPrice: askForPrice === "true",
+      askForPrice: isAskForPrice,
       offer: parsedOffer,
-    });
+    };
+
+    // Handle pricing based on askForPrice
+    if (isAskForPrice) {
+      // For ask for price products, set prices to null/undefined
+      productData.mrpPrice = 0; // Set to 0 instead of null to avoid validation errors
+      productData.discountPrice = undefined;
+      
+      // Disable offer for ask for price products
+      if (productData.offer) {
+        productData.offer.isActive = false;
+        productData.offer.discountPercentage = 0;
+      }
+    } else {
+      // For regular products, parse prices normally
+      if (mrpPrice && !isNaN(parseFloat(mrpPrice))) {
+        productData.mrpPrice = parseFloat(mrpPrice);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Valid MRP price is required when Ask for Price is disabled",
+        });
+      }
+
+      if (discountPrice && discountPrice !== '' && !isNaN(parseFloat(discountPrice))) {
+        productData.discountPrice = parseFloat(discountPrice);
+      }
+    }
+
+    // Create product
+    const product = await Product.create(productData);
 
     // Populate category and author details
     await product.populate("category", "name");
@@ -222,11 +253,13 @@ export const updateProduct = async (req, res) => {
       }
     }
 
+    // Parse askForPrice
+    const isAskForPrice = askForPrice === "true";
+
     // Prepare update data
     const updateData = {
       name,
       description,
-      mrpPrice: parseFloat(mrpPrice),
       stock: parseInt(stock),
       category,
       author,
@@ -237,16 +270,39 @@ export const updateProduct = async (req, res) => {
       tags: parsedTags,
       featured: featured === "true",
       active: active === "true",
-      askForPrice: askForPrice === "true",
+      askForPrice: isAskForPrice,
       offer: parsedOffer,
     };
 
-    // Handle discountPrice carefully - only include if provided
-    if (discountPrice && discountPrice !== '' && !isNaN(discountPrice)) {
-      updateData.discountPrice = parseFloat(discountPrice);
-    } else if (discountPrice === '' || discountPrice === null) {
-      // Explicitly set to undefined to remove the field from update
+    // Handle pricing based on askForPrice
+    if (isAskForPrice) {
+      // For ask for price products, set prices to 0 and disable offers
+      updateData.mrpPrice = 0;
       updateData.discountPrice = undefined;
+      
+      // Disable offer for ask for price products
+      if (updateData.offer) {
+        updateData.offer.isActive = false;
+        updateData.offer.discountPercentage = 0;
+      }
+    } else {
+      // For regular products, handle prices normally
+      if (mrpPrice && !isNaN(parseFloat(mrpPrice))) {
+        updateData.mrpPrice = parseFloat(mrpPrice);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Valid MRP price is required when Ask for Price is disabled",
+        });
+      }
+
+      // Handle discountPrice carefully - only include if provided
+      if (discountPrice && discountPrice !== '' && !isNaN(parseFloat(discountPrice))) {
+        updateData.discountPrice = parseFloat(discountPrice);
+      } else if (discountPrice === '' || discountPrice === null) {
+        // Explicitly set to undefined to remove the field from update
+        updateData.discountPrice = undefined;
+      }
     }
 
     // If new images are uploaded, update images array and delete old ones from Cloudinary

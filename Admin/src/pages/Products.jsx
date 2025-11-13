@@ -15,6 +15,7 @@ const Products = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [activeTab, setActiveTab] = useState('all'); // 'all' or 'askForPrice'
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -23,7 +24,8 @@ const Products = () => {
     author: '',
     featured: '',
     active: '',
-    onSale: '', // Changed from 'offer' to 'onSale' to match backend
+    onSale: '',
+    askForPrice: '',
     sortBy: 'createdAt_desc',
     limit: 10,
     page: 1
@@ -37,7 +39,7 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
     fetchFilterData();
-  }, [filters]);
+  }, [filters, activeTab]);
 
   const fetchFilterData = async () => {
     try {
@@ -67,6 +69,11 @@ const Products = () => {
           queryParams.append(key, value);
         }
       });
+
+      // Add askForPrice filter based on active tab
+      if (activeTab === 'askForPrice') {
+        queryParams.append('askForPrice', 'true');
+      }
 
       console.log('Fetching products with params:', Object.fromEntries(queryParams));
 
@@ -113,6 +120,7 @@ const Products = () => {
       featured: '',
       active: '',
       onSale: '',
+      askForPrice: '',
       sortBy: 'createdAt_desc',
       limit: 10,
       page: 1
@@ -300,6 +308,9 @@ const Products = () => {
     );
   };
 
+  // Count products with ask for price enabled
+  const askForPriceCount = products.filter(product => product.askForPrice).length;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -335,6 +346,59 @@ const Products = () => {
           {message}
         </div>
       )}
+
+      {/* Tabs for All Products vs Ask for Price Products */}
+      <div className="bg-white shadow-sm rounded-lg !p-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex !space-x-8">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`!py-2 !px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'all'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              All Products
+              <span className="!ml-2 !py-0.5 !px-2 text-xs bg-gray-100 rounded-full">
+                {totalProducts}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('askForPrice')}
+              className={`!py-2 !px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'askForPrice'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Ask for Price
+              <span className="!ml-2 !py-0.5 !px-2 text-xs bg-purple-100 text-purple-800 rounded-full">
+                {askForPriceCount}
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Info message for Ask for Price tab */}
+        {activeTab === 'askForPrice' && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg !p-4 !mt-4">
+            <div className="flex items-start !space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-purple-800">Ask for Price Products</p>
+                <p className="text-xs text-purple-600 !mt-1">
+                  These products have the "Ask for Price" feature enabled. Customers will see a special button to request pricing information instead of seeing the price directly.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Filters Section */}
       <div className="bg-white shadow-sm rounded-lg !p-6">
@@ -411,7 +475,7 @@ const Products = () => {
             </select>
           </div>
 
-          {/* Offer Filter - Fixed to use 'onSale' */}
+          {/* Offer Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 !mb-1">Offer</label>
             <select
@@ -424,6 +488,22 @@ const Products = () => {
               <option value="false">No Offers</option>
             </select>
           </div>
+
+          {/* Ask for Price Filter - Only show in All Products tab */}
+          {activeTab === 'all' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">Ask for Price</label>
+              <select
+                value={filters.askForPrice}
+                onChange={(e) => handleFilterChange('askForPrice', e.target.value)}
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Types</option>
+                <option value="true">Ask for Price Only</option>
+                <option value="false">Priced Products</option>
+              </select>
+            </div>
+          )}
 
           {/* Sort By */}
           <div>
@@ -443,19 +523,21 @@ const Products = () => {
             </select>
           </div>
 
-          {/* Items Per Page */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 !mb-1">Items Per Page</label>
-            <select
-              value={filters.limit}
-              onChange={(e) => handleFilterChange('limit', parseInt(e.target.value))}
-              className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={10}>10 per page</option>
-              <option value={25}>25 per page</option>
-              <option value={50}>50 per page</option>
-            </select>
-          </div>
+          {/* Items Per Page - Only show if Ask for Price filter is hidden */}
+          {activeTab !== 'all' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 !mb-1">Items Per Page</label>
+              <select
+                value={filters.limit}
+                onChange={(e) => handleFilterChange('limit', parseInt(e.target.value))}
+                className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={10}>10 per page</option>
+                <option value={25}>25 per page</option>
+                <option value={50}>50 per page</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-between items-center">
@@ -471,6 +553,7 @@ const Products = () => {
           
           <div className="text-sm text-gray-600">
             Showing {products.length} of {totalProducts} products
+            {activeTab === 'askForPrice' && ` (${askForPriceCount} with Ask for Price)`}
           </div>
         </div>
       </div>
@@ -537,7 +620,13 @@ const Products = () => {
                   </td>
                   <td className="!px-6 !py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {product.discountPrice ? (
+                      {product.askForPrice ? (
+                        <div className="flex items-center !space-x-2">
+                          <span className="inline-flex items-center !px-2 !py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                            Ask for Price
+                          </span>
+                        </div>
+                      ) : product.discountPrice ? (
                         <div className="flex items-center !space-x-2">
                           <span className="text-red-600">{formatPrice(product.discountPrice)}</span>
                           <span className="text-gray-400 line-through text-sm">{formatPrice(product.mrpPrice)}</span>
@@ -577,6 +666,11 @@ const Products = () => {
                           Offer
                         </span>
                       )}
+                      {product.askForPrice && (
+                        <span className="inline-flex items-center !px-2.5 !py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          Ask for Price
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="!px-6 !py-4 whitespace-nowrap text-sm font-medium !space-x-2">
@@ -612,12 +706,28 @@ const Products = () => {
         {products.length === 0 && (
           <div className="text-center !py-12">
             <div className="text-gray-400 !mb-4">
-              <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
+              {activeTab === 'askForPrice' ? (
+                <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              ) : (
+                <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              )}
             </div>
-            <p className="text-gray-500 !mb-2">No products found</p>
-            <p className="text-gray-400 text-sm">Get started by creating your first product</p>
+            <p className="text-gray-500 !mb-2">
+              {activeTab === 'askForPrice' 
+                ? 'No products with Ask for Price feature enabled' 
+                : 'No products found'
+              }
+            </p>
+            <p className="text-gray-400 text-sm">
+              {activeTab === 'askForPrice' 
+                ? 'Enable Ask for Price feature in product settings to see them here' 
+                : 'Get started by creating your first product'
+              }
+            </p>
           </div>
         )}
       </div>
