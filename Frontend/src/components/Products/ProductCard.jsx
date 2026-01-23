@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext'; // Add this import
 import { useState, useEffect } from 'react';
 import LoadingSpinner from '../others/LoadingSpinner';
 import {
@@ -14,7 +15,8 @@ import { CLIENT_BASE_URL } from '../others/clientApiUrl';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ProductCard = ({ product, index }) => {
-  const { isAuthenticated, token, updateCartCount, updateWishlistCount } = useAuth();
+  const { isAuthenticated, token, updateWishlistCount } = useAuth();
+  const { addToCart } = useCart(); // Use CartContext for cart operations
 
   // Action States
   const [addingToCart, setAddingToCart] = useState(false);
@@ -154,18 +156,9 @@ const ProductCard = ({ product, index }) => {
     }
     setAddingToCart(true);
     try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ productId: product._id, quantity: 1 })
-      });
-      const data = await response.json();
-      if (data.success) {
-        updateCartCount(data.data.itemsCount);
-        showFeedback('Added to Cart!');
-      } else {
-        showFeedback(data.message || 'Failed to add');
-      }
+      // Use CartContext's addToCart function
+      await addToCart(product, 1);
+      showFeedback('Added to Cart!');
     } catch (error) {
       console.error('Error adding to cart:', error);
       showFeedback('Failed to add to cart');
@@ -182,18 +175,9 @@ const ProductCard = ({ product, index }) => {
     }
     setAddingToCart(true);
     try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ productId: product._id, quantity: 1 })
-      });
-      const data = await response.json();
-      if (data.success) {
-        updateCartCount(data.data.itemsCount);
-        setShowQuickView(false);
-      } else {
-        alert(data.message || 'Failed to add to cart');
-      }
+      // Use CartContext's addToCart function
+      await addToCart(product, 1);
+      setShowQuickView(false);
     } catch (error) {
       console.error('Error adding to cart:', error);
       alert('Failed to add to cart');
@@ -216,17 +200,14 @@ const ProductCard = ({ product, index }) => {
     }
   };
 
-  // FIXED: Helper Functions - No more recursion!
+  // Helper Functions
   const formatPrice = (price) => {
-    // Handle null, undefined, or invalid prices
     if (price === null || price === undefined || isNaN(price)) {
       return '$0.00';
     }
     
-    // Convert to number if it's a string
     const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
     
-    // Handle invalid numeric values
     if (isNaN(numericPrice)) {
       return '$0.00';
     }
@@ -256,7 +237,7 @@ const ProductCard = ({ product, index }) => {
   const currentPrice = getCurrentPrice();
   const mainImage = product.images?.[0] || product.image || 'https://via.placeholder.com/600x600?text=Image+Not+Found';
 
-  // NEW: Check if product has Ask for Price feature
+  // Check if product has Ask for Price feature
   const hasAskForPrice = product.askForPrice === true;
 
   return (
@@ -297,7 +278,7 @@ const ProductCard = ({ product, index }) => {
             />
           </Link>
 
-          {/* Action Icons - Fixed Animation */}
+          {/* Action Icons */}
           <div className="!absolute !top-4 !right-4 !z-10 !flex !flex-col !space-y-3">
             {/* Wishlist Button */}
             <motion.button
@@ -410,7 +391,7 @@ const ProductCard = ({ product, index }) => {
               by {product.author?.name || 'Unknown Artist'}
             </p>
 
-            {/* Price Section - Updated for Ask for Price */}
+            {/* Price Section */}
             <div className="!flex !items-baseline !justify-center !space-x-2">
               {hasAskForPrice ? (
                 <span className="font-playfair !text-2xl !font-bold !text-purple-700">
@@ -491,7 +472,7 @@ const ProductCard = ({ product, index }) => {
                       by {product.author?.name || 'Unknown Artist'}
                     </p>
                     
-                    {/* Price Section in Quick View - Updated for Ask for Price */}
+                    {/* Price Section */}
                     <div className="!mb-4">
                       {hasAskForPrice ? (
                         <div className="!flex !items-center !space-x-2 !mb-2">
@@ -535,7 +516,6 @@ const ProductCard = ({ product, index }) => {
                           {product.dimensions?.height || 0} × {product.dimensions?.width || 0} cm
                         </span>
                       </div>
-                      {/* NEW: Ask for Price indicator in quick view */}
                       {hasAskForPrice && (
                         <div className="!flex !justify-between">
                           <span className="!text-gray-600">Pricing:</span>
@@ -560,6 +540,54 @@ const ProductCard = ({ product, index }) => {
                         </div>
                       </div>
                     )}
+                    
+                    {/* Action Buttons in Quick View */}
+                    <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                      {!hasAskForPrice && (
+                        <button
+                          onClick={handleQuickViewAddToCart}
+                          disabled={isSoldOut || addingToCart}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                          {addingToCart ? (
+                            <>
+                              <LoadingSpinner size="small" />
+                              <span className="ml-2">Adding...</span>
+                            </>
+                          ) : isSoldOut ? (
+                            'Sold Out'
+                          ) : (
+                            'Add to Cart'
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleQuickViewWishlist}
+                        disabled={addingToWishlist}
+                        className={`flex-1 border font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center justify-center ${
+                          isWishlisted
+                            ? 'border-red-500 text-red-600 hover:bg-red-50'
+                            : 'border-emerald-600 text-emerald-600 hover:bg-emerald-50'
+                        }`}
+                      >
+                        {addingToWishlist ? (
+                          <>
+                            <LoadingSpinner size="small" />
+                            <span className="ml-2">Processing...</span>
+                          </>
+                        ) : isWishlisted ? (
+                          'Remove from Wishlist'
+                        ) : (
+                          'Add to Wishlist'
+                        )}
+                      </button>
+                      <Link
+                        to={`/product/${product.slug}`}
+                        className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                      >
+                        View Details
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>

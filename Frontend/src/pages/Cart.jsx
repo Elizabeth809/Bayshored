@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext'; // Import CartContext
 import LoadingSpinner from '../components/others/LoadingSpinner';
 import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 
 const Cart = () => {
-  const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const { isAuthenticated, token, updateCartCount } = useAuth();
+  const { isAuthenticated, token } = useAuth();
+  const { 
+    items, 
+    cartItemsCount, 
+    cartTotal, 
+    updateQuantity, 
+    removeFromCart, 
+    clearCart,
+    refreshCart 
+  } = useCart(); // Use CartContext instead of local state
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,11 +25,14 @@ const Cart = () => {
       navigate('/login');
       return;
     }
-    fetchCart();
+    // Initialize cart from server
+    initializeCart();
   }, [isAuthenticated, navigate]);
 
-  const fetchCart = async () => {
+  const initializeCart = async () => {
     try {
+      setLoading(true);
+      // Fetch cart data directly since CartContext might not be initialized yet
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -28,109 +40,56 @@ const Cart = () => {
       });
 
       const data = await response.json();
-      console.log('Cart API Response:', data); // Debug log
-
+      
       if (data.success) {
-        setCart(data.data);
-        // Update cart count - handle different possible response structures
-        const itemsCount = data.data.itemsCount || data.data.items?.length || 0;
-        updateCartCount(itemsCount);
+        // CartContext will handle the state update via its own useEffect
+        // We just need to ensure it's loaded
+        console.log('Cart initialized from server');
       } else {
         console.error('Cart API error:', data.message);
-        setCart({ items: [] }); // Set empty cart on error
       }
     } catch (error) {
-      console.error('Error fetching cart:', error);
-      setCart({ items: [] }); // Set empty cart on error
+      console.error('Error initializing cart:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateQuantity = async (productId, newQuantity) => {
+  const handleUpdateQuantity = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
 
     setUpdating(true);
     try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart/${productId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ quantity: newQuantity })
-      });
-
-      const data = await response.json();
-      console.log('Update quantity response:', data); // Debug log
-
-      if (data.success) {
-        setCart(data.data);
-        const itemsCount = data.data.itemsCount || data.data.items?.length || 0;
-        updateCartCount(itemsCount);
-      } else {
-        alert(data.message || 'Failed to update quantity');
-      }
+      await updateQuantity(productId, newQuantity);
     } catch (error) {
       console.error('Error updating quantity:', error);
-      alert('Failed to update quantity');
+      alert(error.message || 'Failed to update quantity');
     } finally {
       setUpdating(false);
     }
   };
 
-  const removeFromCart = async (productId) => {
+  const handleRemoveFromCart = async (productId) => {
     setUpdating(true);
     try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      console.log('Remove item response:', data); // Debug log
-
-      if (data.success) {
-        setCart(data.data);
-        const itemsCount = data.data.itemsCount || data.data.items?.length || 0;
-        updateCartCount(itemsCount);
-      } else {
-        alert(data.message || 'Failed to remove item');
-      }
+      await removeFromCart(productId);
     } catch (error) {
       console.error('Error removing item:', error);
-      alert('Failed to remove item');
+      alert(error.message || 'Failed to remove item');
     } finally {
       setUpdating(false);
     }
   };
 
-  const clearCart = async () => {
+  const handleClearCart = async () => {
     if (!window.confirm('Are you sure you want to clear your cart?')) return;
 
     setUpdating(true);
     try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      console.log('Clear cart response:', data); // Debug log
-
-      if (data.success) {
-        setCart(data.data);
-        updateCartCount(0);
-      } else {
-        alert(data.message || 'Failed to clear cart');
-      }
+      await clearCart();
     } catch (error) {
       console.error('Error clearing cart:', error);
-      alert('Failed to clear cart');
+      alert(error.message || 'Failed to clear cart');
     } finally {
       setUpdating(false);
     }
@@ -169,11 +128,11 @@ const Cart = () => {
 
   // Calculate cart totals
   const calculateTotals = () => {
-    if (!cart || !cart.items || cart.items.length === 0) {
+    if (!items || items.length === 0) {
       return { subtotal: 0, shippingCost: 0, finalTotal: 0 };
     }
 
-    const subtotal = cart.items.reduce((total, item) => {
+    const subtotal = items.reduce((total, item) => {
       const currentPrice = getCurrentPrice(item.product);
       return total + (currentPrice * item.quantity);
     }, 0);
@@ -189,6 +148,7 @@ const Cart = () => {
   };
 
   const { subtotal, shippingCost, finalTotal } = calculateTotals();
+  const isEmpty = !items || items.length === 0;
 
   if (loading) {
     return (
@@ -197,10 +157,6 @@ const Cart = () => {
       </div>
     );
   }
-
-  // Check if cart is empty - handle different possible cart structures
-  const cartItems = cart?.items || [];
-  const isEmpty = !cartItems || cartItems.length === 0;
 
   if (isEmpty) {
     return (
@@ -215,7 +171,7 @@ const Cart = () => {
           <p className="text-gray-600 !mb-8">Add some amazing artworks to get started!</p>
           <Link
             to="/store"
-            className="bg-blue-600 text-white !px-6 !py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="bg-emerald-600 text-white !px-6 !py-3 rounded-lg hover:bg-emerald-700 transition-colors font-medium inline-block"
           >
             Continue Shopping
           </Link>
@@ -226,24 +182,29 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl !mx-auto !px-4 sm:!px-6 lg:!px-8 !py-8">
-        <div className="flex justify-between items-center !mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-          <button
-            onClick={clearCart}
-            disabled={updating}
-            className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
-          >
-            {updating ? 'Clearing...' : 'Clear Cart'}
-          </button>
+      <div className="max-w-7xl !mx-auto !px-4 sm:!px-6 lg:!px-8 !py-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center !mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 !mb-4 lg:!mb-0">Shopping Cart</h1>
+          <div className="flex items-center space-x-4">
+            <span className="text-gray-600">
+              {cartItemsCount} item{cartItemsCount !== 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={handleClearCart}
+              disabled={updating}
+              className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 font-medium"
+            >
+              {updating ? 'Clearing...' : 'Clear Cart'}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="divide-y divide-gray-200">
-                {cartItems.map((item) => {
+                {items.map((item) => {
                   const product = item.product || {};
                   const currentPrice = getCurrentPrice(product);
                   const discountPercentage = getDiscountPercentage(product);
@@ -251,33 +212,43 @@ const Cart = () => {
                   const mainImage = product.images?.[0] || product.image || '/placeholder-image.jpg';
 
                   return (
-                    <div key={item._id || product._id} className="!p-6 flex items-center !space-x-4">
-                      <img
-                        src={mainImage}
-                        alt={product.name}
-                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-                        onError={(e) => {
-                          e.target.src = '/placeholder-image.jpg';
-                        }}
-                      />
+                    <div key={item._id || product._id} className="!p-6 flex flex-col sm:flex-row items-start sm:items-center !space-y-4 sm:!space-y-0 sm:!space-x-6">
+                      <Link 
+                        to={`/product/${product.slug}`}
+                        className="flex-shrink-0"
+                      >
+                        <img
+                          src={mainImage}
+                          alt={product.name}
+                          className="w-24 h-24 object-cover rounded-lg hover:opacity-90 transition-opacity"
+                          onError={(e) => {
+                            e.target.src = '/placeholder-image.jpg';
+                          }}
+                        />
+                      </Link>
 
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-semibold text-gray-900 truncate">
-                          <Link to={`/product/${product.slug}`} className="hover:text-blue-600">
+                          <Link 
+                            to={`/product/${product.slug}`} 
+                            className="hover:text-emerald-600 transition-colors"
+                          >
                             {product.name || 'Unknown Product'}
                           </Link>
                         </h3>
-                        <p className="text-gray-600 text-sm">by {product.author?.name || 'Unknown Artist'}</p>
-                        <p className="text-gray-500 text-sm">{product.medium || ''}</p>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-gray-600 text-sm mt-1">
+                          by {product.author?.name || 'Unknown Artist'}
+                        </p>
+                        <p className="text-gray-500 text-sm mt-1">{product.medium || ''}</p>
+                        <p className="text-gray-500 text-sm mt-1">
                           {product.dimensions?.height || ''} × {product.dimensions?.width || ''} cm
                         </p>
                         
                         {/* Price display */}
-                        <div className="flex items-center !space-x-2 !mt-2">
+                        <div className="flex items-center !space-x-2 !mt-3">
                           {discountPercentage > 0 ? (
                             <>
-                              <span className="text-lg font-bold text-red-600">
+                              <span className="text-lg font-bold text-emerald-600">
                                 {formatPrice(currentPrice)}
                               </span>
                               <span className="text-sm text-gray-400 line-through">
@@ -295,29 +266,29 @@ const Cart = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center !space-x-4">
+                      <div className="flex items-center justify-between w-full sm:w-auto !space-x-6">
                         <div className="flex items-center border border-gray-300 rounded-lg">
                           <button
-                            onClick={() => updateQuantity(product._id, item.quantity - 1)}
+                            onClick={() => handleUpdateQuantity(product._id, item.quantity - 1)}
                             disabled={updating || item.quantity <= 1}
-                            className="!px-3 !py-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                            className="!px-3 !py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-50 rounded-l-lg"
                           >
                             -
                           </button>
-                          <span className="!px-4 !py-1 border-l border-r border-gray-300 min-w-12 text-center">
+                          <span className="!px-4 !py-2 border-l border-r border-gray-300 min-w-12 text-center font-medium">
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(product._id, item.quantity + 1)}
+                            onClick={() => handleUpdateQuantity(product._id, item.quantity + 1)}
                             disabled={updating || item.quantity >= (product.stock || 1)}
-                            className="!px-3 !py-1 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                            className="!px-3 !py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-50 rounded-r-lg"
                           >
                             +
                           </button>
                         </div>
 
-                        <div className="text-right w-24">
-                          <p className="font-semibold text-gray-900">
+                        <div className="text-right min-w-28">
+                          <p className="font-semibold text-gray-900 text-lg">
                             {formatPrice(itemTotal)}
                           </p>
                           {item.quantity > 1 && (
@@ -328,9 +299,9 @@ const Cart = () => {
                         </div>
 
                         <button
-                          onClick={() => removeFromCart(product._id)}
+                          onClick={() => handleRemoveFromCart(product._id)}
                           disabled={updating}
-                          className="text-red-600 hover:text-red-800 transition-colors !p-2 disabled:opacity-50"
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors !p-2 rounded-lg disabled:opacity-50"
                           title="Remove item"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -347,28 +318,35 @@ const Cart = () => {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 !p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 !mb-4">Order Summary</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 !p-6 sticky top-8">
+              <h2 className="text-xl font-bold text-gray-900 !mb-6">Order Summary</h2>
 
-              <div className="!space-y-3 !mb-6">
+              <div className="!space-y-4 !mb-6">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal ({cartItems.length} items)</span>
+                  <span className="text-gray-600">Subtotal ({cartItemsCount} items)</span>
                   <span className="font-medium">{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
                   <span className="font-medium">
-                    {shippingCost > 0 ? formatPrice(shippingCost) : 'Free'}
+                    {shippingCost > 0 ? formatPrice(shippingCost) : (
+                      <span className="text-emerald-600 font-bold">FREE</span>
+                    )}
                   </span>
                 </div>
+                {shippingCost > 0 && subtotal < 100 && (
+                  <div className="text-sm text-emerald-600 bg-emerald-50 !p-3 rounded-lg">
+                    🚚 Add ${formatPrice(100 - subtotal).replace('$', '')} more for free shipping!
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tax</span>
                   <span className="font-medium">Calculated at checkout</span>
                 </div>
-                <div className="border-t border-gray-200 !pt-3">
-                  <div className="flex justify-between text-lg font-semibold">
+                <div className="border-t border-gray-200 !pt-4">
+                  <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>{formatPrice(finalTotal)}</span>
+                    <span className="text-emerald-700">{formatPrice(finalTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -376,23 +354,52 @@ const Cart = () => {
               <div className="!space-y-3">
                 <Link
                   to="/checkout"
-                  className="flex-1 bg-blue-600 text-white !py-3 !px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium text-center block"
+                  className="block w-full bg-emerald-600 text-white !py-3 !px-6 rounded-lg hover:bg-emerald-700 transition-colors font-medium text-center shadow-md hover:shadow-lg"
                 >
                   Proceed to Checkout
                 </Link>
                 <Link
                   to="/store"
-                  className="block w-full text-center bg-gray-200 text-gray-900 !py-3 !px-6 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  className="block w-full text-center bg-gray-100 text-gray-900 !py-3 !px-6 rounded-lg hover:bg-gray-200 transition-colors font-medium border border-gray-300"
                 >
                   Continue Shopping
                 </Link>
               </div>
 
-              <div className="!mt-6 text-sm text-gray-600 !space-y-2">
-                <p>🛡️ Free shipping on orders over $1000</p>
-                <p>↩️ 30-day return policy</p>
-                <p>🔒 Secure checkout</p>
+              <div className="!mt-8 text-sm text-gray-600 !space-y-3">
+                <div className="flex items-start">
+                  <span className="text-emerald-600 mr-2">🛡️</span>
+                  <span>Free shipping on orders over $100</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-emerald-600 mr-2">↩️</span>
+                  <span>30-day return policy</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-emerald-600 mr-2">🔒</span>
+                  <span>Secure SSL checkout</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-emerald-600 mr-2">🎁</span>
+                  <span>Free gift wrapping available</span>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recently Viewed / Recommendations */}
+        <div className="!mt-12">
+          <h3 className="text-xl font-bold text-gray-900 !mb-6">You might also like</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* This would be populated with product recommendations */}
+            <div className="bg-white rounded-lg border border-gray-200 !p-4 text-center">
+              <div className="text-gray-400 !mb-2">
+                <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-gray-600 text-sm">Continue shopping to see recommendations</p>
             </div>
           </div>
         </div>
