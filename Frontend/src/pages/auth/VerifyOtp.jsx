@@ -7,14 +7,16 @@ const VerifyOtp = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
+  const [fromLogin, setFromLogin] = useState(false);
 
-  const { verifyOtp } = useAuth();
+  const { verifyOtp, sendOTP } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     if (location.state?.email) {
       setEmail(location.state.email);
+      setFromLogin(location.state.fromLogin || false);
     } else {
       navigate('/register');
     }
@@ -35,9 +37,22 @@ const VerifyOtp = () => {
 
     if (result.success) {
       setMessage('Email verified successfully! Redirecting...');
-      setTimeout(() => {
-        navigate('/profile');
-      }, 2000);
+      
+      if (fromLogin) {
+        // If coming from login, redirect to login page again
+        setTimeout(() => {
+          navigate('/login', { 
+            state: { 
+              message: 'Email verified successfully! Please login again.' 
+            } 
+          });
+        }, 2000);
+      } else {
+        // If from registration, go to profile
+        setTimeout(() => {
+          navigate('/profile');
+        }, 2000);
+      }
     } else {
       setMessage(result.message);
     }
@@ -45,22 +60,42 @@ const VerifyOtp = () => {
     setLoading(false);
   };
 
+  const handleResendOtp = async () => {
+    setLoading(true);
+    setMessage('');
+    
+    const result = await sendOTP(email);
+    
+    if (result.success) {
+      setMessage('New OTP sent to your email!');
+    } else {
+      setMessage(result.message || 'Failed to send OTP');
+    }
+    
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center !py-12 sm:!px-6 lg:!px-8">
       <div className="sm:!mx-auto sm:w-full sm:max-w-md">
         <h2 className="!mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Verify Your Email
+          {fromLogin ? 'Verify Your Account' : 'Verify Your Email'}
         </h2>
         <p className="!mt-2 text-center text-sm text-gray-600">
           We've sent a 6-digit OTP to {email}
         </p>
+        {fromLogin && (
+          <p className="!mt-1 text-center text-sm text-blue-600">
+            Please verify your account to login
+          </p>
+        )}
       </div>
 
       <div className="!mt-8 sm:!mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white !py-8 !px-4 shadow sm:rounded-lg sm:px-10">
           <form className="!space-y-6" onSubmit={handleSubmit}>
             {message && (
-              <div className={`!p-3 rounded-md ${message.includes('successfully') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              <div className={`!p-3 rounded-md ${message.includes('successfully') || message.includes('sent') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                 {message}
               </div>
             )}
@@ -97,10 +132,21 @@ const VerifyOtp = () => {
             <div className="text-center">
               <button
                 type="button"
+                onClick={handleResendOtp}
                 className="text-sm text-blue-600 hover:text-blue-500"
-                onClick={() => navigate('/register')}
+                disabled={loading}
               >
-                Back to Register
+                {loading ? 'Sending...' : 'Resend OTP'}
+              </button>
+            </div>
+
+            <div className="text-center border-t pt-4">
+              <button
+                type="button"
+                className="text-sm text-gray-600 hover:text-gray-900"
+                onClick={() => navigate(fromLogin ? '/login' : '/register')}
+              >
+                Back to {fromLogin ? 'Login' : 'Register'}
               </button>
             </div>
           </form>

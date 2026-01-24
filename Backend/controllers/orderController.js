@@ -92,6 +92,9 @@ export const applyCoupon = async (req, res) => {
 // @desc    Create new order
 // @route   POST /api/v1/orders
 // @access  Private
+// @desc    Create new order
+// @route   POST /api/v1/orders
+// @access  Private
 export const createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -221,6 +224,47 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Generate 7-digit order number
+    const generateOrderNumber = async () => {
+      try {
+        // Generate random 7-digit number (1000000 to 9999999)
+        const random7Digit = Math.floor(1000000 + Math.random() * 9000000);
+        const orderNumber = `ART${random7Digit}`;
+        
+        // Check if it already exists
+        const existingOrder = await Order.findOne({ orderNumber }).session(session);
+        return existingOrder ? null : orderNumber;
+      } catch (error) {
+        console.error('Error generating order number:', error);
+        return null;
+      }
+    };
+
+    // Try up to 5 times to generate unique number
+    let orderNumber = null;
+    for (let i = 0; i < 5; i++) {
+      orderNumber = await generateOrderNumber();
+      if (orderNumber) break;
+    }
+
+    // If still not unique, use fallback
+    if (!orderNumber) {
+      // Last 7 digits of timestamp
+      const timestamp = Date.now();
+      const last7Digits = timestamp.toString().slice(-7);
+      orderNumber = `ART${last7Digits}`;
+      
+      // Check if fallback also exists
+      const existingOrder = await Order.findOne({ orderNumber }).session(session);
+      if (existingOrder) {
+        // Add a random digit to make it unique
+        const randomDigit = Math.floor(Math.random() * 10);
+        orderNumber = `ART${last7Digits.slice(0, 6)}${randomDigit}`;
+      }
+    }
+
+    console.log(`Generated order number: ${orderNumber}`);
+
     // Prepare order items
     const orderItems = user.cart.map(item => {
       const currentPrice = getCurrentPrice(item.product);
@@ -234,12 +278,6 @@ export const createOrder = async (req, res) => {
         medium: item.product.medium
       };
     });
-
-    // Generate order number
-    const date = new Date();
-    const timestamp = date.getTime();
-    const random = Math.floor(Math.random() * 1000);
-    const orderNumber = `ART${timestamp}${random}`;
 
     // Create order
     const orderData = {

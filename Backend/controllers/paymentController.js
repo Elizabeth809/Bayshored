@@ -12,7 +12,7 @@ import { sendEmail } from '../utils/sendEmail.js';
 // @access  Private
 export const createRazorpayOrder = async (req, res) => {
   try {
-    const { orderId, amount, currency = 'INR' } = req.body;
+    const { orderId, amount, currency = 'USD' } = req.body;
 
     const order = await Order.findOne({ 
       _id: orderId, 

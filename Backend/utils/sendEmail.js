@@ -1,44 +1,51 @@
-import nodemailer from "nodemailer";
+import sgMail from '@sendgrid/mail';
 
-// Create transporter using Brevo SMTP
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || "smtp-relay.brevo.com",
-    port: process.env.EMAIL_PORT || 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // Your SMTP key from Brevo
-    },
-    tls: {
-      rejectUnauthorized: false, // ✅ bypass self-signed certificate error
-    },
-  });
+const initSendGrid = () => {
+  if (!process.env.SENDGRID_API_KEY) {
+    throw new Error("SENDGRID_API_KEY is not defined in environment variables");
+  }
+
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 };
 
+/**
+ * Generic email sender
+ */
 export const sendEmail = async (to, subject, html, attachments = []) => {
   try {
-    const transporter = createTransporter();
+    initSendGrid();
 
-    const mailOptions = {
-      from: `"MERN Art Gallery" <${
-        process.env.EMAIL_FROM || "noreply@mernart.com"
-      }>`,
+    if (!process.env.EMAIL_FROM) {
+      throw new Error("EMAIL_FROM is not defined in environment variables");
+    }
+
+    const msg = {
       to,
+      from: process.env.EMAIL_FROM, // must be verified sender
       subject,
       html,
-      attachments,
+      attachments: attachments.map(a => ({
+        content: a.content.toString("base64"),
+        filename: a.filename,
+        type: "application/pdf",
+        disposition: "attachment",
+      })),
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    const [response] = await sgMail.send(msg);
+
+    console.log("📧 SendGrid accepted email:", response.statusCode);
+
+    return {
+      success: true,
+      messageId: response.headers["x-message-id"],
+    };
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error("❌ SendGrid error:", error.response?.body || error.message);
+
     return {
       success: false,
-      error: error.message,
-      code: error.code,
+      error: error.response?.body?.errors?.[0]?.message || error.message,
     };
   }
 };
@@ -222,5 +229,3 @@ export const sendOrderConfirmationEmail = async (order, invoiceBuffer) => {
 
   return await sendEmail(order.user.email, subject, html, attachments);
 };
-
-// #1

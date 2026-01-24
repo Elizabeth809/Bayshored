@@ -9,8 +9,9 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showResendOtp, setShowResendOtp] = useState(false);
 
-  const { login } = useAuth();
+  const { login, sendOTP } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -21,27 +22,77 @@ const Login = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  setLoading(true);
+  setMessage('');
+
+  const result = await login(formData.email, formData.password);
+
+  if (result.success) {
+    // Check if requiresVerification exists
+    if (result.requiresVerification) {
+      // Show message and redirect to OTP verification
+      setMessage('Please verify your account. Redirecting to OTP verification...');
+      
+      // Navigate immediately to OTP verification page
+      setTimeout(() => {
+        navigate('/verify-otp', { 
+          state: { 
+            email: formData.email,
+            fromLogin: true // Important flag
+          } 
+        });
+      }, 1000);
+    } else {
+      // Normal successful login
+      setMessage('Login successful! Redirecting...');
+      setTimeout(() => {
+        navigate('/profile');
+      }, 2000);
+    }
+  } else {
+    // Handle failed login
+    setMessage(result.message);
+    
+    // Check if it's an unverified account error
+    if (result.message?.toLowerCase().includes('verify') || 
+        result.message?.toLowerCase().includes('unverified') ||
+        result.message?.toLowerCase().includes('otp')) {
+      // Show option to go to OTP verification
+      setTimeout(() => {
+        navigate('/verify-otp', { 
+          state: { 
+            email: formData.email,
+            fromLogin: true
+          } 
+        });
+      }, 1500);
+    }
+  }
+
+  setLoading(false);
+};
+
+  const handleResendOtp = async () => {
     setLoading(true);
     setMessage('');
-
-    const result = await login(formData.email, formData.password);
-
+    
+    const result = await sendOTP(formData.email);
+    
     if (result.success) {
-      if (result.data.requiresVerification) {
+      setMessage('New OTP sent to your email!');
+      setTimeout(() => {
         navigate('/verify-otp', { 
-          state: { email: formData.email } 
+          state: { 
+            email: formData.email,
+            fromLogin: true
+          } 
         });
-      } else {
-        setMessage('Login successful! Redirecting...');
-        setTimeout(() => {
-          navigate('/profile');
-        }, 2000);
-      }
+      }, 1000);
     } else {
-      setMessage(result.message);
+      setMessage(result.message || 'Failed to send OTP');
     }
-
+    
     setLoading(false);
   };
 
@@ -66,8 +117,20 @@ const Login = () => {
         <div className="bg-white !py-8 !px-4 shadow sm:rounded-lg sm:!px-10">
           <form className="!space-y-6" onSubmit={handleSubmit}>
             {message && (
-              <div className={`!p-3 rounded-md ${message.includes('successful') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              <div className={`!p-3 rounded-md ${message.includes('successful') || message.includes('sent') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                 {message}
+                {showResendOtp && (
+                  <div className="!mt-2">
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-500 underline"
+                      disabled={loading}
+                    >
+                      {loading ? 'Sending...' : 'Click here to send OTP again'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
