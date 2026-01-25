@@ -1,40 +1,130 @@
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import NewsletterSubscription from '../components/others/NewsletterSubscription';
+import { useEffect, useMemo, useState } from "react";
+import { CLIENT_BASE_URL } from "../components/others/clientApiUrl";
+import HeroArtSlider from "../components/HomeComponents/HeroSlider";
+import TrustBar from "../components/HomeComponents/TrustBar";
+import CategoryChips from "../components/HomeComponents/CategoryChips";
+import AnimatedBanner from "../components/HomeComponents/AnimatedBanner";
+import ArtistRail from "../components/HomeComponents/ArtistRail";
+import ProductRail from "../components/HomeComponents/ProductRail";
+import NewsletterSubscription from "../components/HomeComponents/NewsletterSubscription";
+import AboutCompanySection from "../components/HomeComponents/AboutCompanySection";
 
-const Home = () => {
-  const { isAuthenticated } = useAuth();
+const HomePage = () => {
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [authors, setAuthors] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [pRes, aRes, cRes] = await Promise.all([
+          fetch(`${CLIENT_BASE_URL}/api/v1/products`, { signal: ac.signal }),
+          fetch(`${CLIENT_BASE_URL}/api/v1/authors`, { signal: ac.signal }),
+          fetch(`${CLIENT_BASE_URL}/api/v1/categories`, { signal: ac.signal }),
+        ]);
+
+        const [pData, aData, cData] = await Promise.all([
+          pRes.json(),
+          aRes.json(),
+          cRes.json(),
+        ]);
+
+        if (!pRes.ok) throw new Error(pData?.message || "Failed to load products");
+        if (!aRes.ok) throw new Error(aData?.message || "Failed to load artists");
+        if (!cRes.ok) throw new Error(cData?.message || "Failed to load categories");
+
+        // Your backend likely returns { success, data } or { success, data: { items } }.
+        // We'll support both patterns safely:
+        const pList = pData?.data?.products || pData?.data || pData?.products || [];
+        const aList = aData?.data?.authors || aData?.data || aData?.authors || [];
+        const cList = cData?.data?.categories || cData?.data || cData?.categories || [];
+
+        setProducts(Array.isArray(pList) ? pList : []);
+        setAuthors(Array.isArray(aList) ? aList : []);
+        setCategories(Array.isArray(cList) ? cList : []);
+      } catch (e) {
+        if (e?.name !== "AbortError") setError(e?.message || "Something went wrong");
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => ac.abort();
+  }, []);
+
+  const featured = useMemo(() => products.slice(0, 12), [products]);
+
+  const onSale = useMemo(() => {
+    return products
+      .filter(
+        (p) =>
+          (p?.mrpPrice && p?.discountPrice && p.discountPrice < p.mrpPrice) ||
+          (p?.price && p?.discountPrice && p.discountPrice < p.price)
+      )
+      .slice(0, 12);
+  }, [products]);
+
+  const collectorsVault = useMemo(() => {
+    return products.filter((p) => p?.askForPrice === true).slice(0, 12);
+  }, [products]);
+
+  const topCategories = useMemo(() => categories.slice(0, 10), [categories]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Hero Section */}
-      <div className="max-w-7xl !mx-auto !px-4 sm:!px-6 lg:!px-8 !py-20 text-center">
-        <h1 className="text-4xl md:text-6xl font-bold text-gray-900 !mb-6">
-          Discover Amazing Art
-        </h1>
-        <p className="text-xl text-gray-600 !mb-8 max-w-2xl !mx-auto">
-          Explore our curated collection of beautiful artworks from talented artists around the world.
-        </p>
-        <div className="!space-x-4">
-          <Link
-            to="/store"
-            className="bg-blue-600 text-white !px-8 !py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition duration-200"
-          >
-            Shop Now
-          </Link>
-          {!isAuthenticated && (
-            <Link
-              to="/register"
-              className="border border-blue-600 text-blue-600 !px-8 !py-3 rounded-lg text-lg font-semibold hover:bg-blue-50 transition duration-200"
-            >
-              Join Now
-            </Link>
-          )}
-        </div>
+    <main className="min-h-screen bg-white text-black">
+      <HeroArtSlider categories={topCategories} />
+      <AboutCompanySection />
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <CategoryChips loading={loading} categories={topCategories} />
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-6">
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <ProductRail
+          title="Featured Originals"
+          subtitle="Handpicked paintings curated for modern collectors in the USA."
+          loading={loading}
+          products={featured}
+          viewAllHref="/products"
+        />
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <AnimatedBanner />
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-6">
+        <ArtistRail
+          title="Meet Our Artists"
+          subtitle="Discover the stories behind every brushstroke."
+          loading={loading}
+          authors={authors}
+          viewAllHref="/artists"
+        />
+      </section>
+
+      <div className="relative">
+        <TrustBar />
       </div>
-      <NewsletterSubscription />
-    </div>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
+        <NewsletterSubscription />
+      </section>
+    </main>
   );
 };
 
-export default Home;
+export default HomePage;
