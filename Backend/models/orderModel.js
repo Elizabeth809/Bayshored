@@ -19,7 +19,8 @@ const orderItemSchema = new mongoose.Schema({
   name: String,
   image: String,
   author: String,
-  medium: String
+  medium: String,
+  sku: String
 });
 
 const shippingUpdateSchema = new mongoose.Schema({
@@ -30,8 +31,209 @@ const shippingUpdateSchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now
-  }
+  },
+  location: String,
+  status: String,
+  fedexEventCode: String
 });
+
+// Available rates schema - Fixed transitDays to be String
+const availableRateSchema = new mongoose.Schema({
+  serviceType: String,
+  serviceName: String,
+  deliveryDate: Date,
+  transitDays: String, // Changed from Number to String to handle "1-2 days" format
+  totalCharge: Number,
+  currency: {
+    type: String,
+    default: 'USD'
+  },
+  isEstimated: Boolean
+}, { _id: false });
+
+// Comprehensive FedEx tracking schema
+const fedexTrackingSchema = new mongoose.Schema({
+  // Tracking identifiers
+  trackingNumber: {
+    type: String,
+    sparse: true,
+    index: true
+  },
+  masterTrackingNumber: String,
+  
+  // Label information
+  labelUrl: String,
+  labelData: String,
+  labelFormat: {
+    type: String,
+    enum: ['PDF', 'PNG', 'ZPL'],
+    default: 'PDF'
+  },
+  
+  // Shipment details
+  shipmentId: String,
+  serviceType: String,
+  serviceName: String,
+  
+  // Package dimensions
+  dimensions: {
+    length: Number,
+    width: Number,
+    height: Number,
+    units: {
+      type: String,
+      enum: ['IN', 'CM'],
+      default: 'IN'
+    }
+  },
+  
+  // Package weight
+  weight: {
+    value: Number,
+    units: {
+      type: String,
+      enum: ['LB', 'KG'],
+      default: 'LB'
+    }
+  },
+  
+  // Insurance
+  insuranceAmount: {
+    amount: Number,
+    currency: {
+      type: String,
+      default: 'USD'
+    }
+  },
+  
+  // Shipping cost breakdown
+  shippingCost: {
+    baseCharge: Number,
+    surcharges: Number,
+    taxes: Number,
+    totalNetCharge: Number,
+    currency: {
+      type: String,
+      default: 'USD'
+    }
+  },
+  
+  // Delivery estimates
+  estimatedDeliveryDate: Date,
+  estimatedDeliveryTimeWindow: {
+    begins: Date,
+    ends: Date
+  },
+  actualDeliveryDate: Date,
+  
+  // Pickup information
+  pickupConfirmationNumber: String,
+  pickupDate: Date,
+  pickupLocation: String,
+  
+  // Current status
+  currentStatus: {
+    code: String,
+    description: String,
+    location: {
+      city: String,
+      stateOrProvinceCode: String,
+      postalCode: String,
+      countryCode: String
+    },
+    timestamp: Date
+  },
+  
+  // Tracking history
+  trackingHistory: [{
+    timestamp: Date,
+    eventType: String,
+    eventDescription: String,
+    location: {
+      city: String,
+      stateOrProvinceCode: String,
+      postalCode: String,
+      countryCode: String,
+      residential: Boolean
+    },
+    derivedStatus: String,
+    exceptionDescription: String
+  }],
+  
+  // Address validation results
+  addressValidation: {
+    validated: Boolean,
+    classification: String,
+    originalAddress: mongoose.Schema.Types.Mixed,
+    normalizedAddress: mongoose.Schema.Types.Mixed,
+    validationMessages: [String]
+  },
+  
+  // Available rates - using the fixed schema
+  availableRates: [availableRateSchema],
+  
+  // Timestamps
+  shipmentCreatedAt: Date,
+  labelCreatedAt: Date,
+  lastTrackingUpdate: Date,
+  
+  // Metadata
+  fedexTransactionId: String,
+  fedexAvailable: {
+    type: Boolean,
+    default: false
+  }
+}, { _id: false });
+
+// Shipping address schema
+const shippingAddressSchema = new mongoose.Schema({
+  recipientName: {
+    type: String,
+    required: true
+  },
+  companyName: String,
+  streetLine1: {
+    type: String,
+    required: true
+  },
+  streetLine2: String,
+  city: {
+    type: String,
+    required: true
+  },
+  stateCode: {
+    type: String,
+    required: true,
+    uppercase: true,
+    minlength: 2,
+    maxlength: 2
+  },
+  zipCode: {
+    type: String,
+    required: true
+  },
+  countryCode: {
+    type: String,
+    required: true,
+    default: 'US'
+  },
+  phoneNumber: {
+    type: String,
+    required: true
+  },
+  email: String,
+  isResidential: {
+    type: Boolean,
+    default: true
+  },
+  specialInstructions: String,
+  addressVerified: {
+    type: Boolean,
+    default: false
+  },
+  fedexClassification: String,
+  normalizedByFedex: mongoose.Schema.Types.Mixed
+}, { _id: false });
 
 const orderSchema = new mongoose.Schema({
   orderNumber: {
@@ -39,43 +241,18 @@ const orderSchema = new mongoose.Schema({
     unique: true,
     required: true
   },
+  
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
+  
   items: [orderItemSchema],
-  shippingAddress: {
-    flatNo: {
-      type: String,
-      required: true
-    },
-    street: {
-      type: String,
-      required: true
-    },
-    city: {
-      type: String,
-      required: true
-    },
-    state: {
-      type: String,
-      required: true
-    },
-    zipCode: {
-      type: String,
-      required: true
-    },
-    country: {
-      type: String,
-      required: true,
-      default: 'India'
-    },
-    phoneNo: {
-      type: String,
-      required: true
-    }
-  },
+  
+  shippingAddress: shippingAddressSchema,
+  
+  // Pricing (all in USD)
   subtotal: {
     type: Number,
     required: true,
@@ -84,6 +261,12 @@ const orderSchema = new mongoose.Schema({
   shippingCost: {
     type: Number,
     required: true,
+    min: 0,
+    default: 0
+  },
+  taxAmount: {
+    type: Number,
+    default: 0,
     min: 0
   },
   couponApplied: {
@@ -100,130 +283,137 @@ const orderSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  currency: {
+    type: String,
+    default: 'USD'
+  },
 
-  razorpayOrderId: {
-    type: String
-  },
-  razorpayPaymentId: {
-    type: String
-  },
-  razorpaySignature: {
-    type: String
-  },
+  // Payment fields
+  razorpayOrderId: String,
+  razorpayPaymentId: String,
+  razorpaySignature: String,
+  stripePaymentIntentId: String,
+  stripeSessionId: String,
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'failed', 'refunded'],
+    enum: ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'],
     default: 'pending'
   },
   paymentMethod: {
     type: String,
-    enum: ['card', 'upi', 'netbanking', 'wallet', 'emi', 'razorpay', 'COD'],
+    enum: ['card', 'paypal', 'applepay', 'googlepay', 'stripe', 'razorpay', 'COD'],
     required: true
   },
+  paidAt: Date,
 
+  // Order status
   orderStatus: {
     type: String,
-    enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
+    enum: ['pending', 'confirmed', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned'],
     default: 'pending'
   },
-  shippingUpdates: [shippingUpdateSchema],
-  notes: {
+  
+  // Shipping method selected
+  shippingMethod: {
     type: String,
-    maxlength: 500
+    default: 'ground'
+  },
+  
+  // Carrier information
+  carrier: {
+    type: String,
+    enum: ['fedex', 'ups', 'usps', 'dhl', 'other'],
+    default: 'fedex'
+  },
+  
+  // FedEx integration
+  fedex: fedexTrackingSchema,
+  
+  // Shipping updates timeline
+  shippingUpdates: [shippingUpdateSchema],
+  
+  // Order notes
+  notes: {
+    customer: {
+      type: String,
+      maxlength: 500
+    },
+    internal: {
+      type: String,
+      maxlength: 1000
+    }
+  },
+  
+  // Delivery information
+  signatureRequired: {
+    type: Boolean,
+    default: false
+  },
+  deliveryInstructions: String,
+  
+  // Cancellation/Return
+  cancellationReason: String,
+  cancelledAt: Date,
+  cancelledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
 });
 
-// Generate 7-digit order number before saving
-orderSchema.pre('save', async function(next) {
-  if (this.isNew && !this.orderNumber) {
-    try {
-      // Method 1: Generate unique 7-digit number
-      const generateOrderNumber = async () => {
-        // Generate random 7-digit number (1000000 to 9999999)
-        const random7Digit = Math.floor(1000000 + Math.random() * 9000000);
-        const orderNumber = `ART${random7Digit}`;
-        
-        // Check if it already exists
-        const existingOrder = await mongoose.model('Order').findOne({ orderNumber });
-        return existingOrder ? null : orderNumber;
-      };
-
-      // Try up to 5 times to generate unique number
-      let orderNumber = null;
-      for (let i = 0; i < 5; i++) {
-        orderNumber = await generateOrderNumber();
-        if (orderNumber) break;
-      }
-
-      // If still not unique, use timestamp with last 7 digits
-      if (!orderNumber) {
-        const timestamp = Date.now();
-        const last7Digits = timestamp.toString().slice(-7);
-        orderNumber = `ART${last7Digits}`;
-        
-        // One more check for uniqueness
-        const existingOrder = await mongoose.model('Order').findOne({ orderNumber });
-        if (existingOrder) {
-          // Add a random digit to make it unique
-          orderNumber = `ART${last7Digits.slice(0, 6)}${Math.floor(Math.random() * 10)}`;
-        }
-      }
-
-      console.log(`Generated order number: ${orderNumber}`);
-      this.orderNumber = orderNumber;
-      next();
-    } catch (error) {
-      console.error('Error generating order number:', error);
-      next(error);
+// Static method to generate order number
+orderSchema.statics.generateOrderNumber = async function() {
+  const prefix = 'ORD';
+  let orderNumber = null;
+  
+  for (let i = 0; i < 10; i++) {
+    const random7Digit = Math.floor(1000000 + Math.random() * 9000000);
+    const potentialOrderNumber = `${prefix}${random7Digit}`;
+    
+    const existingOrder = await this.findOne({ orderNumber: potentialOrderNumber });
+    if (!existingOrder) {
+      orderNumber = potentialOrderNumber;
+      break;
     }
-  } else {
-    next();
   }
-});
 
-// Alternative: Sequential order numbers (more professional)
-// Uncomment this if you want sequential numbers
-
-/*
-// First, create a Counter model in a separate file or in your init
-const Counter = mongoose.model('Counter') || 
-  mongoose.model('Counter', new mongoose.Schema({
-    _id: { type: String, required: true },
-    seq: { type: Number, default: 1000000 }
-  }));
-
-orderSchema.pre('save', async function(next) {
-  if (this.isNew && !this.orderNumber) {
-    try {
-      const counter = await Counter.findByIdAndUpdate(
-        { _id: 'orderNumber' },
-        { $inc: { seq: 1 } },
-        { new: true, upsert: true }
-      );
-      
-      this.orderNumber = `ART${counter.seq}`;
-      console.log(`Generated sequential order number: ${this.orderNumber}`);
-      next();
-    } catch (error) {
-      console.error('Error generating sequential order number:', error);
-      
-      // Fallback to random 7-digit
-      const random7Digit = Math.floor(1000000 + Math.random() * 9000000);
-      this.orderNumber = `ART${random7Digit}`;
-      next();
-    }
-  } else {
-    next();
+  if (!orderNumber) {
+    const timestamp = Date.now().toString().slice(-10);
+    orderNumber = `${prefix}${timestamp}`;
   }
-});
-*/
 
-// Index for better search performance
+  return orderNumber;
+};
+
+// Indexes
+orderSchema.index({ 'fedex.trackingNumber': 1 });
 orderSchema.index({ user: 1 });
 orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ orderStatus: 1 });
+orderSchema.index({ paymentStatus: 1 });
+
+// Virtual for estimated delivery
+orderSchema.virtual('estimatedDelivery').get(function() {
+  return this.fedex?.estimatedDeliveryDate || this.fedex?.estimatedDeliveryTimeWindow?.ends;
+});
+
+// Instance method to check if order can be cancelled
+orderSchema.methods.canBeCancelled = function() {
+  const nonCancellableStatuses = ['shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned'];
+  return !nonCancellableStatuses.includes(this.orderStatus);
+};
+
+// Instance method to add shipping update
+orderSchema.methods.addShippingUpdate = function(update) {
+  this.shippingUpdates.push({
+    message: update.message,
+    timestamp: update.timestamp || new Date(),
+    location: update.location,
+    status: update.status,
+    fedexEventCode: update.fedexEventCode
+  });
+};
 
 export default mongoose.model('Order', orderSchema);

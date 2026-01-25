@@ -22,6 +22,7 @@ import priceInquiryRoutes from './routes/priceInquiryRoutes.js';
 
 import helmet from 'helmet';
 import compression from 'compression';
+import { fedexErrorHandler } from './middleware/fedexErrorHandler.js';
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(compression());
 app.use(helmet());
+app.use(fedexErrorHandler);
 
 // Mount routes BEFORE starting the server
 app.use("/api/v1/auth", authRoutes);
