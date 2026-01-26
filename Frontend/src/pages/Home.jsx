@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { CLIENT_BASE_URL } from "../components/others/clientApiUrl";
 import HeroArtSlider from "../components/HomeComponents/HeroSlider";
 import TrustBar from "../components/HomeComponents/TrustBar";
-import CategoryChips from "../components/HomeComponents/CategoryChips";
 import AnimatedBanner from "../components/HomeComponents/AnimatedBanner";
 import ArtistRail from "../components/HomeComponents/ArtistRail";
 import ProductRail from "../components/HomeComponents/ProductRail";
 import NewsletterSubscription from "../components/HomeComponents/NewsletterSubscription";
 import AboutCompanySection from "../components/HomeComponents/AboutCompanySection";
+import ArtProcessSection from "../components/HomeComponents/ArtProcessSection";
 
 const HomePage = () => {
   const [loading, setLoading] = useState(true);
@@ -78,12 +78,31 @@ const HomePage = () => {
   const topCategories = useMemo(() => categories.slice(0, 10), [categories]);
 
   return (
-    <main className="min-h-screen bg-white text-black">
+    <main className="min-h-screen bg-neutral-50 text-black">
       <HeroArtSlider categories={topCategories} />
       <AboutCompanySection />
+      <ArtistRail
+          title="Meet Our Artists"
+          subtitle="Discover the stories behind every brushstroke."
+          loading={loading}
+          authors={authors}
+          viewAllHref="/artists"
+        />
+        <ArtProcessSection />
+        
+        <AnimatedBanner />
+        <ProductRail
+          title="Featured Originals"
+          subtitle="Handpicked paintings curated for modern collectors in the USA."
+          loading={loading}
+          products={featured}
+          viewAllHref="/products"
+        />
+        <TrustBar />
+         <NewsletterSubscription />
 
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-        <CategoryChips loading={loading} categories={topCategories} />
+      {/* <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        
       </section>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-6">
@@ -93,36 +112,24 @@ const HomePage = () => {
           </div>
         ) : null}
 
-        <ProductRail
-          title="Featured Originals"
-          subtitle="Handpicked paintings curated for modern collectors in the USA."
-          loading={loading}
-          products={featured}
-          viewAllHref="/products"
-        />
+        
       </section>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-        <AnimatedBanner />
+        
       </section>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-6">
-        <ArtistRail
-          title="Meet Our Artists"
-          subtitle="Discover the stories behind every brushstroke."
-          loading={loading}
-          authors={authors}
-          viewAllHref="/artists"
-        />
+        
       </section>
 
       <div className="relative">
-        <TrustBar />
+        
       </div>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
-        <NewsletterSubscription />
-      </section>
+       
+      </section> */}
     </main>
   );
 };

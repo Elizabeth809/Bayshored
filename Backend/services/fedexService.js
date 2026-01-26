@@ -501,6 +501,89 @@ class FedExService {
         };
     }
 
+    // services/fedexService.js
+
+    // Add this method to your FedExService class
+
+    async schedulePickup(pickupRequest) {
+        try {
+            const {
+                pickupDate,
+                readyTime = '09:00',
+                closeTime = '17:00',
+                location,
+                packageDetails,
+                trackingNumbers = []
+            } = pickupRequest;
+
+            // FedEx Pickup API payload
+            const payload = {
+                associatedAccountNumber: {
+                    value: this.config.accountNumber
+                },
+                originDetail: {
+                    pickupLocation: {
+                        contact: {
+                            personName: location.contact.personName,
+                            phoneNumber: location.contact.phoneNumber,
+                            companyName: location.contact.companyName
+                        },
+                        address: {
+                            streetLines: location.address.streetLines,
+                            city: location.address.city,
+                            stateOrProvinceCode: location.address.stateOrProvinceCode,
+                            postalCode: location.address.postalCode,
+                            countryCode: location.address.countryCode || 'US'
+                        }
+                    },
+                    readyDateTimestamp: `${pickupDate}T${readyTime}:00`,
+                    customerCloseTime: closeTime,
+                    pickupDateType: 'SAME_DAY'
+                },
+                packageDetails: {
+                    packageCount: packageDetails.packageCount || 1,
+                    totalWeight: {
+                        units: packageDetails.totalWeight?.units || 'LB',
+                        value: packageDetails.totalWeight?.value || 5
+                    }
+                },
+                carrierCode: 'FDXG',
+                accountAddressOfRecord: {
+                    streetLines: location.address.streetLines,
+                    city: location.address.city,
+                    stateOrProvinceCode: location.address.stateOrProvinceCode,
+                    postalCode: location.address.postalCode,
+                    countryCode: 'US'
+                }
+            };
+
+            console.log('[FedEx] Scheduling pickup:', JSON.stringify(payload, null, 2));
+
+            const result = await this.makeRequest('/pickup/v1/pickups', payload);
+
+            if (result.output) {
+                return {
+                    success: true,
+                    confirmationNumber: result.output.pickupConfirmationCode,
+                    location: result.output.location,
+                    pickupDate: pickupDate,
+                    message: 'Pickup scheduled successfully'
+                };
+            }
+
+            return {
+                success: false,
+                error: 'Failed to schedule pickup'
+            };
+        } catch (error) {
+            console.error('[FedEx] Pickup Error:', error.message);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
     // ===========================================
     // ADDRESS VALIDATION - FIXED PAYLOAD
     // ===========================================

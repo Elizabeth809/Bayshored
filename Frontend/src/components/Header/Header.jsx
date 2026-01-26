@@ -79,6 +79,7 @@ const Header = () => {
     { name: 'Virtual Gallery', href: '/virtual-gallery', end: false },
     { name: 'Artists', href: '/artists', end: false },
     { name: 'About', href: '/about', end: false },
+    { name: 'Contact', href: '/contact', end: false },
   ];
 
   return (

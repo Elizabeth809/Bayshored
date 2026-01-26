@@ -17,7 +17,10 @@ import {
   createShipment,
   cancelShipment,
   getOrderInvoiceAdmin,
-  getTrackingStatus
+  getTrackingStatus,
+  refreshTracking,
+  bulkUpdateTracking,
+  schedulePickup
 } from '../controllers/orderController.js';
 import { isAuthenticated, isAdmin } from '../middleware/authMiddleware.js';
 
@@ -42,6 +45,12 @@ router.get('/:id', isAuthenticated, getOrderById);
 router.get('/track/:orderId', isAuthenticated, trackOrder);
 router.get('/:orderId/tracking-status', isAuthenticated, getTrackingStatus);
 
+// Manually refresh tracking (Admin)
+router.post('/:orderId/refresh-tracking', isAuthenticated, isAdmin, refreshTracking);
+
+// Bulk update all shipped orders (Admin/Cron)
+router.post('/bulk-update-tracking', isAuthenticated, isAdmin, bulkUpdateTracking);
+
 // ===========================================
 // ADMIN ROUTES
 // ===========================================
@@ -53,5 +62,8 @@ router.post('/admin/:id/create-shipment', isAuthenticated, isAdmin, createShipme
 router.post('/admin/:id/cancel-shipment', isAuthenticated, isAdmin, cancelShipment);
 router.get('/admin/:id/invoice', isAuthenticated, isAdmin, getOrderInvoiceAdmin);
 router.delete('/admin/:id', isAuthenticated, isAdmin, deleteAbandonedOrder);
+
+// Schedule pickup (admin)
+router.post('/admin/:id/schedule-pickup', isAuthenticated, isAdmin, schedulePickup);
 
 export default router;

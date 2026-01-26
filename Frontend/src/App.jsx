@@ -25,6 +25,7 @@ import Orders from './pages/Orders';
 import { PaymentProvider } from './context/PaymentContext';
 import OrderSuccess from './pages/ordersStatus/OrderSuccess';
 import PaymentFailed from './pages/ordersStatus/PaymentFailed';
+import ContactPage from './pages/ContactPage';
 
 function App() {
   return (
@@ -45,8 +46,9 @@ function App() {
                 <Route path="/store" element={<Store />} />
                 <Route path="/product/:slug" element={<ProductDetail />} />
                 <Route path="/virtual-gallery" element={<VirtualGallery />} />
-                <Route path="/artists" element={<Authors />} /> {/* <-- Add Authors Route */}
-                <Route path="/artist/:authorId" element={<AuthorDetail />} /> {/* <-- Add Author Detail Route */}
+                <Route path="/artists" element={<Authors />} />
+                <Route path="/artist/:authorId" element={<AuthorDetail />} />
+                <Route path="/contact" element={<ContactPage />} />
 
                 {/* Protected Routes */}
                 <Route

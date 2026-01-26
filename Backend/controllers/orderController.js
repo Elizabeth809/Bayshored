@@ -4,6 +4,7 @@ import Coupon from "../models/couponModel.js";
 import Product from "../models/productModel.js";
 import mongoose from "mongoose";
 import fedexService from '../services/fedexService.js';
+import PDFDocument from 'pdfkit';
 
 // =============================================
 // HELPER FUNCTIONS
@@ -818,123 +819,85 @@ export const createOrder = async (req, res) => {
 // TRACKING - AUTO-SYNC WITH FEDEX
 // ===========================================
 
-// @desc    Track order and sync status from FedEx
-// @route   GET /api/v1/orders/track/:orderId
-// @access  Private
-export const trackOrder = async (req, res) => {
+// ===========================================
+// @desc    Manually refresh tracking for an order (Admin)
+// @route   POST /api/v1/orders/:orderId/refresh-tracking
+// @access  Private/Admin
+// ===========================================
+
+export const refreshTracking = async (req, res) => {
   try {
     const { orderId } = req.params;
 
     const order = await Order.findById(orderId);
 
     if (!order) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Order not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
       });
     }
 
-    // Check authorization
-    if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
-      });
-    }
-
-    // If no tracking number, return order info only
     if (!order.fedex?.trackingNumber) {
-      return res.json({
-        success: true,
-        message: 'No tracking number available',
-        data: {
-          order: {
-            _id: order._id,
-            orderNumber: order.orderNumber,
-            orderStatus: order.orderStatus,
-            paymentStatus: order.paymentStatus,
-            shippingUpdates: order.shippingUpdates
-          },
-          tracking: null,
-          hasTracking: false
-        }
+      return res.status(400).json({
+        success: false,
+        message: 'Order has no tracking number'
       });
     }
 
-    // Fetch live tracking from FedEx
+    // Force fresh fetch from FedEx
     const trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
 
     if (!trackingResult.success) {
-      return res.json({
-        success: true,
-        message: 'Tracking service temporarily unavailable',
-        data: {
-          order: {
-            _id: order._id,
-            orderNumber: order.orderNumber,
-            orderStatus: order.orderStatus,
-            fedex: order.fedex
-          },
-          tracking: null,
-          hasTracking: true,
-          error: trackingResult.error
-        }
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to fetch tracking',
+        error: trackingResult.error
       });
     }
 
-    // Update order with FedEx tracking data
-    const shouldUpdateStatus = shouldSyncOrderStatus(order.orderStatus, trackingResult.mappedOrderStatus);
-
-    if (shouldUpdateStatus) {
-      order.orderStatus = trackingResult.mappedOrderStatus;
+    // Update order status
+    const previousStatus = order.orderStatus;
+    
+    if (trackingResult.mappedOrderStatus) {
+      const shouldUpdate = shouldSyncOrderStatus(
+        order.orderStatus, 
+        trackingResult.mappedOrderStatus
+      );
       
-      // Add shipping update
-      order.shippingUpdates.push({
-        message: `FedEx: ${trackingResult.currentStatus.description}`,
-        timestamp: new Date(trackingResult.currentStatus.timestamp),
-        location: trackingResult.currentStatus.location,
-        status: trackingResult.mappedOrderStatus,
-        fedexEventCode: trackingResult.currentStatus.code
-      });
-    }
-
-    // Update FedEx tracking info
-    order.fedex.currentStatus = {
-      code: trackingResult.currentStatus.code,
-      description: trackingResult.currentStatus.description,
-      location: {
-        city: trackingResult.currentStatus.location?.split(', ')[0] || '',
-        stateOrProvinceCode: trackingResult.currentStatus.location?.split(', ')[1] || ''
-      },
-      timestamp: new Date(trackingResult.currentStatus.timestamp)
-    };
-
-    // Update estimated delivery if available
-    if (trackingResult.estimatedDelivery) {
-      order.fedex.estimatedDeliveryTimeWindow = {
-        begins: trackingResult.estimatedDelivery.begins ? new Date(trackingResult.estimatedDelivery.begins) : null,
-        ends: trackingResult.estimatedDelivery.ends ? new Date(trackingResult.estimatedDelivery.ends) : null
-      };
-      
-      if (trackingResult.estimatedDelivery.ends) {
-        order.fedex.estimatedDeliveryDate = new Date(trackingResult.estimatedDelivery.ends);
+      if (shouldUpdate) {
+        order.orderStatus = trackingResult.mappedOrderStatus;
       }
     }
 
-    // Update actual delivery if delivered
-    if (trackingResult.isDelivered && trackingResult.deliveryDetails.actualDeliveryTimestamp) {
-      order.fedex.actualDeliveryDate = new Date(trackingResult.deliveryDetails.actualDeliveryTimestamp);
-      order.orderStatus = 'delivered';
+    // Update all tracking fields
+    order.fedex.currentStatus = {
+      code: trackingResult.currentStatus?.code || '',
+      description: trackingResult.currentStatus?.description || '',
+      location: parseLocation(trackingResult.currentStatus?.location),
+      timestamp: trackingResult.currentStatus?.timestamp 
+        ? new Date(trackingResult.currentStatus.timestamp) 
+        : new Date()
+    };
+
+    if (trackingResult.estimatedDelivery) {
+      order.fedex.estimatedDeliveryTimeWindow = {
+        begins: trackingResult.estimatedDelivery.begins 
+          ? new Date(trackingResult.estimatedDelivery.begins) 
+          : null,
+        ends: trackingResult.estimatedDelivery.ends 
+          ? new Date(trackingResult.estimatedDelivery.ends) 
+          : null
+      };
     }
 
-    // Store tracking history (limit to last 50 events)
-    if (trackingResult.events && trackingResult.events.length > 0) {
+    if (trackingResult.events) {
       order.fedex.trackingHistory = trackingResult.events.slice(0, 50).map(event => ({
-        timestamp: new Date(event.timestamp),
-        eventType: event.eventType,
-        eventDescription: event.eventDescription,
-        location: event.location,
-        derivedStatus: event.derivedStatus
+        timestamp: event.timestamp ? new Date(event.timestamp) : new Date(),
+        eventType: event.eventType || '',
+        eventDescription: event.eventDescription || '',
+        location: event.location || {},
+        derivedStatus: event.derivedStatus || ''
       }));
     }
 
@@ -942,127 +905,114 @@ export const trackOrder = async (req, res) => {
 
     await order.save();
 
-    // Prepare response
     res.json({
       success: true,
-      message: 'Tracking information retrieved',
+      message: 'Tracking refreshed successfully',
       data: {
-        order: {
-          _id: order._id,
-          orderNumber: order.orderNumber,
-          orderStatus: order.orderStatus,
-          paymentStatus: order.paymentStatus,
-          createdAt: order.createdAt,
-          shippingAddress: order.shippingAddress
-        },
-        tracking: {
-          trackingNumber: order.fedex.trackingNumber,
-          carrier: 'FedEx',
-          serviceType: order.fedex.serviceType,
-          serviceName: order.fedex.serviceName,
-          currentStatus: trackingResult.currentStatus,
-          mappedOrderStatus: trackingResult.mappedOrderStatus,
-          estimatedDelivery: trackingResult.estimatedDelivery,
-          deliveryDetails: trackingResult.deliveryDetails,
-          events: trackingResult.events,
-          shipmentDetails: trackingResult.shipmentDetails,
-          isDelivered: trackingResult.isDelivered,
-          isInTransit: trackingResult.isInTransit,
-          hasException: trackingResult.hasException,
-          lastUpdated: new Date()
-        },
-        hasTracking: true,
-        isMockData: trackingResult.isMockData || false
+        previousStatus,
+        currentStatus: order.orderStatus,
+        statusChanged: previousStatus !== order.orderStatus,
+        tracking: trackingResult
       }
     });
 
   } catch (error) {
-    console.error('Track order error:', error);
+    console.error('Refresh tracking error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while tracking order',
+      message: 'Error refreshing tracking',
       error: error.message
     });
   }
 };
 
-// Helper to determine if order status should be synced
-const shouldSyncOrderStatus = (currentStatus, newStatus) => {
-  const statusPriority = {
-    'pending': 1,
-    'confirmed': 2,
-    'processing': 3,
-    'ready_to_ship': 4,
-    'shipped': 5,
-    'out_for_delivery': 6,
-    'delivered': 7,
-    'cancelled': 0,
-    'returned': 0
-  };
+// ===========================================
+// @desc    Bulk update tracking for all shipped orders (Cron Job)
+// @route   POST /api/v1/orders/bulk-update-tracking
+// @access  Private/Admin or System
+// ===========================================
 
-  // Only update if new status is further along in the process
-  const currentPriority = statusPriority[currentStatus] || 0;
-  const newPriority = statusPriority[newStatus] || 0;
-
-  return newPriority > currentPriority;
-};
-
-// @desc    Get order tracking info (lightweight)
-// @route   GET /api/v1/orders/:orderId/tracking-status
-// @access  Private
-export const getTrackingStatus = async (req, res) => {
+export const bulkUpdateTracking = async (req, res) => {
   try {
-    const { orderId } = req.params;
+    // Find all orders that are shipped but not delivered
+    const orders = await Order.find({
+      orderStatus: { $in: ['shipped', 'out_for_delivery'] },
+      'fedex.trackingNumber': { $exists: true, $ne: null }
+    }).limit(50); // Process 50 at a time
 
-    const order = await Order.findById(orderId).select('fedex orderStatus orderNumber user');
+    const results = {
+      total: orders.length,
+      updated: 0,
+      failed: 0,
+      delivered: 0,
+      errors: []
+    };
 
-    if (!order) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Order not found' 
-      });
-    }
+    for (const order of orders) {
+      try {
+        const trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
 
-    if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
-      });
-    }
+        if (trackingResult.success) {
+          // Update status if needed
+          if (trackingResult.mappedOrderStatus) {
+            const shouldUpdate = shouldSyncOrderStatus(
+              order.orderStatus, 
+              trackingResult.mappedOrderStatus
+            );
+            
+            if (shouldUpdate) {
+              order.orderStatus = trackingResult.mappedOrderStatus;
+              
+              if (trackingResult.isDelivered) {
+                results.delivered++;
+              }
+            }
+          }
 
-    if (!order.fedex?.trackingNumber) {
-      return res.json({
-        success: true,
-        data: {
-          hasTracking: false,
-          orderStatus: order.orderStatus,
-          orderNumber: order.orderNumber
+          // Update tracking info
+          order.fedex.currentStatus = {
+            code: trackingResult.currentStatus?.code || '',
+            description: trackingResult.currentStatus?.description || '',
+            location: parseLocation(trackingResult.currentStatus?.location),
+            timestamp: new Date()
+          };
+
+          order.fedex.lastTrackingUpdate = new Date();
+          await order.save();
+          
+          results.updated++;
+        } else {
+          results.failed++;
+          results.errors.push({
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            error: trackingResult.error
+          });
         }
-      });
-    }
 
-    // Fetch fresh tracking data
-    const trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+      } catch (orderError) {
+        results.failed++;
+        results.errors.push({
+          orderId: order._id,
+          error: orderError.message
+        });
+      }
+    }
 
     res.json({
       success: true,
-      data: {
-        hasTracking: true,
-        trackingNumber: order.fedex.trackingNumber,
-        orderNumber: order.orderNumber,
-        orderStatus: order.orderStatus,
-        currentStatus: trackingResult.success ? trackingResult.currentStatus : null,
-        estimatedDelivery: trackingResult.success ? trackingResult.estimatedDelivery : null,
-        isDelivered: trackingResult.success ? trackingResult.isDelivered : false,
-        lastUpdated: new Date()
-      }
+      message: 'Bulk tracking update completed',
+      data: results
     });
 
   } catch (error) {
-    console.error('Get tracking status error:', error);
+    console.error('Bulk update tracking error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: 'Error in bulk tracking update',
       error: error.message
     });
   }
@@ -1271,42 +1221,78 @@ export const findFedExLocations = async (req, res) => {
   }
 };
 
-// =============================================
-// ADMIN FUNCTIONS
-// =============================================
 
-// @desc    Get all orders (Admin)
-// @route   GET /api/v1/orders/admin/all
-// @access  Private/Admin
+
+
+
+//===========================================================================================================
+
+// ===========================================
+// HELPER FUNCTIONS
+// ===========================================
+
+const shouldSyncOrderStatus = (currentOrderStatus, fedexMappedStatus) => {
+  if (!fedexMappedStatus) return false;
+  
+  const statusHierarchy = [
+    'pending',
+    'confirmed',
+    'processing',
+    'ready_to_ship',
+    'shipped',
+    'out_for_delivery',
+    'delivered'
+  ];
+  
+  if (['cancelled', 'returned', 'refunded'].includes(currentOrderStatus)) {
+    return false;
+  }
+  
+  const currentIndex = statusHierarchy.indexOf(currentOrderStatus);
+  const newIndex = statusHierarchy.indexOf(fedexMappedStatus);
+  
+  return newIndex > currentIndex;
+};
+
+const parseLocation = (locationString) => {
+  if (!locationString) return { city: '', stateOrProvinceCode: '' };
+  
+  if (typeof locationString === 'object') {
+    return {
+      city: locationString.city || '',
+      stateOrProvinceCode: locationString.state || locationString.stateOrProvinceCode || ''
+    };
+  }
+  
+  const parts = locationString.split(', ');
+  return {
+    city: parts[0] || '',
+    stateOrProvinceCode: parts[1] || ''
+  };
+};
+
+// ===========================================
+// ADMIN: GET ALL ORDERS
+// ===========================================
+
 export const getAllOrdersAdmin = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      status, 
-      search,
-      sortBy = 'createdAt_desc',
-      paymentStatus,
-      carrier
+    const {
+      status = 'all',
+      search = '',
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt_desc'
     } = req.query;
-    
-    const listFilter = {};
-    const statsFilter = {};
 
+    const query = {};
+
+    // Filter by status
     if (status && status !== 'all') {
-      listFilter.orderStatus = status;
+      query.orderStatus = status;
     }
 
-    if (paymentStatus && paymentStatus !== 'all') {
-      listFilter.paymentStatus = paymentStatus;
-      statsFilter.paymentStatus = paymentStatus;
-    }
-
-    if (carrier && carrier !== 'all') {
-      listFilter.carrier = carrier;
-      statsFilter.carrier = carrier;
-    }
-
+    // Search by customer name or email
     if (search) {
       const users = await User.find({
         $or: [
@@ -1314,521 +1300,1035 @@ export const getAllOrdersAdmin = async (req, res) => {
           { email: { $regex: search, $options: 'i' } }
         ]
       }).select('_id');
-      
-      const userIds = users.map(user => user._id);
-      
-      listFilter.$or = [
-        { user: { $in: userIds } },
-        { orderNumber: { $regex: search, $options: 'i' } },
-        { 'fedex.trackingNumber': { $regex: search, $options: 'i' } }
-      ];
-      statsFilter.$or = listFilter.$or;
+
+      query.user = { $in: users.map(u => u._id) };
     }
 
-    const sortOptions = {};
-    switch (sortBy) {
-      case 'totalAmount_asc':
-        sortOptions.totalAmount = 1;
-        break;
-      case 'totalAmount_desc':
-        sortOptions.totalAmount = -1;
-        break;
-      case 'createdAt_asc':
-        sortOptions.createdAt = 1;
-        break;
-      default:
-        sortOptions.createdAt = -1;
-    }
+    // Sorting
+    let sortOption = {};
+    const [field, direction] = sortBy.split('_');
+    sortOption[field] = direction === 'asc' ? 1 : -1;
 
-    const orders = await Order.find(listFilter)
+    // Execute query
+    const orders = await Order.find(query)
       .populate('user', 'name email phoneNumber')
-      .populate('couponApplied', 'code discountType discountValue')
-      .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .populate('couponApplied', 'code discountValue discountType')
+      .sort(sortOption)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
 
-    const total = await Order.countDocuments(listFilter);
+    const total = await Order.countDocuments(query);
 
-    const stats = await Order.aggregate([
-      { $match: statsFilter },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: {
-            $sum: {
-              $cond: [
-                { $or: [
-                    { $eq: ["$paymentStatus", "paid"] },
-                    { $and: [
-                        { $eq: ["$paymentMethod", "COD"] },
-                        { $ne: ["$orderStatus", "cancelled"] }
-                    ]}
-                ]},
-                "$totalAmount",
-                0
-              ]
-            }
-          },
-          totalPendingAmount: {
-            $sum: {
-              $cond: [
-                { $and: [
-                    { $eq: ["$paymentStatus", "pending"] },
-                    { $ne: ["$paymentMethod", "COD"] }
-                ]},
-                "$totalAmount",
-                0
-              ]
-            }
-          },
-          totalOrders: { $sum: 1 },
-          totalSuccessfulOrders: {
-            $sum: {
-              $cond: [
-                { $or: [
-                    { $eq: ["$paymentStatus", "paid"] },
-                    { $and: [
-                        { $eq: ["$paymentMethod", "COD"] },
-                        { $ne: ["$orderStatus", "cancelled"] }
-                    ]}
-                ]},
-                1,
-                0
-              ]
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          totalRevenue: 1,
-          totalPendingAmount: 1,
-          totalOrders: 1,
-          totalSuccessfulOrders: 1,
-          averageOrderValue: {
-            $cond: [
-              { $eq: ["$totalSuccessfulOrders", 0] },
-              0,
-              { $divide: ["$totalRevenue", "$totalSuccessfulOrders"] }
-            ]
-          }
-        }
-      }
-    ]);
+    // Calculate stats
+    const allOrders = await Order.find({});
+    const stats = {
+      totalOrders: allOrders.length,
+      totalRevenue: allOrders
+        .filter(o => o.paymentStatus === 'paid')
+        .reduce((sum, o) => sum + o.totalAmount, 0),
+      totalFailedAmount: allOrders
+        .filter(o => o.paymentStatus === 'failed')
+        .reduce((sum, o) => sum + o.totalAmount, 0)
+    };
 
     res.json({
       success: true,
-      count: orders.length,
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: parseInt(page),
-      stats: stats[0] || { 
-        totalRevenue: 0, 
-        totalPendingAmount: 0, 
-        totalOrders: 0, 
-        totalSuccessfulOrders: 0,
-        averageOrderValue: 0 
+      data: orders,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / limit)
       },
-      data: orders
+      stats
     });
   } catch (error) {
-    console.error('Get all orders admin error:', error);
+    console.error('Get all orders error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching orders',
+      message: 'Error fetching orders',
       error: error.message
     });
   }
 };
 
-// @desc    Get order details for admin
-// @route   GET /api/v1/orders/admin/:id
-// @access  Private/Admin
+// ===========================================
+// ADMIN: GET ORDER DETAILS
+// ===========================================
+
 export const getOrderDetailsAdmin = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate("user", "name email phoneNumber addresses")
-      .populate("couponApplied", "code discountType discountValue");
+      .populate('user', 'name email phoneNumber')
+      .populate('couponApplied', 'code discountValue discountType');
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
     }
 
-    res.json({ success: true, data: order });
+    res.json({
+      success: true,
+      data: order
+    });
   } catch (error) {
-    console.error("Get order details admin error:", error);
-
-    if (error.kind === "ObjectId") {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
+    console.error('Get order details error:', error);
     res.status(500).json({
       success: false,
-      message: "Server error while fetching order details",
-      error: error.message,
+      message: 'Error fetching order details'
     });
   }
 };
 
-// @desc    Update order status (Admin)
-// @route   PUT /api/v1/orders/admin/:id/status
-// @access  Private/Admin
+// ===========================================
+// ADMIN: UPDATE ORDER STATUS
+// ===========================================
+
 export const updateOrderStatusAdmin = async (req, res) => {
   try {
-    const { orderStatus, message } = req.body;
-
-    const validStatuses = ['pending', 'confirmed', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned'];
-    if (!validStatuses.includes(orderStatus)) {
-      return res.status(400).json({ success: false, message: 'Invalid order status' });
-    }
-
+    const { orderStatus } = req.body;
     const order = await Order.findById(req.params.id);
+
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-
-    const oldStatus = order.orderStatus;
-    order.orderStatus = orderStatus;
-    
-    const statusMessages = {
-      confirmed: 'Order has been confirmed',
-      processing: 'Order is being processed',
-      ready_to_ship: 'Order is ready for shipment',
-      shipped: 'Order has been shipped',
-      out_for_delivery: 'Order is out for delivery',
-      delivered: 'Order has been delivered',
-      cancelled: 'Order has been cancelled',
-      returned: 'Order has been returned'
-    };
-
-    if (oldStatus !== orderStatus) {
-      order.addShippingUpdate({
-        message: message || statusMessages[orderStatus],
-        status: orderStatus
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
       });
     }
 
-    if (orderStatus === 'cancelled') {
-      order.cancelledAt = new Date();
-      order.cancelledBy = req.user.id;
+    const previousStatus = order.orderStatus;
+    
+    if (order.updateStatus) {
+      order.updateStatus(orderStatus, {
+        description: `Status updated from ${previousStatus} to ${orderStatus}`,
+        updatedBy: 'admin',
+        updatedByUser: req.user._id
+      });
+    } else {
+      order.orderStatus = orderStatus;
     }
 
     await order.save();
-
-    const populatedOrder = await Order.findById(order._id)
-      .populate('user', 'name email')
-      .populate('couponApplied', 'code discountType discountValue');
 
     res.json({
       success: true,
       message: 'Order status updated successfully',
-      data: populatedOrder
+      data: order
     });
   } catch (error) {
-    console.error('Update order status admin error:', error);
-    
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-
+    console.error('Update order status error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while updating order status',
-      error: error.message
+      message: 'Error updating order status'
     });
   }
 };
 
-// @desc    Add shipping update (Admin)
-// @route   POST /api/v1/orders/admin/:id/shipping-update
-// @access  Private/Admin
+// ===========================================
+// ADMIN: ADD SHIPPING UPDATE
+// ===========================================
+
 export const addShippingUpdate = async (req, res) => {
   try {
-    const { message, location, status } = req.body;
+    const { message } = req.body;
+    const order = await Order.findById(req.params.id);
 
-    if (!message?.trim()) {
-      return res.status(400).json({
+    if (!order) {
+      return res.status(404).json({
         success: false,
-        message: 'Shipping update message is required'
+        message: 'Order not found'
       });
     }
 
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-
     order.addShippingUpdate({
-      message: message.trim(),
-      location,
-      status
+      message,
+      timestamp: new Date(),
+      status: order.orderStatus,
+      updatedBy: 'admin'
     });
 
     await order.save();
-
-    const populatedOrder = await Order.findById(order._id)
-      .populate('user', 'name email')
-      .populate('couponApplied', 'code discountType discountValue');
 
     res.json({
       success: true,
       message: 'Shipping update added successfully',
-      data: populatedOrder
+      data: order
     });
   } catch (error) {
     console.error('Add shipping update error:', error);
-    
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-
     res.status(500).json({
       success: false,
-      message: 'Server error while adding shipping update',
-      error: error.message
+      message: 'Error adding shipping update'
     });
   }
 };
 
-// @desc    Create FedEx shipment for order (Admin)
-// @route   POST /api/v1/orders/admin/:id/create-shipment
-// @access  Private/Admin
+// ===========================================
+// ADMIN: CREATE FEDEX SHIPMENT
+// ===========================================
+
 export const createShipment = async (req, res) => {
   try {
-    const { id: orderId } = req.params;
-    const { serviceType, signatureRequired } = req.body;
+    const orderId = req.params.id;
+    const {
+      serviceType = 'FEDEX_GROUND',
+      signatureRequired = false,
+      packages = null,
+      schedulePickup = false,
+      pickupDate = null
+    } = req.body;
 
-    const order = await Order.findById(orderId).populate('user', 'name email');
+    const order = await Order.findById(orderId).populate('user', 'email name');
 
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
     }
 
+    // Check if already shipped
     if (order.fedex?.trackingNumber) {
       return res.status(400).json({
         success: false,
-        message: 'Shipment already created for this order',
+        message: 'Order already has a tracking number',
         trackingNumber: order.fedex.trackingNumber
       });
     }
 
-    const shipmentData = {
-      orderNumber: order.orderNumber,
-      recipient: {
-        contact: {
-          personName: order.shippingAddress.recipientName,
-          phoneNumber: order.shippingAddress.phoneNumber,
-          emailAddress: order.shippingAddress.email || order.user.email,
-          companyName: order.shippingAddress.companyName
-        },
-        address: {
-          streetLine1: order.shippingAddress.streetLine1,
-          streetLine2: order.shippingAddress.streetLine2,
-          city: order.shippingAddress.city,
-          stateCode: order.shippingAddress.stateCode,
-          zipCode: order.shippingAddress.zipCode,
-          isResidential: order.shippingAddress.isResidential
-        }
-      },
-      packages: [{
-        weight: order.fedex?.weight || { value: 5, units: 'LB' },
-        dimensions: order.fedex?.dimensions || { length: 24, width: 24, height: 6, units: 'IN' },
-        description: 'Artwork'
-      }],
-      serviceType: serviceType || order.fedex?.serviceType || 'FEDEX_GROUND',
-      signatureRequired: signatureRequired ?? order.signatureRequired,
-      insuranceAmount: order.subtotal
-    };
-
-    const shipmentResult = await fedexService.createShipment(shipmentData);
-
-    if (!shipmentResult.success) {
-      return res.status(500).json({
+    // Check order status
+    if (['cancelled', 'returned', 'refunded'].includes(order.orderStatus)) {
+      return res.status(400).json({
         success: false,
-        message: 'Failed to create FedEx shipment',
-        error: shipmentResult.error
+        message: `Cannot ship ${order.orderStatus} order`
       });
     }
 
-    order.fedex.trackingNumber = shipmentResult.trackingNumber;
-    order.fedex.masterTrackingNumber = shipmentResult.trackingNumber;
-    order.fedex.labelUrl = shipmentResult.labelUrl;
-    order.fedex.labelData = shipmentResult.labelData;
-    order.fedex.shipmentId = shipmentResult.shipmentId;
-    order.fedex.serviceType = shipmentResult.serviceType;
-    order.fedex.serviceName = shipmentResult.serviceName;
-    order.fedex.shipmentCreatedAt = new Date();
-    order.fedex.labelCreatedAt = new Date();
-    
-    if (shipmentResult.estimatedDeliveryDate) {
-      order.fedex.estimatedDeliveryDate = new Date(shipmentResult.estimatedDeliveryDate);
+    // Prepare package data
+    const packageData = packages || [{
+      weight: { value: 5, units: 'LB' },
+      dimensions: { length: 12, width: 12, height: 6, units: 'IN' }
+    }];
+
+    // Calculate total insured value
+    const totalValue = order.items.reduce((sum, item) => {
+      return sum + (item.priceAtOrder * item.quantity);
+    }, 0);
+
+    // Prepare recipient data
+    const recipient = {
+      contact: {
+        personName: order.shippingAddress.recipientName || order.user?.name,
+        phoneNumber: order.shippingAddress.phoneNumber || order.shippingAddress.phoneNo,
+        emailAddress: order.shippingAddress.email || order.user?.email,
+        companyName: order.shippingAddress.companyName || ''
+      },
+      address: {
+        streetLine1: order.shippingAddress.streetLine1 || order.shippingAddress.street,
+        streetLine2: order.shippingAddress.streetLine2 || order.shippingAddress.apartment,
+        city: order.shippingAddress.city,
+        stateCode: order.shippingAddress.stateCode || order.shippingAddress.state,
+        zipCode: order.shippingAddress.zipCode,
+        countryCode: order.shippingAddress.countryCode || 'US',
+        isResidential: order.shippingAddress.isResidential !== false
+      }
+    };
+
+    console.log(`[Admin] Creating FedEx shipment for order ${order.orderNumber}`);
+
+    // Create FedEx shipment
+    const shipmentResult = await fedexService.createShipment({
+      orderNumber: order.orderNumber,
+      recipient,
+      packages: packageData,
+      serviceType,
+      signatureRequired,
+      insuranceAmount: totalValue
+    });
+
+    if (!shipmentResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to create FedEx shipment',
+        error: shipmentResult.error,
+        alerts: shipmentResult.alerts
+      });
     }
 
-    order.orderStatus = 'ready_to_ship';
+    // Update order with FedEx data
+    order.fedex = {
+      ...order.fedex,
+      trackingNumber: shipmentResult.trackingNumber,
+      masterTrackingNumber: shipmentResult.trackingNumber,
+      labelUrl: shipmentResult.labelUrl,
+      labelData: shipmentResult.labelData,
+      labelFormat: 'PDF',
+      shipmentId: shipmentResult.shipmentId,
+      serviceType: serviceType,
+      serviceName: shipmentResult.serviceName || fedexService.getServiceName(serviceType),
+      estimatedDeliveryDate: shipmentResult.estimatedDeliveryDate
+        ? new Date(shipmentResult.estimatedDeliveryDate)
+        : null,
+      shippingCost: shipmentResult.totalCharge ? {
+        totalNetCharge: shipmentResult.totalCharge.amount || shipmentResult.totalCharge,
+        currency: 'USD'
+      } : null,
+      dimensions: packageData[0]?.dimensions,
+      weight: packageData[0]?.weight,
+      insuranceAmount: { amount: totalValue, currency: 'USD' },
+      shipmentCreatedAt: new Date(),
+      labelCreatedAt: new Date(),
+      fedexAvailable: true
+    };
+
+    // Update order status
+    const previousStatus = order.orderStatus;
+    order.orderStatus = 'shipped';
+    order.shippedAt = new Date();
+    order.carrier = 'fedex';
+
+    // Add to status history
+    if (!order.statusHistory) order.statusHistory = [];
+    order.statusHistory.push({
+      status: 'shipped',
+      previousStatus,
+      timestamp: new Date(),
+      description: `Order shipped via FedEx ${shipmentResult.serviceName || serviceType}`,
+      updatedBy: 'admin',
+      updatedByUser: req.user._id,
+      metadata: {
+        trackingNumber: shipmentResult.trackingNumber,
+        serviceType
+      }
+    });
+
+    // Add shipping update
     order.addShippingUpdate({
-      message: `FedEx shipment created. Tracking: ${shipmentResult.trackingNumber}`,
-      status: 'shipment_created'
+      message: `Shipment created - Tracking: ${shipmentResult.trackingNumber}`,
+      timestamp: new Date(),
+      status: 'shipped',
+      updatedBy: 'admin'
     });
 
     await order.save();
 
+    // Schedule pickup if requested
+    let pickupResult = null;
+    if (schedulePickup) {
+      try {
+        pickupResult = await schedulePickupForOrder(order, pickupDate);
+      } catch (pickupError) {
+        console.error('Pickup scheduling error:', pickupError);
+        // Don't fail the shipment if pickup fails
+      }
+    }
+
     res.json({
       success: true,
-      message: 'Shipment created successfully',
+      message: 'Order shipped successfully',
       data: {
-        trackingNumber: shipmentResult.trackingNumber,
-        labelUrl: shipmentResult.labelUrl,
-        serviceType: shipmentResult.serviceType,
-        serviceName: shipmentResult.serviceName,
-        estimatedDelivery: shipmentResult.estimatedDeliveryDate
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        orderStatus: order.orderStatus,
+        tracking: {
+          trackingNumber: shipmentResult.trackingNumber,
+          carrier: 'FedEx',
+          serviceType: serviceType,
+          serviceName: shipmentResult.serviceName,
+          labelUrl: shipmentResult.labelUrl,
+          estimatedDeliveryDate: shipmentResult.estimatedDeliveryDate,
+          trackingUrl: `https://www.fedex.com/fedextrack/?trknbr=${shipmentResult.trackingNumber}`
+        },
+        pickup: pickupResult
       }
     });
   } catch (error) {
     console.error('Create shipment error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while creating shipment',
+      message: 'Error creating shipment',
       error: error.message
     });
   }
 };
 
-// @desc    Cancel FedEx shipment (Admin)
-// @route   POST /api/v1/orders/admin/:id/cancel-shipment
-// @access  Private/Admin
-export const cancelShipment = async (req, res) => {
+// ===========================================
+// ADMIN: SCHEDULE PICKUP
+// ===========================================
+
+export const schedulePickup = async (req, res) => {
   try {
-    const { id: orderId } = req.params;
+    const orderId = req.params.id;
+    const { pickupDate, readyTime, closeTime } = req.body;
 
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
     }
 
     if (!order.fedex?.trackingNumber) {
       return res.status(400).json({
         success: false,
-        message: 'No shipment to cancel'
+        message: 'Order must be shipped first'
       });
     }
 
-    if (['delivered', 'out_for_delivery'].includes(order.orderStatus)) {
+    const pickupResult = await schedulePickupForOrder(order, pickupDate, readyTime, closeTime);
+
+    res.json({
+      success: true,
+      message: 'Pickup scheduled successfully',
+      data: pickupResult
+    });
+  } catch (error) {
+    console.error('Schedule pickup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error scheduling pickup',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to schedule pickup
+async function schedulePickupForOrder(order, pickupDate = null, readyTime = '09:00', closeTime = '17:00') {
+  try {
+    // Use tomorrow if no date specified
+    const scheduledDate = pickupDate ? new Date(pickupDate) : new Date();
+    if (!pickupDate) {
+      scheduledDate.setDate(scheduledDate.getDate() + 1);
+    }
+
+    const pickupRequest = {
+      pickupDate: scheduledDate.toISOString().split('T')[0],
+      readyTime: readyTime,
+      closeTime: closeTime,
+      location: {
+        contact: {
+          personName: order.shippingAddress.recipientName,
+          phoneNumber: order.shippingAddress.phoneNumber || order.shippingAddress.phoneNo,
+          companyName: order.shippingAddress.companyName || 'Art Gallery Inc.'
+        },
+        address: {
+          streetLines: [
+            order.shippingAddress.streetLine1 || order.shippingAddress.street,
+            order.shippingAddress.streetLine2 || order.shippingAddress.apartment
+          ].filter(Boolean),
+          city: order.shippingAddress.city,
+          stateOrProvinceCode: order.shippingAddress.stateCode || order.shippingAddress.state,
+          postalCode: order.shippingAddress.zipCode,
+          countryCode: 'US'
+        }
+      },
+      packageDetails: {
+        packageCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        totalWeight: {
+          value: order.fedex?.weight?.value || 5,
+          units: order.fedex?.weight?.units || 'LB'
+        }
+      },
+      trackingNumbers: [order.fedex.trackingNumber]
+    };
+
+    // Call FedEx pickup API (you'll need to implement this in fedexService)
+    const result = await fedexService.schedulePickup(pickupRequest);
+
+    if (result.success) {
+      // Update order with pickup info
+      order.fedex.pickupConfirmationNumber = result.confirmationNumber;
+      order.fedex.pickupDate = scheduledDate;
+      order.fedex.pickupLocation = `${order.shippingAddress.city}, ${order.shippingAddress.stateCode}`;
+
+      order.addShippingUpdate({
+        message: `Pickup scheduled for ${scheduledDate.toDateString()} - Confirmation: ${result.confirmationNumber}`,
+        timestamp: new Date(),
+        status: order.orderStatus,
+        updatedBy: 'admin'
+      });
+
+      await order.save();
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Schedule pickup helper error:', error);
+    throw error;
+  }
+}
+
+// ===========================================
+// ADMIN: CANCEL SHIPMENT
+// ===========================================
+
+export const cancelShipment = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    if (!order.fedex?.trackingNumber) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot cancel shipment that is out for delivery or delivered'
+        message: 'No tracking number to cancel'
       });
     }
 
+    // Cancel with FedEx
     const cancelResult = await fedexService.cancelShipment(order.fedex.trackingNumber);
 
-    if (!cancelResult.success) {
-      return res.status(500).json({
+    if (cancelResult.success) {
+      // Update order
+      order.fedex.trackingNumber = null;
+      order.fedex.labelUrl = null;
+      order.orderStatus = 'cancelled';
+      order.cancelledAt = new Date();
+      order.cancelledBy = req.user._id;
+
+      order.addShippingUpdate({
+        message: 'Shipment cancelled',
+        timestamp: new Date(),
+        status: 'cancelled',
+        updatedBy: 'admin'
+      });
+
+      await order.save();
+
+      res.json({
+        success: true,
+        message: 'Shipment cancelled successfully',
+        data: order
+      });
+    } else {
+      res.status(400).json({
         success: false,
         message: 'Failed to cancel shipment',
         error: cancelResult.error
       });
     }
-
-    order.addShippingUpdate({
-      message: 'FedEx shipment cancelled',
-      status: 'shipment_cancelled'
+  } catch (error) {
+    console.error('Cancel shipment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error cancelling shipment',
+      error: error.message
     });
+  }
+};
+
+// ===========================================
+// ADMIN: GET INVOICE
+// ===========================================
+
+export const getOrderInvoiceAdmin = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('user', 'name email')
+      .populate('items.product');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Create PDF
+    const doc = new PDFDocument();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber}.pdf`);
+
+    doc.pipe(res);
+
+    // Add content
+    doc.fontSize(20).text('INVOICE', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Order #${order.orderNumber}`);
+    doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
+    doc.moveDown();
+
+    // Customer info
+    doc.text('Bill To:');
+    doc.text(order.user.name);
+    doc.text(order.user.email);
+    doc.moveDown();
+
+    // Items
+    doc.text('Items:');
+    order.items.forEach(item => {
+      doc.text(`${item.name} x ${item.quantity} - $${item.priceAtOrder}`);
+    });
+    doc.moveDown();
+
+    // Total
+    doc.fontSize(14).text(`Total: $${order.totalAmount}`, { align: 'right' });
+
+    doc.end();
+  } catch (error) {
+    console.error('Get invoice error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating invoice'
+    });
+  }
+};
+
+// ===========================================
+// ADMIN: DELETE ABANDONED ORDER
+// ===========================================
+
+export const deleteAbandonedOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Only allow deletion of pending/failed orders that are not COD
+    if (
+      (order.paymentStatus === 'pending' || order.paymentStatus === 'failed') &&
+      order.paymentMethod !== 'COD'
+    ) {
+      await Order.findByIdAndDelete(req.params.id);
+
+      res.json({
+        success: true,
+        message: 'Order deleted successfully'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Only pending or failed non-COD orders can be deleted'
+      });
+    }
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting order'
+    });
+  }
+};
+
+// ===========================================
+// USER: TRACK ORDER
+// ===========================================
+
+export const trackOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId || !orderId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order ID format'
+      });
+    }
+
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    const userId = req.user._id || req.user.id;
+    if (order.user.toString() !== userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    if (!order.fedex?.trackingNumber) {
+      return res.json({
+        success: true,
+        message: 'No tracking number available yet',
+        data: {
+          order: {
+            _id: order._id,
+            orderNumber: order.orderNumber,
+            orderStatus: order.orderStatus,
+            paymentStatus: order.paymentStatus,
+            createdAt: order.createdAt,
+            shippingAddress: order.shippingAddress,
+            shippingUpdates: order.shippingUpdates || [],
+            items: order.items,
+            totalAmount: order.totalAmount
+          },
+          tracking: null,
+          hasTracking: false
+        }
+      });
+    }
+
+    let trackingResult;
+    try {
+      trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
+    } catch (fedexError) {
+      console.error('FedEx API Error:', fedexError.message);
+
+      return res.json({
+        success: true,
+        message: 'Using cached tracking data',
+        data: {
+          order: {
+            _id: order._id,
+            orderNumber: order.orderNumber,
+            orderStatus: order.orderStatus,
+            fedex: order.fedex,
+            shippingAddress: order.shippingAddress
+          },
+          tracking: order.fedex.currentStatus ? {
+            trackingNumber: order.fedex.trackingNumber,
+            carrier: 'FedEx',
+            serviceType: order.fedex.serviceType,
+            serviceName: order.fedex.serviceName,
+            currentStatus: order.fedex.currentStatus,
+            estimatedDelivery: order.fedex.estimatedDeliveryTimeWindow ? {
+              begins: order.fedex.estimatedDeliveryTimeWindow.begins,
+              ends: order.fedex.estimatedDeliveryTimeWindow.ends
+            } : null,
+            events: order.fedex.trackingHistory || [],
+            lastUpdated: order.fedex.lastTrackingUpdate,
+            isCached: true
+          } : null,
+          hasTracking: true,
+          error: 'FedEx service temporarily unavailable. Showing last known status.'
+        }
+      });
+    }
+
+    if (!trackingResult.success) {
+      return res.json({
+        success: true,
+        message: 'Tracking information unavailable',
+        data: {
+          order: {
+            _id: order._id,
+            orderNumber: order.orderNumber,
+            orderStatus: order.orderStatus,
+            fedex: order.fedex,
+            shippingAddress: order.shippingAddress
+          },
+          tracking: null,
+          hasTracking: true,
+          error: trackingResult.error || 'Unable to fetch tracking information'
+        }
+      });
+    }
+
+    // Update order with tracking data
+    let statusUpdated = false;
+
+    if (trackingResult.mappedOrderStatus) {
+      const shouldUpdate = shouldSyncOrderStatus(
+        order.orderStatus,
+        trackingResult.mappedOrderStatus
+      );
+
+      if (shouldUpdate) {
+        order.orderStatus = trackingResult.mappedOrderStatus;
+        statusUpdated = true;
+
+        if (!order.shippingUpdates) {
+          order.shippingUpdates = [];
+        }
+
+        const lastUpdate = order.shippingUpdates[order.shippingUpdates.length - 1];
+        const newTimestamp = trackingResult.currentStatus?.timestamp;
+
+        const isDuplicate = lastUpdate &&
+          lastUpdate.fedexEventCode === trackingResult.currentStatus?.code &&
+          lastUpdate.timestamp?.toISOString() === new Date(newTimestamp).toISOString();
+
+        if (!isDuplicate && trackingResult.currentStatus) {
+          order.shippingUpdates.push({
+            message: `FedEx: ${trackingResult.currentStatus.description || 'Status updated'}`,
+            timestamp: newTimestamp ? new Date(newTimestamp) : new Date(),
+            location: trackingResult.currentStatus.location || '',
+            status: trackingResult.mappedOrderStatus,
+            fedexEventCode: trackingResult.currentStatus.code || ''
+          });
+        }
+      }
+    }
+
+    if (trackingResult.currentStatus) {
+      order.fedex.currentStatus = {
+        code: trackingResult.currentStatus.code || '',
+        description: trackingResult.currentStatus.description || '',
+        location: parseLocation(trackingResult.currentStatus.location),
+        timestamp: trackingResult.currentStatus.timestamp
+          ? new Date(trackingResult.currentStatus.timestamp)
+          : new Date()
+      };
+    }
+
+    if (trackingResult.estimatedDelivery) {
+      order.fedex.estimatedDeliveryTimeWindow = {
+        begins: trackingResult.estimatedDelivery.begins
+          ? new Date(trackingResult.estimatedDelivery.begins)
+          : null,
+        ends: trackingResult.estimatedDelivery.ends
+          ? new Date(trackingResult.estimatedDelivery.ends)
+          : null
+      };
+
+      if (trackingResult.estimatedDelivery.ends) {
+        order.fedex.estimatedDeliveryDate = new Date(trackingResult.estimatedDelivery.ends);
+      }
+    }
+
+    if (trackingResult.isDelivered) {
+      order.orderStatus = 'delivered';
+      statusUpdated = true;
+
+      if (trackingResult.deliveryDetails?.actualDeliveryTimestamp) {
+        order.fedex.actualDeliveryDate = new Date(
+          trackingResult.deliveryDetails.actualDeliveryTimestamp
+        );
+      }
+
+      if (order.paymentMethod === 'COD' && order.paymentStatus !== 'paid') {
+        order.paymentStatus = 'paid';
+      }
+    }
+
+    if (trackingResult.events && trackingResult.events.length > 0) {
+      order.fedex.trackingHistory = trackingResult.events.slice(0, 50).map(event => ({
+        timestamp: event.timestamp ? new Date(event.timestamp) : new Date(),
+        eventType: event.eventType || '',
+        eventDescription: event.eventDescription || event.description || '',
+        location: typeof event.location === 'object'
+          ? event.location
+          : { formatted: event.location || '' },
+        derivedStatus: event.derivedStatus || '',
+        exceptionDescription: event.exceptionDescription || null
+      }));
+    }
+
+    order.fedex.lastTrackingUpdate = new Date();
 
     await order.save();
 
     res.json({
       success: true,
-      message: 'Shipment cancelled successfully',
-      data: cancelResult
+      message: statusUpdated
+        ? 'Tracking retrieved and order status updated'
+        : 'Tracking information retrieved',
+      data: {
+        order: {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          orderStatus: order.orderStatus,
+          paymentStatus: order.paymentStatus,
+          createdAt: order.createdAt,
+          shippingAddress: order.shippingAddress,
+          items: order.items,
+          totalAmount: order.totalAmount,
+          statusUpdated
+        },
+        tracking: {
+          trackingNumber: order.fedex.trackingNumber,
+          carrier: 'FedEx',
+          serviceType: order.fedex.serviceType,
+          serviceName: order.fedex.serviceName || fedexService.getServiceName(order.fedex.serviceType),
+          currentStatus: trackingResult.currentStatus,
+          mappedOrderStatus: trackingResult.mappedOrderStatus,
+          estimatedDelivery: trackingResult.estimatedDelivery,
+          deliveryDetails: trackingResult.deliveryDetails,
+          events: trackingResult.events || [],
+          shipmentDetails: trackingResult.shipmentDetails,
+          isDelivered: trackingResult.isDelivered || false,
+          isInTransit: trackingResult.isInTransit || false,
+          hasException: trackingResult.hasException || false,
+          lastUpdated: new Date().toISOString()
+        },
+        hasTracking: true,
+        isMockData: trackingResult.isMockData || false
+      }
     });
   } catch (error) {
-    console.error('Cancel shipment error:', error);
+    console.error('Track order error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while cancelling shipment',
-      error: error.message
+      message: 'Server error while tracking order',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
 
-// @desc    Delete abandoned order (Admin)
-// @route   DELETE /api/v1/orders/admin/:id
-// @access  Private/Admin
-export const deleteAbandonedOrder = async (req, res) => {
+// ===========================================
+// USER: GET TRACKING STATUS (Quick)
+// ===========================================
+
+export const getTrackingStatus = async (req, res) => {
   try {
-    const { id: orderId } = req.params;
+    const { orderId } = req.params;
 
-    const order = await Order.findById(orderId);
-
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
-    if (order.paymentStatus !== 'pending' && order.paymentStatus !== 'failed') {
+    if (!orderId || !orderId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
-        message: 'Only orders with pending or failed payment can be deleted'
-      });
-    }
-    
-    if (order.paymentMethod === 'COD') {
-      return res.status(400).json({
-        success: false,
-        message: 'COD orders cannot be deleted. Use cancel instead.'
+        message: 'Invalid order ID'
       });
     }
 
-    await Order.findByIdAndDelete(orderId);
-
-    res.status(200).json({
-      success: true,
-      message: "Abandoned order deleted successfully"
-    });
-  } catch (error) {
-    console.error("Delete abandoned order error:", error);
-
-    if (error.kind === "ObjectId") {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Server error while deleting order",
-      error: error.message
-    });
-  }
-};
-
-// @desc    Get order invoice (Admin)
-// @route   GET /api/v1/orders/admin/:id/invoice
-// @access  Private/Admin
-export const getOrderInvoiceAdmin = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id)
-      .populate('user', 'name email')
-      .populate('couponApplied', 'code discountType discountValue');
+    const order = await Order.findById(orderId)
+      .select('user orderNumber orderStatus fedex shippingAddress');
 
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
     }
 
-    // Return order data for invoice generation
-    res.json({
-      success: true,
-      data: order
-    });
+    const userId = req.user._id || req.user.id;
+    if (order.user.toString() !== userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    if (!order.fedex?.trackingNumber) {
+      return res.json({
+        success: true,
+        data: {
+          hasTracking: false,
+          orderStatus: order.orderStatus
+        }
+      });
+    }
+
+    const cacheAge = order.fedex.lastTrackingUpdate
+      ? (Date.now() - new Date(order.fedex.lastTrackingUpdate).getTime()) / 1000 / 60
+      : Infinity;
+
+    if (cacheAge < 5 && order.fedex.currentStatus) {
+      return res.json({
+        success: true,
+        data: {
+          hasTracking: true,
+          trackingNumber: order.fedex.trackingNumber,
+          currentStatus: order.fedex.currentStatus,
+          estimatedDelivery: order.fedex.estimatedDeliveryTimeWindow ? {
+            begins: order.fedex.estimatedDeliveryTimeWindow.begins,
+            ends: order.fedex.estimatedDeliveryTimeWindow.ends
+          } : null,
+          isDelivered: order.orderStatus === 'delivered',
+          isInTransit: ['shipped', 'out_for_delivery'].includes(order.orderStatus),
+          isCached: true,
+          cacheAge: Math.round(cacheAge)
+        }
+      });
+    }
+
+    try {
+      const trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
+
+      if (trackingResult.success) {
+        const shouldUpdate = shouldSyncOrderStatus(
+          order.orderStatus,
+          trackingResult.mappedOrderStatus
+        );
+
+        if (shouldUpdate) {
+          order.orderStatus = trackingResult.mappedOrderStatus;
+        }
+
+        if (trackingResult.currentStatus) {
+          order.fedex.currentStatus = {
+            code: trackingResult.currentStatus.code,
+            description: trackingResult.currentStatus.description,
+            location: parseLocation(trackingResult.currentStatus.location),
+            timestamp: new Date(trackingResult.currentStatus.timestamp)
+          };
+        }
+
+        order.fedex.lastTrackingUpdate = new Date();
+        await order.save();
+
+        return res.json({
+          success: true,
+          data: {
+            hasTracking: true,
+            trackingNumber: order.fedex.trackingNumber,
+            serviceName: order.fedex.serviceName,
+            currentStatus: trackingResult.currentStatus,
+            estimatedDelivery: trackingResult.estimatedDelivery,
+            isDelivered: trackingResult.isDelivered,
+            isInTransit: trackingResult.isInTransit,
+            hasException: trackingResult.hasException,
+            events: trackingResult.events?.slice(0, 3),
+            isCached: false
+          }
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          hasTracking: true,
+          trackingNumber: order.fedex.trackingNumber,
+          currentStatus: order.fedex.currentStatus,
+          orderStatus: order.orderStatus,
+          error: trackingResult.error,
+          isCached: true
+        }
+      });
+
+    } catch (fedexError) {
+      console.error('FedEx quick status error:', fedexError.message);
+
+      return res.json({
+        success: true,
+        data: {
+          hasTracking: true,
+          trackingNumber: order.fedex.trackingNumber,
+          currentStatus: order.fedex.currentStatus,
+          orderStatus: order.orderStatus,
+          error: 'FedEx service temporarily unavailable',
+          isCached: true
+        }
+      });
+    }
+
   } catch (error) {
-    console.error('Get order invoice admin error:', error);
+    console.error('Get tracking status error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while generating invoice',
-      error: error.message
+      message: 'Error fetching tracking status'
     });
   }
 };
 
-// Export additional functions for compatibility
-export const getAllOrders = getAllOrdersAdmin;
-export const updateOrderStatus = updateOrderStatusAdmin;
+export default {
+  getAllOrdersAdmin,
+  getOrderDetailsAdmin,
+  updateOrderStatusAdmin,
+  addShippingUpdate,
+  createShipment,
+  schedulePickup,
+  cancelShipment,
+  getOrderInvoiceAdmin,
+  deleteAbandonedOrder,
+  trackOrder,
+  getTrackingStatus
+};
