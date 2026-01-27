@@ -79,7 +79,7 @@ const ArtistRail = ({
     <motion.div 
       ref={containerRef}
       style={{ opacity }}
-      className="relative overflow-hidden rounded-3xl border-2 border-emerald-200/50 bg-natural-50 shadow-2xl"
+      className="relative overflow-hidden bg-gradient-to-br from-stone-50 via-white"
     >
       {/* Animated Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

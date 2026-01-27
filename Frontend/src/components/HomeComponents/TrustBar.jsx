@@ -35,7 +35,7 @@ const items = [
 
 const TrustBar = () => {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-stone-50 via-emerald-50/30 to-green-50/20 border-y border-emerald-100/50">
+    <section className="relative overflow-hidden bg-gradient-to-br from-stone-50 via-emerald-50/30 to-green-50/20 border-emerald-100/50">
       {/* Canvas Texture */}
       <div 
         className="absolute inset-0 opacity-[0.02]"

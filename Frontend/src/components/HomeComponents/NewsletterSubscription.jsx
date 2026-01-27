@@ -235,7 +235,7 @@ const NewsletterSubscription = ({ variant = "default" }) => {
   // INLINE VARIANT
   if (variant === "inline") {
     return (
-      <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-white via-emerald-50/80 to-teal-50/60 p-8 shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-emerald-50/80 to-teal-50/60 p-8">
         <FloatingParticles count={12} />
         
         {/* Background Pattern */}
@@ -361,7 +361,7 @@ const NewsletterSubscription = ({ variant = "default" }) => {
 
   // DEFAULT PREMIUM VARIANT
   return (
-    <section className="relative overflow-hidden rounded-3xl border-2 border-emerald-200 bg-white shadow-2xl">
+    <section className="relative overflow-hidden rounded-2xl border-2 border-emerald-200 bg-white">
       <FloatingParticles count={25} />
 
       <div className="relative grid lg:grid-cols-12">

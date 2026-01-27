@@ -65,7 +65,7 @@ const ProductRail = ({
   };
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl border ${theme.border} ${theme.bg} p-6 sm:p-10 shadow-2xl shadow-black/5`}>
+    <div className={`relative overflow-hidden rounded-3xl ${theme.border} ${theme.bg} p-6 sm:p-10`}>
       {/* Background pattern */}
       <div className={`absolute inset-0 ${theme.pattern} pointer-events-none`} />
       

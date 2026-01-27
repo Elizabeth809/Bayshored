@@ -26,6 +26,7 @@ import { PaymentProvider } from './context/PaymentContext';
 import OrderSuccess from './pages/ordersStatus/OrderSuccess';
 import PaymentFailed from './pages/ordersStatus/PaymentFailed';
 import ContactPage from './pages/ContactPage';
+import Footer from './components/Footer/Footer';
 
 function App() {
   return (
@@ -109,9 +110,11 @@ function App() {
                 />
               </Routes>
             </div>
+            <Footer />
           </PaymentProvider>
         </Router>
       </CartProvider>
+
     </AuthProvider>
   );
 }
