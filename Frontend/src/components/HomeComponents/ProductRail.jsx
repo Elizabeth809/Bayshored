@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, ChevronRight, Sparkles, Palette, Brush } from "lucide-react";
-import ProductCard from "../products/ProductCard";
+import ProductCard from "../Products/ProductCard";
 
 const ProductRail = ({
   title,
