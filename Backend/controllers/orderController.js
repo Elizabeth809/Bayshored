@@ -20,7 +20,7 @@ const getCurrentPrice = (product) => {
   return product.mrpPrice || 0;
 };
 
-// Calculate package details from cart
+// Calculate package details from cart - IMPROVED FOR ART
 const calculatePackageDetails = (cartItems) => {
   let totalWeight = 0;
   let maxDimensions = { length: 0, width: 0, height: 0 };
@@ -29,34 +29,53 @@ const calculatePackageDetails = (cartItems) => {
     const product = item.product;
     const quantity = item.quantity;
 
-    // Calculate weight - estimate based on dimensions if not provided
+    // Calculate weight based on art type and dimensions
     let itemWeight = 5; // Default 5 lbs
     
     if (product.dimensions) {
-      // Estimate weight based on artwork size (typical framed art)
-      const area = (product.dimensions.height || 0) * (product.dimensions.width || 0);
-      itemWeight = Math.max(2, Math.min(50, area / 100)); // 2-50 lbs based on size
+      // Calculate area in square inches (convert from cm if needed)
+      const heightCm = product.dimensions.height || 60;
+      const widthCm = product.dimensions.width || 60;
+      const depthCm = product.dimensions.depth || 5;
+      
+      // Convert cm to inches
+      const heightIn = heightCm / 2.54;
+      const widthIn = widthCm / 2.54;
+      const depthIn = Math.max(depthCm / 2.54, 4); // Minimum 4 inches for framing
+      
+      // Calculate weight based on size and type
+      const areaSquareInches = heightIn * widthIn;
+      
+      // Weight formula: base weight + area factor
+      // Canvas/framed art: heavier
+      // Prints: lighter
+      const weightPerSquareInch = product.medium?.toLowerCase().includes('canvas') ? 0.015 : 0.008;
+      const frameWeight = depthIn > 2 ? 3 : 1; // Extra weight for deep frames
+      
+      itemWeight = Math.max(2, Math.min(70, (areaSquareInches * weightPerSquareInch) + frameWeight));
+      
+      // Update max dimensions (add padding for packaging)
+      const padding = 4; // 4 inches padding for protection
+      maxDimensions.length = Math.max(maxDimensions.length, widthIn + padding);
+      maxDimensions.width = Math.max(maxDimensions.width, heightIn + padding);
+      maxDimensions.height = Math.max(maxDimensions.height, depthIn + padding);
     }
     
     totalWeight += itemWeight * quantity;
-
-    // Calculate dimensions (convert cm to inches)
-    if (product.dimensions) {
-      let length = (product.dimensions.width || 24) / 2.54; // width becomes length
-      let width = (product.dimensions.height || 24) / 2.54;  // height becomes width
-      let height = (product.dimensions.depth || 6) / 2.54;   // depth becomes height
-
-      maxDimensions.length = Math.max(maxDimensions.length, length);
-      maxDimensions.width = Math.max(maxDimensions.width, width);
-      maxDimensions.height = Math.max(maxDimensions.height, Math.max(height, 4)); // Minimum 4 inches
-    }
   });
 
-  // Apply minimums
-  totalWeight = Math.max(totalWeight, 2);
+  // Apply FedEx limits and minimums
+  totalWeight = Math.max(2, Math.min(150, totalWeight)); // 2-150 lbs
+  
+  // Ensure minimum dimensions
   if (maxDimensions.length === 0) {
     maxDimensions = { length: 24, width: 24, height: 6 };
   }
+  
+  // Apply FedEx dimension limits
+  maxDimensions.length = Math.max(6, Math.min(119, Math.ceil(maxDimensions.length)));
+  maxDimensions.width = Math.max(6, Math.min(119, Math.ceil(maxDimensions.width)));
+  maxDimensions.height = Math.max(4, Math.min(70, Math.ceil(maxDimensions.height)));
 
   return {
     weight: {
@@ -64,73 +83,87 @@ const calculatePackageDetails = (cartItems) => {
       units: 'LB'
     },
     dimensions: {
-      length: Math.ceil(maxDimensions.length),
-      width: Math.ceil(maxDimensions.width),
-      height: Math.ceil(maxDimensions.height),
+      length: maxDimensions.length,
+      width: maxDimensions.width,
+      height: maxDimensions.height,
       units: 'IN'
     }
   };
 };
 
-// Helper to parse transit days from FedEx response
+// Parse transit days - FIXED
 const parseTransitDays = (transitDays) => {
   if (!transitDays) return null;
   
-  // If it's already a number or string number
+  // If it's already a number
   if (typeof transitDays === 'number') {
-    return transitDays.toString();
+    return transitDays;
   }
   
+  // If it's a string number
   if (typeof transitDays === 'string') {
-    return transitDays;
+    const parsed = parseInt(transitDays, 10);
+    if (!isNaN(parsed)) return parsed;
+    return transitDays; // Return as-is if not a number (e.g., "3-5")
   }
   
   // If it's an object (FedEx format)
   if (typeof transitDays === 'object') {
-    // Try to extract the value
-    if (transitDays.value) {
-      return transitDays.value.toString();
+    if (transitDays.value !== undefined) {
+      return typeof transitDays.value === 'number' ? transitDays.value : parseInt(transitDays.value, 10);
     }
+    
     if (transitDays.minimumTransitTime) {
-      // Convert FedEx format like "ONE_DAY" to "1"
       const transitMap = {
-        'ONE_DAY': '1',
-        'TWO_DAYS': '2',
-        'THREE_DAYS': '3',
-        'FOUR_DAYS': '4',
-        'FIVE_DAYS': '5',
-        'SIX_DAYS': '6',
-        'SEVEN_DAYS': '7'
+        'ONE_DAY': 1,
+        'TWO_DAYS': 2,
+        'THREE_DAYS': 3,
+        'FOUR_DAYS': 4,
+        'FIVE_DAYS': 5,
+        'SIX_DAYS': 6,
+        'SEVEN_DAYS': 7
       };
-      return transitMap[transitDays.minimumTransitTime] || transitDays.description || '3-5';
+      return transitMap[transitDays.minimumTransitTime] || null;
     }
+    
     if (transitDays.description) {
+      // Try to extract number from description like "1 Business Day"
+      const match = transitDays.description.match(/(\d+)/);
+      if (match) return parseInt(match[1], 10);
       return transitDays.description;
     }
   }
   
-  return '3-5'; // Default
+  return null;
 };
 
-// Helper to format available rates for storage
+// Format available rates for storage - FIXED
 const formatAvailableRates = (rates) => {
   if (!rates || !Array.isArray(rates)) return [];
   
-  return rates.map(rate => ({
-    serviceType: rate.serviceType || '',
-    serviceName: rate.serviceName || rate.name || '',
-    deliveryDate: rate.deliveryTimestamp ? new Date(rate.deliveryTimestamp) : null,
-    transitDays: parseTransitDays(rate.transitDays),
-    totalCharge: rate.price || rate.totalCharge?.amount || 0,
-    currency: rate.totalCharge?.currency || 'USD',
-    isEstimated: rate.isEstimated || false
-  }));
+  return rates.map(rate => {
+    const transitDays = parseTransitDays(rate.transitDays);
+    
+    return {
+      serviceType: rate.serviceType || '',
+      serviceName: rate.serviceName || rate.name || '',
+      deliveryDate: rate.deliveryTimestamp ? new Date(rate.deliveryTimestamp) : null,
+      transitDays: typeof transitDays === 'number' ? transitDays.toString() : transitDays,
+      totalCharge: rate.price || rate.totalCharge?.amount || 0,
+      currency: rate.totalCharge?.currency || 'USD',
+      isEstimated: rate.isEstimated || false
+    };
+  });
 };
 
-// Fallback shipping rates
-const getFallbackShippingRates = (subtotal) => {
+// Fallback shipping rates - FIXED with realistic pricing
+const getFallbackShippingRates = (subtotal, packageWeight = 5) => {
   const freeShippingThreshold = 500;
-  const baseGroundRate = subtotal >= freeShippingThreshold ? 0 : 15;
+  
+  // Base rates adjusted by weight
+  const weightMultiplier = Math.max(1, packageWeight / 10);
+  
+  const baseGroundRate = subtotal >= freeShippingThreshold ? 0 : Math.round(12 * weightMultiplier);
 
   return [
     {
@@ -139,7 +172,7 @@ const getFallbackShippingRates = (subtotal) => {
       name: 'FedEx Ground',
       price: baseGroundRate,
       currency: 'USD',
-      transitDays: '3-5',
+      transitDays: 5,
       deliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
       fedexService: false,
       isEstimated: true
@@ -150,7 +183,7 @@ const getFallbackShippingRates = (subtotal) => {
       name: 'FedEx Home Delivery',
       price: baseGroundRate + 3,
       currency: 'USD',
-      transitDays: '3-5',
+      transitDays: 5,
       deliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
       fedexService: false,
       isEstimated: true
@@ -159,9 +192,9 @@ const getFallbackShippingRates = (subtotal) => {
       id: 'FEDEX_EXPRESS_SAVER',
       serviceType: 'FEDEX_EXPRESS_SAVER',
       name: 'FedEx Express Saver',
-      price: 22,
+      price: Math.round(22 * weightMultiplier),
       currency: 'USD',
-      transitDays: '3',
+      transitDays: 3,
       deliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       fedexService: false,
       isEstimated: true
@@ -170,9 +203,9 @@ const getFallbackShippingRates = (subtotal) => {
       id: 'FEDEX_2_DAY',
       serviceType: 'FEDEX_2_DAY',
       name: 'FedEx 2Day',
-      price: 28,
+      price: Math.round(28 * weightMultiplier),
       currency: 'USD',
-      transitDays: '2',
+      transitDays: 2,
       deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
       fedexService: false,
       isEstimated: true
@@ -181,9 +214,9 @@ const getFallbackShippingRates = (subtotal) => {
       id: 'STANDARD_OVERNIGHT',
       serviceType: 'STANDARD_OVERNIGHT',
       name: 'FedEx Standard Overnight',
-      price: 45,
+      price: Math.round(45 * weightMultiplier),
       currency: 'USD',
-      transitDays: '1',
+      transitDays: 1,
       deliveryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
       fedexService: false,
       isEstimated: true
@@ -192,14 +225,60 @@ const getFallbackShippingRates = (subtotal) => {
       id: 'PRIORITY_OVERNIGHT',
       serviceType: 'PRIORITY_OVERNIGHT',
       name: 'FedEx Priority Overnight',
-      price: 55,
+      price: Math.round(55 * weightMultiplier),
       currency: 'USD',
-      transitDays: '1',
+      transitDays: 1,
       deliveryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
       fedexService: false,
       isEstimated: true
     }
   ];
+};
+
+// Helper function for status sync - IMPROVED
+const shouldSyncOrderStatus = (currentOrderStatus, fedexMappedStatus) => {
+  if (!fedexMappedStatus) return false;
+  
+  // Never downgrade certain statuses
+  const protectedStatuses = ['cancelled', 'returned', 'refunded'];
+  if (protectedStatuses.includes(currentOrderStatus)) {
+    return false;
+  }
+  
+  // Status hierarchy
+  const statusHierarchy = {
+    'pending': 0,
+    'confirmed': 1,
+    'processing': 2,
+    'ready_to_ship': 3,
+    'shipped': 4,
+    'out_for_delivery': 5,
+    'delivered': 6
+  };
+  
+  const currentIndex = statusHierarchy[currentOrderStatus] ?? -1;
+  const newIndex = statusHierarchy[fedexMappedStatus] ?? -1;
+  
+  // Only update if new status is higher in hierarchy
+  return newIndex > currentIndex;
+};
+
+// Parse location helper
+const parseLocation = (locationString) => {
+  if (!locationString) return { city: '', stateOrProvinceCode: '' };
+  
+  if (typeof locationString === 'object') {
+    return {
+      city: locationString.city || '',
+      stateOrProvinceCode: locationString.state || locationString.stateOrProvinceCode || ''
+    };
+  }
+  
+  const parts = locationString.split(', ');
+  return {
+    city: parts[0] || '',
+    stateOrProvinceCode: parts[1] || ''
+  };
 };
 
 // =============================================
@@ -303,25 +382,50 @@ export const validateShippingAddress = async (req, res) => {
       });
     }
 
+    // Extract address fields with fallbacks
+    const streetLine1 = (shippingAddress.streetLine1 || shippingAddress.street || '').trim();
+    const streetLine2 = (shippingAddress.streetLine2 || shippingAddress.apartment || '').trim();
+    const city = (shippingAddress.city || '').trim();
+    const stateCode = (shippingAddress.stateCode || shippingAddress.state || '').toUpperCase().trim();
+    const zipCode = (shippingAddress.zipCode || shippingAddress.postalCode || '').trim();
+
     // Validate required fields
-    const requiredFields = ['streetLine1', 'city', 'stateCode', 'zipCode'];
-    const streetLine1 = shippingAddress.streetLine1 || shippingAddress.street;
-    const stateCode = shippingAddress.stateCode || shippingAddress.state;
-    
-    if (!streetLine1 || !shippingAddress.city || !stateCode || !shippingAddress.zipCode) {
+    if (!streetLine1 || !city || !stateCode || !zipCode) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required address fields'
+        message: 'Missing required address fields',
+        data: {
+          isValid: false,
+          requiresManualVerification: true,
+          missingFields: {
+            streetLine1: !streetLine1,
+            city: !city,
+            stateCode: !stateCode,
+            zipCode: !zipCode
+          }
+        }
+      });
+    }
+
+    // Validate ZIP code format
+    if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ZIP code format. Use 12345 or 12345-6789',
+        data: {
+          isValid: false,
+          requiresManualVerification: true
+        }
       });
     }
 
     // Call FedEx validation
     const validationResult = await fedexService.validateAddress({
-      streetLine1: streetLine1,
-      streetLine2: shippingAddress.streetLine2 || shippingAddress.apartment,
-      city: shippingAddress.city,
-      stateCode: stateCode,
-      zipCode: shippingAddress.zipCode
+      streetLine1,
+      streetLine2,
+      city,
+      stateCode,
+      zipCode
     });
 
     return res.status(200).json({
@@ -332,23 +436,32 @@ export const validateShippingAddress = async (req, res) => {
       data: {
         isValid: validationResult.isValid,
         isResidential: validationResult.isResidential,
+        isBusiness: validationResult.isBusiness,
         classification: validationResult.classification,
         normalizedAddress: validationResult.normalizedAddress,
         messages: validationResult.messages || [],
         requiresManualVerification: validationResult.requiresManualVerification,
-        originalAddress: shippingAddress
+        originalAddress: {
+          streetLine1,
+          streetLine2,
+          city,
+          stateCode,
+          zipCode
+        }
       }
     });
   } catch (error) {
     console.error('Address validation error:', error);
     
+    // Return a soft failure - don't block the checkout
     return res.status(200).json({
       success: true,
       message: 'Address validation skipped',
       data: {
         isValid: false,
         requiresManualVerification: true,
-        warning: error.message
+        warning: 'Address validation service temporarily unavailable',
+        error: error.message
       }
     });
   }
@@ -375,7 +488,7 @@ export const getShippingOptions = async (req, res) => {
     // Get user cart
     const user = await User.findById(req.user.id).populate({
       path: 'cart.product',
-      select: 'name mrpPrice discountPrice dimensions offer'
+      select: 'name mrpPrice discountPrice dimensions offer medium'
     });
 
     if (!user || user.cart.length === 0) {
@@ -385,7 +498,7 @@ export const getShippingOptions = async (req, res) => {
       });
     }
 
-    // Calculate package details
+    // Calculate package details from cart items
     const packageDetails = calculatePackageDetails(user.cart);
 
     // Calculate subtotal for insurance
@@ -393,14 +506,37 @@ export const getShippingOptions = async (req, res) => {
       return total + getCurrentPrice(item.product) * item.quantity;
     }, 0);
 
+    // Prepare address for FedEx
+    const streetLine1 = (shippingAddress.streetLine1 || shippingAddress.street || '').trim();
+    const streetLine2 = (shippingAddress.streetLine2 || shippingAddress.apartment || '').trim();
+    const city = (shippingAddress.city || '').trim();
+    const stateCode = (shippingAddress.stateCode || shippingAddress.state || '').toUpperCase().trim();
+    const zipCode = (shippingAddress.zipCode || shippingAddress.postalCode || '').trim();
+
+    // Validate required fields
+    if (!streetLine1 || !city || !stateCode || !zipCode) {
+      const fallbackRates = getFallbackShippingRates(subtotal, packageDetails.weight.value);
+      return res.json({
+        success: true,
+        message: 'Shipping options retrieved (incomplete address)',
+        data: {
+          rates: fallbackRates,
+          packageDetails,
+          subtotal,
+          fedexAvailable: false,
+          warning: 'Complete address required for accurate shipping rates'
+        }
+      });
+    }
+
     // Build rate request
     const rateRequest = {
       destination: {
-        streetLine1: shippingAddress.streetLine1 || shippingAddress.street,
-        streetLine2: shippingAddress.streetLine2 || shippingAddress.apartment,
-        city: shippingAddress.city,
-        stateCode: shippingAddress.stateCode || shippingAddress.state,
-        zipCode: shippingAddress.zipCode,
+        streetLine1,
+        streetLine2,
+        city,
+        stateCode,
+        zipCode,
         isResidential: shippingAddress.isResidential !== false
       },
       packages: [{
@@ -424,7 +560,7 @@ export const getShippingOptions = async (req, res) => {
         name: rate.serviceName,
         price: rate.price || rate.totalCharge?.amount || 0,
         currency: rate.totalCharge?.currency || 'USD',
-        transitDays: parseTransitDays(rate.transitDays),
+        transitDays: rate.transitDays,
         deliveryDate: rate.deliveryTimestamp,
         guaranteed: rate.guaranteed || false,
         fedexService: true,
@@ -450,26 +586,47 @@ export const getShippingOptions = async (req, res) => {
     }
 
     // Fallback rates
-    const fallbackRates = getFallbackShippingRates(subtotal);
+    const fallbackRates = getFallbackShippingRates(subtotal, packageDetails.weight.value);
 
     return res.json({
       success: true,
-      message: 'Shipping options retrieved (fallback rates)',
+      message: 'Shipping options retrieved (estimated rates)',
       data: {
         rates: fallbackRates,
         packageDetails,
         subtotal,
         fedexAvailable: false,
-        warning: rateResult.error || 'FedEx rates unavailable'
+        warning: rateResult.error || 'Live FedEx rates unavailable'
       }
     });
   } catch (error) {
     console.error('Get shipping options error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while getting shipping options',
-      error: error.message
-    });
+    
+    // Return fallback rates on error
+    try {
+      const user = await User.findById(req.user.id).populate('cart.product');
+      const subtotal = user?.cart?.reduce((total, item) => {
+        return total + getCurrentPrice(item.product) * item.quantity;
+      }, 0) || 0;
+      
+      const fallbackRates = getFallbackShippingRates(subtotal);
+      
+      return res.json({
+        success: true,
+        message: 'Shipping options retrieved (fallback)',
+        data: {
+          rates: fallbackRates,
+          fedexAvailable: false,
+          warning: 'Shipping service temporarily unavailable'
+        }
+      });
+    } catch (fallbackError) {
+      return res.status(500).json({
+        success: false,
+        message: 'Server error while getting shipping options',
+        error: error.message
+      });
+    }
   }
 };
 
@@ -1228,50 +1385,6 @@ export const findFedExLocations = async (req, res) => {
 //===========================================================================================================
 
 // ===========================================
-// HELPER FUNCTIONS
-// ===========================================
-
-const shouldSyncOrderStatus = (currentOrderStatus, fedexMappedStatus) => {
-  if (!fedexMappedStatus) return false;
-  
-  const statusHierarchy = [
-    'pending',
-    'confirmed',
-    'processing',
-    'ready_to_ship',
-    'shipped',
-    'out_for_delivery',
-    'delivered'
-  ];
-  
-  if (['cancelled', 'returned', 'refunded'].includes(currentOrderStatus)) {
-    return false;
-  }
-  
-  const currentIndex = statusHierarchy.indexOf(currentOrderStatus);
-  const newIndex = statusHierarchy.indexOf(fedexMappedStatus);
-  
-  return newIndex > currentIndex;
-};
-
-const parseLocation = (locationString) => {
-  if (!locationString) return { city: '', stateOrProvinceCode: '' };
-  
-  if (typeof locationString === 'object') {
-    return {
-      city: locationString.city || '',
-      stateOrProvinceCode: locationString.state || locationString.stateOrProvinceCode || ''
-    };
-  }
-  
-  const parts = locationString.split(', ');
-  return {
-    city: parts[0] || '',
-    stateOrProvinceCode: parts[1] || ''
-  };
-};
-
-// ===========================================
 // ADMIN: GET ALL ORDERS
 // ===========================================
 
@@ -1938,7 +2051,8 @@ export const trackOrder = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(orderId);
+    // Use findById without modification first
+    const order = await Order.findById(orderId).lean(); // .lean() returns plain JS object
 
     if (!order) {
       return res.status(404).json({
@@ -1955,6 +2069,7 @@ export const trackOrder = async (req, res) => {
       });
     }
 
+    // No tracking number case
     if (!order.fedex?.trackingNumber) {
       return res.json({
         success: true,
@@ -1977,12 +2092,14 @@ export const trackOrder = async (req, res) => {
       });
     }
 
+    // Fetch tracking from FedEx
     let trackingResult;
     try {
       trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
     } catch (fedexError) {
       console.error('FedEx API Error:', fedexError.message);
 
+      // Return cached data if available
       return res.json({
         success: true,
         message: 'Using cached tracking data',
@@ -2000,10 +2117,7 @@ export const trackOrder = async (req, res) => {
             serviceType: order.fedex.serviceType,
             serviceName: order.fedex.serviceName,
             currentStatus: order.fedex.currentStatus,
-            estimatedDelivery: order.fedex.estimatedDeliveryTimeWindow ? {
-              begins: order.fedex.estimatedDeliveryTimeWindow.begins,
-              ends: order.fedex.estimatedDeliveryTimeWindow.ends
-            } : null,
+            estimatedDelivery: order.fedex.estimatedDeliveryTimeWindow,
             events: order.fedex.trackingHistory || [],
             lastUpdated: order.fedex.lastTrackingUpdate,
             isCached: true
@@ -2014,6 +2128,7 @@ export const trackOrder = async (req, res) => {
       });
     }
 
+    // If tracking failed
     if (!trackingResult.success) {
       return res.json({
         success: true,
@@ -2026,51 +2141,26 @@ export const trackOrder = async (req, res) => {
             fedex: order.fedex,
             shippingAddress: order.shippingAddress
           },
-          tracking: null,
+          tracking: order.fedex.currentStatus ? {
+            trackingNumber: order.fedex.trackingNumber,
+            currentStatus: order.fedex.currentStatus,
+            isCached: true
+          } : null,
           hasTracking: true,
-          error: trackingResult.error || 'Unable to fetch tracking information'
+          isMockData: trackingResult.isMockData || false,
+          error: trackingResult.error
         }
       });
     }
 
-    // Update order with tracking data
-    let statusUpdated = false;
+    // Build atomic update object
+    const updateData = {
+      'fedex.lastTrackingUpdate': new Date()
+    };
 
-    if (trackingResult.mappedOrderStatus) {
-      const shouldUpdate = shouldSyncOrderStatus(
-        order.orderStatus,
-        trackingResult.mappedOrderStatus
-      );
-
-      if (shouldUpdate) {
-        order.orderStatus = trackingResult.mappedOrderStatus;
-        statusUpdated = true;
-
-        if (!order.shippingUpdates) {
-          order.shippingUpdates = [];
-        }
-
-        const lastUpdate = order.shippingUpdates[order.shippingUpdates.length - 1];
-        const newTimestamp = trackingResult.currentStatus?.timestamp;
-
-        const isDuplicate = lastUpdate &&
-          lastUpdate.fedexEventCode === trackingResult.currentStatus?.code &&
-          lastUpdate.timestamp?.toISOString() === new Date(newTimestamp).toISOString();
-
-        if (!isDuplicate && trackingResult.currentStatus) {
-          order.shippingUpdates.push({
-            message: `FedEx: ${trackingResult.currentStatus.description || 'Status updated'}`,
-            timestamp: newTimestamp ? new Date(newTimestamp) : new Date(),
-            location: trackingResult.currentStatus.location || '',
-            status: trackingResult.mappedOrderStatus,
-            fedexEventCode: trackingResult.currentStatus.code || ''
-          });
-        }
-      }
-    }
-
+    // Update current status
     if (trackingResult.currentStatus) {
-      order.fedex.currentStatus = {
+      updateData['fedex.currentStatus'] = {
         code: trackingResult.currentStatus.code || '',
         description: trackingResult.currentStatus.description || '',
         location: parseLocation(trackingResult.currentStatus.location),
@@ -2080,8 +2170,9 @@ export const trackOrder = async (req, res) => {
       };
     }
 
+    // Update estimated delivery
     if (trackingResult.estimatedDelivery) {
-      order.fedex.estimatedDeliveryTimeWindow = {
+      updateData['fedex.estimatedDeliveryTimeWindow'] = {
         begins: trackingResult.estimatedDelivery.begins
           ? new Date(trackingResult.estimatedDelivery.begins)
           : null,
@@ -2091,27 +2182,13 @@ export const trackOrder = async (req, res) => {
       };
 
       if (trackingResult.estimatedDelivery.ends) {
-        order.fedex.estimatedDeliveryDate = new Date(trackingResult.estimatedDelivery.ends);
+        updateData['fedex.estimatedDeliveryDate'] = new Date(trackingResult.estimatedDelivery.ends);
       }
     }
 
-    if (trackingResult.isDelivered) {
-      order.orderStatus = 'delivered';
-      statusUpdated = true;
-
-      if (trackingResult.deliveryDetails?.actualDeliveryTimestamp) {
-        order.fedex.actualDeliveryDate = new Date(
-          trackingResult.deliveryDetails.actualDeliveryTimestamp
-        );
-      }
-
-      if (order.paymentMethod === 'COD' && order.paymentStatus !== 'paid') {
-        order.paymentStatus = 'paid';
-      }
-    }
-
+    // Update tracking history (limit to 50 events)
     if (trackingResult.events && trackingResult.events.length > 0) {
-      order.fedex.trackingHistory = trackingResult.events.slice(0, 50).map(event => ({
+      updateData['fedex.trackingHistory'] = trackingResult.events.slice(0, 50).map(event => ({
         timestamp: event.timestamp ? new Date(event.timestamp) : new Date(),
         eventType: event.eventType || '',
         eventDescription: event.eventDescription || event.description || '',
@@ -2123,10 +2200,69 @@ export const trackOrder = async (req, res) => {
       }));
     }
 
-    order.fedex.lastTrackingUpdate = new Date();
+    // Check if order status should be updated
+    let statusUpdated = false;
+    let newOrderStatus = order.orderStatus;
 
-    await order.save();
+    if (trackingResult.mappedOrderStatus) {
+      const shouldUpdate = shouldSyncOrderStatus(
+        order.orderStatus,
+        trackingResult.mappedOrderStatus
+      );
 
+      if (shouldUpdate) {
+        newOrderStatus = trackingResult.mappedOrderStatus;
+        statusUpdated = true;
+        updateData.orderStatus = newOrderStatus;
+
+        // Handle delivery
+        if (trackingResult.isDelivered) {
+          updateData.orderStatus = 'delivered';
+          newOrderStatus = 'delivered';
+
+          if (trackingResult.deliveryDetails?.actualDeliveryTimestamp) {
+            updateData['fedex.actualDeliveryDate'] = new Date(
+              trackingResult.deliveryDetails.actualDeliveryTimestamp
+            );
+          }
+
+          // Update payment status for COD
+          if (order.paymentMethod === 'COD' && order.paymentStatus !== 'paid') {
+            updateData.paymentStatus = 'paid';
+          }
+        }
+      }
+    }
+
+    // Use findByIdAndUpdate for atomic update (no version conflict)
+    await Order.findByIdAndUpdate(
+      orderId,
+      { $set: updateData },
+      { new: false } // We don't need the updated document
+    );
+
+    // Add shipping update if status changed (separate operation)
+    if (statusUpdated && trackingResult.currentStatus) {
+      await Order.findByIdAndUpdate(
+        orderId,
+        {
+          $push: {
+            shippingUpdates: {
+              $each: [{
+                message: `FedEx: ${trackingResult.currentStatus.description || 'Status updated'}`,
+                timestamp: new Date(),
+                location: trackingResult.currentStatus.location || '',
+                status: newOrderStatus,
+                fedexEventCode: trackingResult.currentStatus.code || ''
+              }],
+              $slice: -50 // Keep only last 50 updates
+            }
+          }
+        }
+      );
+    }
+
+    // Return response
     res.json({
       success: true,
       message: statusUpdated
@@ -2136,7 +2272,7 @@ export const trackOrder = async (req, res) => {
         order: {
           _id: order._id,
           orderNumber: order.orderNumber,
-          orderStatus: order.orderStatus,
+          orderStatus: newOrderStatus,
           paymentStatus: order.paymentStatus,
           createdAt: order.createdAt,
           shippingAddress: order.shippingAddress,
@@ -2166,6 +2302,12 @@ export const trackOrder = async (req, res) => {
     });
   } catch (error) {
     console.error('Track order error:', error);
+    
+    // Log specific error types
+    if (error.name === 'VersionError') {
+      console.warn('[Order] Version conflict during tracking update - this is handled gracefully');
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Server error while tracking order',
@@ -2189,8 +2331,10 @@ export const getTrackingStatus = async (req, res) => {
       });
     }
 
+    // Use lean() to get plain object (no versioning issues)
     const order = await Order.findById(orderId)
-      .select('user orderNumber orderStatus fedex shippingAddress');
+      .select('user orderNumber orderStatus fedex shippingAddress')
+      .lean();
 
     if (!order) {
       return res.status(404).json({
@@ -2207,6 +2351,7 @@ export const getTrackingStatus = async (req, res) => {
       });
     }
 
+    // No tracking number
     if (!order.fedex?.trackingNumber) {
       return res.json({
         success: true,
@@ -2217,10 +2362,12 @@ export const getTrackingStatus = async (req, res) => {
       });
     }
 
+    // Check cache freshness (5 minutes)
     const cacheAge = order.fedex.lastTrackingUpdate
       ? (Date.now() - new Date(order.fedex.lastTrackingUpdate).getTime()) / 1000 / 60
       : Infinity;
 
+    // Return cached data if fresh enough
     if (cacheAge < 5 && order.fedex.currentStatus) {
       return res.json({
         success: true,
@@ -2228,10 +2375,7 @@ export const getTrackingStatus = async (req, res) => {
           hasTracking: true,
           trackingNumber: order.fedex.trackingNumber,
           currentStatus: order.fedex.currentStatus,
-          estimatedDelivery: order.fedex.estimatedDeliveryTimeWindow ? {
-            begins: order.fedex.estimatedDeliveryTimeWindow.begins,
-            ends: order.fedex.estimatedDeliveryTimeWindow.ends
-          } : null,
+          estimatedDelivery: order.fedex.estimatedDeliveryTimeWindow,
           isDelivered: order.orderStatus === 'delivered',
           isInTransit: ['shipped', 'out_for_delivery'].includes(order.orderStatus),
           isCached: true,
@@ -2240,21 +2384,18 @@ export const getTrackingStatus = async (req, res) => {
       });
     }
 
+    // Fetch fresh tracking data
     try {
       const trackingResult = await fedexService.trackShipment(order.fedex.trackingNumber);
 
       if (trackingResult.success) {
-        const shouldUpdate = shouldSyncOrderStatus(
-          order.orderStatus,
-          trackingResult.mappedOrderStatus
-        );
-
-        if (shouldUpdate) {
-          order.orderStatus = trackingResult.mappedOrderStatus;
-        }
+        // Build atomic update
+        const updateData = {
+          'fedex.lastTrackingUpdate': new Date()
+        };
 
         if (trackingResult.currentStatus) {
-          order.fedex.currentStatus = {
+          updateData['fedex.currentStatus'] = {
             code: trackingResult.currentStatus.code,
             description: trackingResult.currentStatus.description,
             location: parseLocation(trackingResult.currentStatus.location),
@@ -2262,8 +2403,18 @@ export const getTrackingStatus = async (req, res) => {
           };
         }
 
-        order.fedex.lastTrackingUpdate = new Date();
-        await order.save();
+        // Check status update
+        const shouldUpdate = shouldSyncOrderStatus(
+          order.orderStatus,
+          trackingResult.mappedOrderStatus
+        );
+
+        if (shouldUpdate) {
+          updateData.orderStatus = trackingResult.mappedOrderStatus;
+        }
+
+        // Atomic update - no version conflict
+        await Order.findByIdAndUpdate(orderId, { $set: updateData });
 
         return res.json({
           success: true,
@@ -2277,11 +2428,13 @@ export const getTrackingStatus = async (req, res) => {
             isInTransit: trackingResult.isInTransit,
             hasException: trackingResult.hasException,
             events: trackingResult.events?.slice(0, 3),
-            isCached: false
+            isCached: false,
+            isMockData: trackingResult.isMockData || false
           }
         });
       }
 
+      // Tracking failed - return cached data
       return res.json({
         success: true,
         data: {
@@ -2290,7 +2443,8 @@ export const getTrackingStatus = async (req, res) => {
           currentStatus: order.fedex.currentStatus,
           orderStatus: order.orderStatus,
           error: trackingResult.error,
-          isCached: true
+          isCached: true,
+          isMockData: trackingResult.isMockData || false
         }
       });
 
