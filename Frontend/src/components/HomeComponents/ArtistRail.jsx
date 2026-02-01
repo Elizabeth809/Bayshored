@@ -1,19 +1,94 @@
 // src/components/home/ArtistRail.jsx
 import { Link } from "react-router-dom";
-import { motion, useMotionValue, useTransform, animate, useScroll } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { 
   ArrowRight, 
   ChevronLeft, 
   ChevronRight, 
-  Users, 
-  Sparkles, 
-  Star,
-  TrendingUp,
-  Award,
-  Palette
+  Users,
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import ArtistCard from "./ArtistCard";
+
+// Flower Petal Component
+const FlowerPetal = ({ delay, duration, startX, startY, size, rotation }) => (
+  <motion.div
+    className="absolute pointer-events-none"
+    style={{ left: `${startX}%`, top: `${startY}%` }}
+    initial={{ opacity: 0, scale: 0, rotate: 0 }}
+    animate={{
+      opacity: [0, 0.6, 0.6, 0],
+      scale: [0, 1, 1, 0.5],
+      rotate: [0, rotation, rotation + 180, rotation + 360],
+      y: [0, 100, 200, 300],
+      x: [0, 30, -20, 40],
+    }}
+    transition={{
+      duration: duration,
+      delay: delay,
+      repeat: Infinity,
+      ease: "easeInOut",
+    }}
+  >
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className="text-gray-900/10"
+    >
+      <path
+        d="M12 2C12 2 14 6 14 8C14 10 12 12 12 12C12 12 10 10 10 8C10 6 12 2 12 2Z"
+        fill="currentColor"
+      />
+      <path
+        d="M12 12C12 12 16 10 18 10C20 10 22 12 22 12C22 12 20 14 18 14C16 14 12 12 12 12Z"
+        fill="currentColor"
+      />
+      <path
+        d="M12 12C12 12 14 16 14 18C14 20 12 22 12 22C12 22 10 20 10 18C10 16 12 12 12 12Z"
+        fill="currentColor"
+      />
+      <path
+        d="M12 12C12 12 8 10 6 10C4 10 2 12 2 12C2 12 4 14 6 14C8 14 12 12 12 12Z"
+        fill="currentColor"
+      />
+    </svg>
+  </motion.div>
+);
+
+// Floating Leaf Component
+const FloatingLeaf = ({ delay, startX }) => (
+  <motion.div
+    className="absolute pointer-events-none"
+    style={{ left: `${startX}%`, top: "-5%" }}
+    initial={{ opacity: 0, y: -20 }}
+    animate={{
+      opacity: [0, 0.3, 0.3, 0],
+      y: [-20, 400, 800],
+      x: [0, 50, -30, 80],
+      rotate: [0, 45, -45, 90],
+    }}
+    transition={{
+      duration: 15,
+      delay: delay,
+      repeat: Infinity,
+      ease: "linear",
+    }}
+  >
+    <svg width="20" height="20" viewBox="0 0 24 24" className="text-gray-900/10">
+      <path
+        d="M17 8C17 8 12 2 6 2C6 8 12 14 12 14C12 14 18 8 17 8Z"
+        fill="currentColor"
+      />
+      <path
+        d="M12 14L12 22"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+    </svg>
+  </motion.div>
+);
 
 const ArtistRail = ({ 
   title, 
@@ -26,16 +101,13 @@ const ArtistRail = ({
   const containerRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [hoveredButton, setHoveredButton] = useState(null);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start end", "end start"]
   });
 
-  const y1 = useTransform(scrollYProgress, [0, 1], [0, -50]);
-  const y2 = useTransform(scrollYProgress, [0, 1], [0, 50]);
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
+  const lineWidth = useTransform(scrollYProgress, [0, 0.3], [0, 100]);
 
   const checkScroll = () => {
     if (scrollRef.current) {
@@ -65,367 +137,196 @@ const ArtistRail = ({
     }
   };
 
-  // Floating particles animation
-  const particles = Array.from({ length: 15 }).map((_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 6 + 2,
-    duration: Math.random() * 10 + 15,
-    delay: Math.random() * 5
+  // Generate flower petals
+  const petals = Array.from({ length: 8 }).map((_, i) => ({
+    delay: i * 2,
+    duration: 12 + Math.random() * 5,
+    startX: Math.random() * 100,
+    startY: Math.random() * 30,
+    size: 16 + Math.random() * 16,
+    rotation: Math.random() * 360,
   }));
 
+  // Generate floating leaves
+  const leaves = Array.from({ length: 6 }).map((_, i) => ({
+    delay: i * 3,
+    startX: 10 + i * 15,
+  }));
+
+  const textReveal = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.6, ease: "easeOut" }
+    })
+  };
+
+  const lineAnimation = {
+    hidden: { scaleX: 0 },
+    visible: { 
+      scaleX: 1, 
+      transition: { duration: 1.2, ease: "easeInOut" } 
+    }
+  };
+
   return (
-    <motion.div 
+    <motion.section 
       ref={containerRef}
-      style={{ opacity }}
-      className="relative overflow-hidden bg-gradient-to-br from-stone-50 via-white"
+      className="relative overflow-hidden bg-white py-24"
     >
-      {/* Animated Background Effects */}
+      {/* Subtle Background Pattern */}
+      <div 
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23111827' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+
+      {/* Flower Petals Animation */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Gradient Orbs */}
-        <motion.div
-          style={{ y: y1 }}
-          animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute -top-48 -left-48 w-96 h-96  rounded-full blur-3xl"
-        />
-        
-        <motion.div
-          style={{ y: y2 }}
-          animate={{
-            scale: [1.3, 1, 1.3],
-            rotate: [360, 180, 0],
-          }}
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute -bottom-48 -right-48 w-96 h-96  rounded-full blur-3xl"
-        />
-
-        <motion.div
-          animate={{
-            scale: [1, 1.5, 1],
-            x: [0, 100, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute top-1/2 left-1/2 w-64 h-64  rounded-full blur-2xl"
-        />
-
-        {/* Floating Particles */}
-        {particles.map((particle) => (
-          <motion.div
-            key={particle.id}
-            className="absolute rounded-full "
-            style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              width: particle.size,
-              height: particle.size,
-            }}
-            animate={{
-              y: [0, -30, 0],
-              x: [0, 15, 0],
-              opacity: [0.2, 0.8, 0.2],
-              scale: [1, 1.5, 1],
-            }}
-            transition={{
-              duration: particle.duration,
-              repeat: Infinity,
-              delay: particle.delay,
-              ease: "easeInOut"
-            }}
-          />
+        {petals.map((petal, i) => (
+          <FlowerPetal key={i} {...petal} />
         ))}
-
-        {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+        {leaves.map((leaf, i) => (
+          <FloatingLeaf key={`leaf-${i}`} {...leaf} />
+        ))}
       </div>
 
-      <div className="relative p-8 sm:p-10 lg:p-12">
+      <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+        
         {/* Header Section */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-6 mb-10">
+        <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-8 mb-16">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial="hidden"
+            whileInView="visible"
             viewport={{ once: true }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
             className="flex-1"
           >
-            {/* Icon and Title */}
-            <div className="flex items-center gap-4 mb-4">
+            {/* Animated line */}
+            <motion.div
+              variants={lineAnimation}
+              className="w-16 h-px bg-gray-900 mb-8 origin-left"
+            />
+
+            {/* Title with icon */}
+            <div className="flex items-center gap-6 mb-6">
               <motion.div
-                animate={{ 
-                  rotate: 360,
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ 
-                  rotate: { duration: 8, repeat: Infinity, ease: "linear" },
-                  scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                }}
-                className="relative"
+                initial={{ scale: 0, rotate: -180 }}
+                whileInView={{ scale: 1, rotate: 0 }}
+                viewport={{ once: true }}
+                transition={{ type: "spring", duration: 1 }}
+                className="w-14 h-14 border border-gray-900/10 flex items-center justify-center"
               >
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 flex items-center justify-center shadow-2xl shadow-emerald-500/50">
-                  <Users className="text-white" size={32} />
-                </div>
-                {/* Rotating ring */}
                 <motion.div
-                  animate={{ rotate: -360 }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 rounded-2xl border-2 border-dashed border-emerald-400/50"
-                />
-                {/* Pulsing glow */}
-                <motion.div
-                  animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 rounded-2xl bg-emerald-400/30 blur-xl"
-                />
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                >
+                  <Users className="w-6 h-6 text-gray-900" strokeWidth={1.5} />
+                </motion.div>
               </motion.div>
 
               <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="font-playfair text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-gray-900 via-emerald-800 to-teal-800 bg-clip-text text-transparent">
-                    {title}
-                  </h2>
-                  <motion.div
-                    animate={{ 
-                      rotate: [0, 15, -15, 0],
-                      scale: [1, 1.2, 1]
-                    }}
-                    transition={{ 
-                      duration: 3, 
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    <Sparkles className="text-yellow-500 drop-shadow-lg" size={32} />
-                  </motion.div>
-                </div>
-                
-                {/* Animated underline */}
-                <motion.div
-                  initial={{ width: 0 }}
-                  whileInView={{ width: '100%' }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
-                  className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-full mt-2 relative overflow-hidden"
+                <motion.h2 
+                  custom={0}
+                  variants={textReveal}
+                  className="font-playfair text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900"
                 >
-                  <motion.div
-                    animate={{ x: ['-100%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
-                  />
-                </motion.div>
+                  {title}
+                </motion.h2>
               </div>
             </div>
 
             {/* Subtitle */}
             <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="text-gray-700 text-lg sm:text-xl font-medium ml-20 flex items-center gap-2"
+              custom={1}
+              variants={textReveal}
+              className="text-gray-900/60 text-lg ml-20"
             >
-              <Award className="text-emerald-600" size={20} />
               {subtitle}
             </motion.p>
 
-            {/* Stats Badges */}
+            {/* Simple stats */}
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: 0.4 }}
-              className="flex flex-wrap gap-3 mt-4 ml-20"
+              custom={2}
+              variants={textReveal}
+              className="flex items-center gap-8 mt-6 ml-20"
             >
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-emerald-200 shadow-lg flex items-center gap-2"
-              >
-                <TrendingUp className="text-emerald-600" size={16} />
-                <span className="text-sm font-semibold text-gray-700">
-                  {authors?.length || 0}+ Artists
-                </span>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-emerald-200 shadow-lg flex items-center gap-2"
-              >
-                <Star className="text-yellow-500 fill-yellow-500" size={16} />
-                <span className="text-sm font-semibold text-gray-700">Premium Quality</span>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-emerald-200 shadow-lg flex items-center gap-2"
-              >
-                <Palette className="text-pink-600" size={16} />
-                <span className="text-sm font-semibold text-gray-700">Verified</span>
-              </motion.div>
+              <div className="flex items-center gap-2">
+                <motion.span 
+                  className="text-2xl font-playfair font-bold text-gray-900"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                >
+                  {authors?.length || 0}+
+                </motion.span>
+                <span className="text-sm text-gray-900/50">Artists</span>
+              </div>
+              <div className="w-px h-6 bg-gray-900/10" />
+              <span className="text-sm text-gray-900/50">Verified & Curated</span>
             </motion.div>
           </motion.div>
 
-          {/* View All Button - Desktop */}
+          {/* View All Button - Minimal */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.7, delay: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
             className="hidden lg:block"
           >
-            <Link
-              to={viewAllHref}
-              className="group relative inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 px-8 py-4 font-bold text-white shadow-2xl shadow-emerald-500/50 overflow-hidden"
-              onMouseEnter={() => setHoveredButton('viewAll')}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              {/* Animated background */}
+            <Link to={viewAllHref} className="group">
               <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600"
-                initial={{ x: '-100%' }}
-                animate={{ x: hoveredButton === 'viewAll' ? '0%' : '-100%' }}
-                transition={{ duration: 0.3 }}
-              />
-              
-              {/* Shine effect */}
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                animate={{ x: ['-100%', '100%'] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              />
-              
-              <span className="relative z-10 text-lg">View All Artists</span>
-              <motion.div
-                className="relative z-10"
-                animate={{ x: hoveredButton === 'viewAll' ? [0, 5, 0] : 0 }}
-                transition={{ duration: 1.5, repeat: hoveredButton === 'viewAll' ? Infinity : 0 }}
+                className="flex items-center gap-3 text-gray-900"
+                whileHover={{ x: 5 }}
+                transition={{ type: "spring", stiffness: 300 }}
               >
-                <ArrowRight className="h-6 w-6" />
+                <span className="relative text-lg font-medium">
+                  View All Artists
+                  <motion.span
+                    className="absolute bottom-0 left-0 w-full h-px bg-gray-900 origin-left"
+                    initial={{ scaleX: 0 }}
+                    whileHover={{ scaleX: 1 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.div>
-
-              {/* Ripple effect on hover */}
-              {hoveredButton === 'viewAll' && (
-                <motion.span
-                  className="absolute inset-0 rounded-2xl border-2 border-white/50"
-                  initial={{ scale: 1, opacity: 1 }}
-                  animate={{ scale: 1.5, opacity: 0 }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                />
-              )}
             </Link>
           </motion.div>
         </div>
 
         {/* Slider Container */}
         <div className="relative">
-          {/* Navigation Buttons */}
+          {/* Navigation Buttons - Minimal */}
           {!loading && authors?.length > 0 && (
             <>
-              {/* Left Button */}
               <motion.button
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ 
-                  opacity: canScrollLeft ? 1 : 0.3,
-                  x: canScrollLeft ? 0 : -10
-                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: canScrollLeft ? 1 : 0.3 }}
                 onClick={() => scroll('left')}
                 disabled={!canScrollLeft}
-                className="absolute -left-6 top-1/2 -translate-y-1/2 z-30 group"
+                className="absolute -left-4 lg:-left-6 top-1/2 -translate-y-1/2 z-30 group"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                onMouseEnter={() => setHoveredButton('left')}
-                onMouseLeave={() => setHoveredButton(null)}
               >
-                <div className="relative">
-                  {/* Main button */}
-                  <div className="w-16 h-16 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border-2 border-emerald-200 flex items-center justify-center group-hover:bg-emerald-50 transition-all duration-300">
-                    <ChevronLeft 
-                      className="text-emerald-700 group-hover:-translate-x-1 transition-transform duration-300" 
-                      size={32} 
-                    />
-                  </div>
-                  
-                  {/* Glow effect */}
-                  <motion.div
-                    className="absolute inset-0 rounded-2xl bg-emerald-400/30 blur-xl"
-                    animate={{ 
-                      scale: hoveredButton === 'left' ? [1, 1.3, 1] : 1,
-                      opacity: hoveredButton === 'left' ? [0.5, 0.8, 0.5] : 0
-                    }}
-                    transition={{ duration: 1.5, repeat: hoveredButton === 'left' ? Infinity : 0 }}
-                  />
-                  
-                  {/* Ripple */}
-                  {hoveredButton === 'left' && (
-                    <motion.div
-                      className="absolute inset-0 rounded-2xl border-2 border-emerald-400"
-                      initial={{ scale: 1, opacity: 1 }}
-                      animate={{ scale: 1.5, opacity: 0 }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    />
-                  )}
+                <div className="w-12 h-12 border border-gray-900/20 bg-white flex items-center justify-center hover:border-gray-900 transition-colors">
+                  <ChevronLeft className="text-gray-900 w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
                 </div>
               </motion.button>
 
-              {/* Right Button */}
               <motion.button
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ 
-                  opacity: canScrollRight ? 1 : 0.3,
-                  x: canScrollRight ? 0 : 10
-                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: canScrollRight ? 1 : 0.3 }}
                 onClick={() => scroll('right')}
                 disabled={!canScrollRight}
-                className="absolute -right-6 top-1/2 -translate-y-1/2 z-30 group"
+                className="absolute -right-4 lg:-right-6 top-1/2 -translate-y-1/2 z-30 group"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                onMouseEnter={() => setHoveredButton('right')}
-                onMouseLeave={() => setHoveredButton(null)}
               >
-                <div className="relative">
-                  {/* Main button */}
-                  <div className="w-16 h-16 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border-2 border-emerald-200 flex items-center justify-center group-hover:bg-emerald-50 transition-all duration-300">
-                    <ChevronRight 
-                      className="text-emerald-700 group-hover:translate-x-1 transition-transform duration-300" 
-                      size={32} 
-                    />
-                  </div>
-                  
-                  {/* Glow effect */}
-                  <motion.div
-                    className="absolute inset-0 rounded-2xl bg-emerald-400/30 blur-xl"
-                    animate={{ 
-                      scale: hoveredButton === 'right' ? [1, 1.3, 1] : 1,
-                      opacity: hoveredButton === 'right' ? [0.5, 0.8, 0.5] : 0
-                    }}
-                    transition={{ duration: 1.5, repeat: hoveredButton === 'right' ? Infinity : 0 }}
-                  />
-                  
-                  {/* Ripple */}
-                  {hoveredButton === 'right' && (
-                    <motion.div
-                      className="absolute inset-0 rounded-2xl border-2 border-emerald-400"
-                      initial={{ scale: 1, opacity: 1 }}
-                      animate={{ scale: 1.5, opacity: 0 }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    />
-                  )}
+                <div className="w-12 h-12 border border-gray-900/20 bg-white flex items-center justify-center hover:border-gray-900 transition-colors">
+                  <ChevronRight className="text-gray-900 w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </motion.button>
             </>
@@ -434,7 +335,7 @@ const ArtistRail = ({
           {/* Cards Container */}
           <div
             ref={scrollRef}
-            className="flex overflow-x-auto scrollbar-hide scroll-smooth gap-1"
+            className="flex overflow-x-auto scrollbar-hide scroll-smooth gap-6"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
@@ -442,20 +343,19 @@ const ArtistRail = ({
             }}
           >
             {loading ? (
-              // Enhanced Loading Skeletons
-              <div className="flex gap-1">
-                {Array.from({ length: 6 }).map((_, i) => (
+              // Minimal Loading Skeletons
+              <div className="flex gap-6">
+                {Array.from({ length: 5 }).map((_, i) => (
                   <motion.div
                     key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.5, delay: i * 0.1 }}
-                    className="w-[350px] flex-shrink-0"
+                    className="w-[300px] flex-shrink-0"
                   >
-                    <div className="h-[500px] rounded-2xl bg-gradient-to-br from-emerald-100/50 via-green-100/50 to-teal-100/50 relative overflow-hidden border-2 border-emerald-200/30">
-                      {/* Shimmer effect */}
+                    <div className="aspect-[3/4] border border-gray-900/10 relative overflow-hidden">
                       <motion.div
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100 to-transparent"
                         animate={{ x: ['-100%', '100%'] }}
                         transition={{ 
                           duration: 1.5, 
@@ -464,96 +364,59 @@ const ArtistRail = ({
                           delay: i * 0.2
                         }}
                       />
-                      
-                      {/* Pulsing elements */}
-                      <div className="absolute top-4 left-4 right-4">
-                        <motion.div 
-                          animate={{ opacity: [0.3, 0.6, 0.3] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="w-20 h-20 rounded-full bg-emerald-200/50"
-                        />
-                      </div>
-                      
-                      <div className="absolute bottom-4 left-4 right-4 space-y-3">
-                        <motion.div 
-                          animate={{ opacity: [0.3, 0.6, 0.3] }}
-                          transition={{ duration: 2, repeat: Infinity, delay: 0.2 }}
-                          className="h-6 bg-emerald-200/50 rounded-lg w-3/4"
-                        />
-                        <motion.div 
-                          animate={{ opacity: [0.3, 0.6, 0.3] }}
-                          transition={{ duration: 2, repeat: Infinity, delay: 0.4 }}
-                          className="h-4 bg-emerald-200/50 rounded-lg w-1/2"
-                        />
-                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <div className="h-5 bg-gray-100 w-2/3" />
+                      <div className="h-4 bg-gray-100 w-1/2" />
                     </div>
                   </motion.div>
                 ))}
               </div>
             ) : authors?.length ? (
-              <div className="flex gap-1">
+              <div className="flex gap-6">
                 {authors.map((artist, idx) => (
                   <motion.div
                     key={artist?._id || idx}
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
                     transition={{ 
-                      duration: 0.5, 
+                      duration: 0.6, 
                       delay: idx * 0.1,
                       ease: "easeOut"
                     }}
-                    className="w-[350px] flex-shrink-0"
+                    className="w-[300px] flex-shrink-0"
                   >
                     <ArtistCard author={artist} index={idx} />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              // Enhanced Empty State
+              // Minimal Empty State
               <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="w-full py-24 text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full py-20 text-center"
               >
                 <motion.div
-                  animate={{ 
-                    y: [0, -10, 0],
-                    rotate: [0, 5, -5, 0]
-                  }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  className="inline-flex items-center justify-center w-28 h-28 rounded-3xl bg-gradient-to-br from-emerald-100 to-teal-100 mb-6 shadow-xl relative"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="inline-flex items-center justify-center w-20 h-20 border border-gray-900/10 mb-6"
                 >
-                  <Users className="text-emerald-600" size={48} />
-                  
-                  {/* Rotating ring */}
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 rounded-3xl border-4 border-dashed border-emerald-300/50"
-                  />
+                  <Users className="text-gray-900/40 w-8 h-8" strokeWidth={1} />
                 </motion.div>
                 
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">No Artists Yet</h3>
-                <p className="text-gray-600 text-lg font-medium">
-                  Stay tuned! Amazing artists are coming soon.
+                <h3 className="text-xl font-playfair font-bold text-gray-900 mb-2">No Artists Yet</h3>
+                <p className="text-gray-900/50">
+                  Amazing artists are coming soon.
                 </p>
                 
-                {/* Decorative dots */}
-                <div className="flex justify-center gap-2 mt-6">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                      transition={{ 
-                        duration: 1.5, 
-                        repeat: Infinity,
-                        delay: i * 0.2
-                      }}
-                      className="w-3 h-3 rounded-full bg-emerald-400"
-                    />
-                  ))}
-                </div>
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 1, delay: 0.5 }}
+                  className="w-16 h-px bg-gray-900/20 mx-auto mt-6"
+                />
               </motion.div>
             )}
           </div>
@@ -565,71 +428,33 @@ const ArtistRail = ({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-10 lg:hidden"
+          className="mt-12 lg:hidden text-center"
         >
-          <Link
-            to={viewAllHref}
-            className="group relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 px-8 py-4 font-bold text-white shadow-2xl shadow-emerald-500/50 overflow-hidden w-full"
-          >
-            {/* Animated background */}
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600"
-              animate={{ x: ['-100%', '100%'] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            />
-            
-            <span className="relative z-10 text-lg">View All Artists</span>
-            <motion.div
-              className="relative z-10"
-              animate={{ x: [0, 5, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            >
-              <ArrowRight className="h-6 w-6" />
-            </motion.div>
+          <Link to={viewAllHref} className="group inline-flex items-center gap-3 text-gray-900">
+            <span className="relative text-lg font-medium">
+              View All Artists
+              <span className="absolute bottom-0 left-0 w-full h-px bg-gray-900" />
+            </span>
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
         </motion.div>
+
+        {/* Bottom decorative line */}
+        <motion.div
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1.5, delay: 0.5 }}
+          className="w-full h-px bg-gray-900/5 mt-20 origin-center"
+        />
       </div>
 
-      {/* CSS Styles */}
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
-        
-        .bg-grid-pattern {
-          background-image: 
-            linear-gradient(to right, rgba(16, 185, 129, 0.1) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(16, 185, 129, 0.1) 1px, transparent 1px);
-          background-size: 40px 40px;
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
-        }
-
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-
-        @keyframes pulse-glow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-
-        /* Smooth scroll snap for better UX */
-        @media (min-width: 640px) {
-          .scrollbar-hide {
-            scroll-snap-type: x mandatory;
-          }
-          
-          .scrollbar-hide > div > div {
-            scroll-snap-align: start;
-          }
-        }
       `}</style>
-    </motion.div>
+    </motion.section>
   );
 };
 

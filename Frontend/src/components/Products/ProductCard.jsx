@@ -243,7 +243,7 @@ const ProductCard = ({ product, index }) => {
   return (
     <>
       <motion.div
-        className="!relative !bg-white !rounded-xl !shadow-lg !overflow-hidden !transition-all !duration-300 !hover:shadow-2xl !border !border-emerald-100"
+        className="!relative !bg-gray-white !rounded-xl bg-white !overflow-hidden !transition-all !duration-300 !hover:shadow-2xl !border !border-gray-100"
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ y: -8 }}
@@ -253,11 +253,11 @@ const ProductCard = ({ product, index }) => {
         transition={{ duration: 0.6, ease: 'easeOut', delay: (index || 0) * 0.1 }}
       >
         {/* Image Container */}
-        <div className="!relative !h-80 !bg-neutral-100 !overflow-hidden">
+        <div className="!relative !h-80 !bg-white !overflow-hidden">
           <Link to={`/product/${product.slug}`} className="!block !w-full !h-full">
             {/* Loading Skeleton */}
             {!imageLoaded && (
-              <div className="!absolute !inset-0 !bg-gray-200 !animate-pulse !flex !items-center !justify-center">
+              <div className="!absolute !inset-0 !bg-white !animate-pulse !flex !items-center !justify-center">
                 <div className="!text-gray-400">Loading...</div>
               </div>
             )}
@@ -355,8 +355,8 @@ const ProductCard = ({ product, index }) => {
           {/* Ask for Price Badge */}
           {hasAskForPrice && (
             <div className="!absolute !top-4 !left-4 !z-10">
-              <span className="!bg-purple-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
-                Ask for Price
+              <span className="!bg-gray-900 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
+                Ask Upon Price
               </span>
             </div>
           )}
@@ -376,7 +376,7 @@ const ProductCard = ({ product, index }) => {
           <Link to={`/product/${product.slug}`}>
             {/* Category */}
             <div className="!mb-2">
-              <span className="!text-sm !font-semibold !text-emerald-700 !uppercase !tracking-wider">
+              <span className="!text-sm !font-semibold !text-gray-500 !uppercase !tracking-wider">
                 {product.category?.name || 'Uncategorized'}
               </span>
             </div>
@@ -394,8 +394,8 @@ const ProductCard = ({ product, index }) => {
             {/* Price Section */}
             <div className="!flex !items-baseline !justify-center !space-x-2">
               {hasAskForPrice ? (
-                <span className="font-playfair !text-2xl !font-bold !text-purple-700">
-                  Price on Request
+                <span className="font-playfair !text-2xl !font-bold !text-gray-900">
+                  Price Upon Request
                 </span>
               ) : (
                 <>

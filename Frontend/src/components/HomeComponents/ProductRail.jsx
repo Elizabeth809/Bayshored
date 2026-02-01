@@ -1,8 +1,37 @@
-import { useMemo, useRef } from "react";
+// src/components/home/ProductRail.jsx
+import { useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, ChevronRight, Sparkles, Palette, Brush } from "lucide-react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Package } from "lucide-react";
 import ProductCard from "../Products/ProductCard";
+
+// Floating petal component
+const FloatingPetal = ({ delay, startX, duration, size = 14 }) => (
+  <motion.div
+    className="absolute pointer-events-none"
+    style={{ left: `${startX}%`, top: "-5%" }}
+    initial={{ opacity: 0, y: -20, rotate: 0 }}
+    animate={{
+      opacity: [0, 0.1, 0.1, 0],
+      y: [-20, 300, 600],
+      rotate: [0, 180, 360],
+      x: [0, 30, -20],
+    }}
+    transition={{
+      duration: duration,
+      delay: delay,
+      repeat: Infinity,
+      ease: "linear",
+    }}
+  >
+    <svg width={size} height={size} viewBox="0 0 24 24" className="text-gray-900">
+      <path
+        d="M12 2C12 2 14 6 14 8C14 10 12 12 12 12C12 12 10 10 10 8C10 6 12 2 12 2Z"
+        fill="currentColor"
+      />
+    </svg>
+  </motion.div>
+);
 
 const ProductRail = ({
   title,
@@ -10,53 +39,16 @@ const ProductRail = ({
   loading,
   products = [],
   viewAllHref = "/products",
-  variant = "default", // default | sale | vault | featured
 }) => {
   const scrollerRef = useRef(null);
+  const containerRef = useRef(null);
 
-  const theme = useMemo(() => {
-    const themes = {
-      sale: {
-        badge: "bg-gradient-to-r from-rose-600 to-amber-500 text-white shadow-lg shadow-rose-200",
-        border: "border-white/30 bg-gradient-to-br from-white/95 via-rose-50/40 to-amber-50/30 backdrop-blur-sm",
-        bg: "bg-gradient-to-br from-white via-rose-50/20 to-amber-50/10",
-        accent: "text-rose-600",
-        icon: Sparkles,
-        hint: "Limited Time Offers",
-        pattern: "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-100/30 via-transparent to-transparent"
-      },
-      vault: {
-        badge: "bg-gradient-to-r from-gray-900 via-gray-800 to-emerald-900 text-emerald-100 shadow-xl",
-        border: "border-emerald-900/20 bg-gradient-to-br from-white/95 via-emerald-50/20 to-gray-50/50 backdrop-blur-sm",
-        bg: "bg-gradient-to-br from-white via-emerald-50/10 to-gray-50",
-        accent: "text-emerald-700",
-        icon: Palette,
-        hint: "Exclusive Collection",
-        pattern: "bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-emerald-100/20 via-transparent to-transparent"
-      },
-      featured: {
-        badge: "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-200",
-        border: "border-white/30 bg-gradient-to-br from-white/95 via-indigo-50/30 to-violet-50/20 backdrop-blur-sm",
-        bg: "bg-gradient-to-br from-white via-indigo-50/10 to-violet-50/5",
-        accent: "text-indigo-600",
-        icon: Brush,
-        hint: "Curator's Choice",
-        pattern: "bg-[radial-gradient(circle_at_20%_30%,_var(--tw-gradient-stops))] from-indigo-100/20 via-transparent to-transparent"
-      },
-      default: {
-        badge: "bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-200",
-        border: "border-white/30 bg-gradient-to-br from-white/95 via-emerald-50/30 to-teal-50/20 backdrop-blur-sm",
-        bg: "bg-gradient-to-br from-white via-emerald-50/10 to-teal-50/5",
-        accent: "text-emerald-600",
-        icon: Brush,
-        hint: "Curated Selection",
-        pattern: "bg-[radial-gradient(circle_at_30%_20%,_var(--tw-gradient-stops))] from-emerald-100/20 via-transparent to-transparent"
-      }
-    };
-    return themes[variant] || themes.default;
-  }, [variant]);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start end", "end start"]
+  });
 
-  const IconComponent = theme.icon;
+  const lineWidth = useTransform(scrollYProgress, [0, 0.3], ["0%", "100%"]);
 
   const scrollByPx = (px) => {
     const el = scrollerRef.current;
@@ -64,158 +56,283 @@ const ProductRail = ({
     el.scrollBy({ left: px, behavior: "smooth" });
   };
 
+  // Generate floating petals
+  const petals = Array.from({ length: 8 }).map((_, i) => ({
+    delay: i * 2,
+    startX: 5 + i * 12,
+    duration: 15 + Math.random() * 8,
+    size: 12 + Math.random() * 8,
+  }));
+
+  const textReveal = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.6, ease: "easeOut" }
+    })
+  };
+
+  const lineAnimation = {
+    hidden: { scaleX: 0 },
+    visible: { 
+      scaleX: 1, 
+      transition: { duration: 1.2, ease: "easeInOut" } 
+    }
+  };
+
   return (
-    <div className={`relative overflow-hidden rounded-3xl ${theme.border} ${theme.bg} p-6 sm:p-10`}>
-      {/* Background pattern */}
-      <div className={`absolute inset-0 ${theme.pattern} pointer-events-none`} />
-      
-      {/* Decorative corner accents */}
-      <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br from-white/20 to-transparent blur-xl" />
-      <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-full bg-gradient-to-tr from-white/10 to-transparent blur-xl" />
+    <section 
+      ref={containerRef}
+      className="relative overflow-hidden bg-white py-20"
+    >
+      {/* Subtle Background Pattern */}
+      <div 
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23111827' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
 
-      <div className="relative z-10">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold ${theme.badge} backdrop-blur-md`}>
-                <IconComponent className="h-4 w-4" />
-                {theme.hint}
-              </span>
-              <div className="hidden sm:block h-px flex-1 bg-gradient-to-r from-current/20 to-transparent" />
-            </div>
-            
-            <div>
-              <h2 className="font-playfair text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 tracking-tight">
-                {title}
-              </h2>
-              <p className="mt-3 text-lg text-gray-700/90 max-w-2xl leading-relaxed">
+      {/* Floating Petals */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {petals.map((petal, i) => (
+          <FloatingPetal key={i} {...petal} />
+        ))}
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="mb-12"
+        >
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+            {/* Title Section */}
+            <div className="space-y-4">
+              <motion.div
+                variants={lineAnimation}
+                className="w-12 h-px bg-gray-900 origin-left"
+              />
+
+              <div className="flex items-center gap-4">
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  whileInView={{ scale: 1, rotate: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ type: "spring", duration: 1 }}
+                  className="w-12 h-12 border border-gray-900/10 flex items-center justify-center"
+                >
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Package className="w-5 h-5 text-gray-900" strokeWidth={1.5} />
+                  </motion.div>
+                </motion.div>
+
+                <motion.h2 
+                  custom={0}
+                  variants={textReveal}
+                  className="font-playfair text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900"
+                >
+                  {title}
+                </motion.h2>
+              </div>
+
+              <motion.p 
+                custom={1}
+                variants={textReveal}
+                className="text-gray-900/60 text-lg max-w-xl ml-16"
+              >
                 {subtitle}
-              </p>
-            </div>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <motion.button
-                whileHover={{ scale: 1.1, x: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => scrollByPx(-900)}
-                className="group rounded-2xl border border-white/50 bg-white/80 backdrop-blur-md p-3 hover:bg-white shadow-lg hover:shadow-xl transition-all duration-300"
-                aria-label="Scroll left"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-700 group-hover:text-emerald-600 transition-colors" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1, x: 2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => scrollByPx(900)}
-                className="group rounded-2xl border border-white/50 bg-white/80 backdrop-blur-md p-3 hover:bg-white shadow-lg hover:shadow-xl transition-all duration-300"
-                aria-label="Scroll right"
-              >
-                <ArrowRight className="h-5 w-5 text-gray-700 group-hover:text-emerald-600 transition-colors" />
-              </motion.button>
+              </motion.p>
             </div>
 
-            <motion.div whileHover={{ x: 3 }}>
-              <Link
-                to={viewAllHref}
-                className="group ml-2 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-3 font-semibold text-white hover:from-gray-800 hover:to-gray-700 shadow-xl hover:shadow-2xl transition-all duration-300"
-              >
-                Explore Collection
-                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            {/* Navigation - Desktop */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="hidden sm:flex items-center gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => scrollByPx(-400)}
+                  className="w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 hover:bg-gray-900 group transition-all duration-300"
+                >
+                  <ArrowLeft className="w-5 h-5 text-gray-900 group-hover:text-white transition-colors" />
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => scrollByPx(400)}
+                  className="w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 hover:bg-gray-900 group transition-all duration-300"
+                >
+                  <ArrowRight className="w-5 h-5 text-gray-900 group-hover:text-white transition-colors" />
+                </motion.button>
+              </div>
+
+              <div className="w-px h-8 bg-gray-900/10" />
+
+              <Link to={viewAllHref} className="group">
+                <motion.div
+                  className="flex items-center gap-2 text-gray-900"
+                  whileHover={{ x: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <span className="relative font-medium">
+                    View Collection
+                    <motion.span
+                      className="absolute bottom-0 left-0 w-full h-px bg-gray-900 origin-left"
+                      initial={{ scaleX: 0 }}
+                      whileHover={{ scaleX: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </motion.div>
               </Link>
             </motion.div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="mt-10">
+        {/* Products Scroll Container */}
+        <div className="relative">
+          {/* Top border line */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+            className="absolute top-0 left-0 right-0 h-px bg-gray-900/10 origin-left"
+          />
+
           <div
             ref={scrollerRef}
-            className="flex gap-8 pb-8 overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth px-2 -mx-2"
+            className="flex gap-6 py-8 overflow-x-auto scrollbar-hide scroll-smooth"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
           >
             {loading ? (
+              // Minimal Loading Skeletons
               Array.from({ length: 4 }).map((_, i) => (
-                <div
+                <motion.div
                   key={i}
-                  className="relative min-w-[320px] sm:min-w-[380px] lg:min-w-[420px] snap-start rounded-3xl border border-white/50 bg-gradient-to-br from-white/60 to-white/30 backdrop-blur-sm p-6 overflow-hidden"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, delay: i * 0.1 }}
+                  className="min-w-[300px] sm:min-w-[340px] lg:min-w-[380px] flex-shrink-0"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent" />
-                  <div className="relative z-10">
-                    <div className="h-72 w-full rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" />
-                    <div className="mt-6 h-5 w-3/4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse" />
-                    <div className="mt-4 h-4 w-full rounded-full bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse" />
-                    <div className="mt-4 h-4 w-2/3 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse" />
-                    <div className="mt-6 h-10 w-32 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse" />
+                  <div className="border border-gray-900/10">
+                    <div className="aspect-[4/5] bg-gray-50 relative overflow-hidden">
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent"
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                      />
+                    </div>
+                    <div className="p-6 space-y-3">
+                      <div className="h-4 bg-gray-100 w-1/3" />
+                      <div className="h-6 bg-gray-100 w-3/4" />
+                      <div className="h-4 bg-gray-100 w-1/2" />
+                      <div className="h-6 bg-gray-100 w-1/4 mt-4" />
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               ))
             ) : products?.length ? (
-              products.map((p, idx) => (
+              products.map((product, idx) => (
                 <motion.div
-                  key={p?._id || idx}
-                  className="min-w-[320px] sm:min-w-[380px] lg:min-w-[420px] snap-start"
-                  initial={{ opacity: 0, y: 20 }}
+                  key={product?._id || idx}
+                  className="min-w-[300px] sm:min-w-[340px] lg:min-w-[380px] flex-shrink-0"
+                  initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
                   transition={{
                     duration: 0.6,
-                    delay: idx * 0.05,
-                    ease: [0.22, 1, 0.36, 1]
+                    delay: idx * 0.1,
+                    ease: "easeOut"
                   }}
                 >
-                  <ProductCard 
-                    product={p} 
-                    index={idx}
-                    variant={variant}
-                  />
+                  <ProductCard product={product} index={idx} />
                 </motion.div>
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center w-full py-20">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-6">
-                  <Palette className="h-12 w-12 text-gray-400" />
-                </div>
-                <p className="text-xl text-gray-600/80 font-medium">No artworks available at the moment</p>
-                <p className="text-gray-500 mt-2">Check back soon for new additions</p>
-              </div>
+              // Empty State
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full py-16 text-center"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="inline-flex items-center justify-center w-20 h-20 border border-gray-900/10 mb-6"
+                >
+                  <Package className="w-8 h-8 text-gray-900/30" strokeWidth={1} />
+                </motion.div>
+                <h3 className="text-xl font-playfair font-bold text-gray-900 mb-2">
+                  No Artworks Available
+                </h3>
+                <p className="text-gray-900/50">Check back soon for new additions</p>
+              </motion.div>
             )}
           </div>
 
-          {/* Mobile controls */}
-          <div className="sm:hidden mt-8 flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/50 backdrop-blur-sm border border-white/30">
-            <div className="flex gap-3">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => scrollByPx(-700)}
-                className="rounded-2xl border border-white bg-white/80 p-3 shadow-lg hover:shadow-xl transition-all"
-                aria-label="Scroll left"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-700" />
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => scrollByPx(700)}
-                className="rounded-2xl border border-white bg-white/80 p-3 shadow-lg hover:shadow-xl transition-all"
-                aria-label="Scroll right"
-              >
-                <ArrowRight className="h-5 w-5 text-gray-700" />
-              </motion.button>
-            </div>
-
-            <Link
-              to={viewAllHref}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 px-5 py-3 font-semibold text-white shadow-lg hover:shadow-xl transition-all"
-            >
-              View All
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
+          {/* Bottom border line */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="absolute bottom-0 left-0 right-0 h-px bg-gray-900/10 origin-right"
+          />
         </div>
+
+        {/* Mobile Navigation */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="sm:hidden mt-8 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => scrollByPx(-300)}
+              className="w-10 h-10 border border-gray-900/20 flex items-center justify-center"
+            >
+              <ArrowLeft className="w-4 h-4 text-gray-900" />
+            </button>
+            <button
+              onClick={() => scrollByPx(300)}
+              className="w-10 h-10 border border-gray-900/20 flex items-center justify-center"
+            >
+              <ArrowRight className="w-4 h-4 text-gray-900" />
+            </button>
+          </div>
+
+          <Link to={viewAllHref} className="group flex items-center gap-2 text-gray-900">
+            <span className="font-medium text-sm">View All</span>
+            <ArrowUpRight className="w-4 h-4" />
+          </Link>
+        </motion.div>
       </div>
 
-      {/* Decorative bottom border */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-current/10 to-transparent" />
-    </div>
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+    </section>
   );
 };
 

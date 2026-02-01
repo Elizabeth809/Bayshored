@@ -21,7 +21,6 @@ const AboutCompanySection = () => {
   });
 
   const y = useTransform(scrollYProgress, [0, 1], [100, -100]);
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
 
   const values = [
     { 
@@ -46,339 +45,407 @@ const AboutCompanySection = () => {
     }
   ];
 
+  // Text reveal animation
+  const textReveal = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.6, ease: "easeOut" }
+    })
+  };
+
+  // Line draw animation
+  const lineAnimation = {
+    hidden: { scaleX: 0 },
+    visible: { 
+      scaleX: 1, 
+      transition: { duration: 1.2, ease: "easeInOut" } 
+    }
+  };
+
   return (
     <section 
       ref={sectionRef}
-      className="relative py-32 overflow-hidden"
+      className="relative py-32 overflow-hidden bg-white"
     >
-      {/* Elegant Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-stone-50 via-white to-amber-50/30" />
-      
-      {/* Subtle artistic pattern */}
+      {/* Subtle Background Pattern */}
       <div 
         className="absolute inset-0 opacity-[0.02]"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23111827' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }}
       />
 
-      {/* Floating paint strokes */}
+      {/* Floating animated line */}
       <motion.div
         style={{ y }}
-        className="absolute top-20 right-[10%] w-64 h-64 opacity-10"
-      >
-        <svg viewBox="0 0 200 200" className="w-full h-full">
-          <motion.path
-            d="M20,100 Q50,20 100,40 T180,100 Q150,180 100,160 T20,100"
-            fill="none"
-            stroke="#0f766e"
-            strokeWidth="3"
-            initial={{ pathLength: 0 }}
-            whileInView={{ pathLength: 1 }}
-            transition={{ duration: 3, ease: "easeInOut" }}
-          />
-        </svg>
-      </motion.div>
+        className="absolute top-40 right-[5%] w-px h-64 bg-gray-900/10 origin-top"
+      />
+      <motion.div
+        style={{ y: useTransform(scrollYProgress, [0, 1], [-50, 50]) }}
+        className="absolute bottom-40 left-[5%] w-px h-48 bg-gray-900/10 origin-bottom"
+      />
 
       <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
         
         {/* Header */}
         <motion.div 
           className="text-center max-w-3xl mx-auto mb-24"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          whileInView="visible"
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
         >
+          {/* Animated line above */}
           <motion.div
-            initial={{ scale: 0 }}
-            whileInView={{ scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ type: "spring", duration: 0.8 }}
-            className="inline-block mb-6"
+            variants={lineAnimation}
+            className="w-16 h-px bg-gray-900 mx-auto mb-8 origin-left"
+          />
+
+          <motion.span
+            custom={0}
+            variants={textReveal}
+            className="inline-block text-sm font-medium tracking-[0.3em] text-gray-900 uppercase mb-6"
           >
-            <div className="flex items-center gap-3 px-6 py-3 rounded-full border border-teal-200 bg-white/80 backdrop-blur-sm shadow-sm">
-              <Brush className="w-5 h-5 text-teal-700" />
-              <span className="text-sm font-semibold text-teal-900 tracking-wider">ABOUT US</span>
-            </div>
-          </motion.div>
+            About Us
+          </motion.span>
 
-          <h2 className="font-playfair text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+          <motion.h2 
+            custom={1}
+            variants={textReveal}
+            className="font-playfair text-5xl lg:text-6xl font-bold text-gray-900 mb-6"
+          >
             Where Art Meets
-            <span className="block mt-2 bg-gradient-to-r from-teal-700 via-emerald-700 to-teal-800 bg-clip-text text-transparent">
-              Passion & Purpose
-            </span>
-          </h2>
+          </motion.h2>
 
-          <p className="text-xl text-gray-600 leading-relaxed">
+          <motion.h2 
+            custom={2}
+            variants={textReveal}
+            className="font-playfair text-5xl lg:text-6xl font-bold text-gray-900 mb-8"
+          >
+            Passion & Purpose
+          </motion.h2>
+
+          <motion.p 
+            custom={3}
+            variants={textReveal}
+            className="text-lg text-gray-900/70 leading-relaxed"
+          >
             We bridge the gap between extraordinary artists and discerning collectors, 
             creating meaningful connections through carefully curated artwork.
-          </p>
+          </motion.p>
+
+          {/* Animated line below */}
+          <motion.div
+            variants={lineAnimation}
+            className="w-16 h-px bg-gray-900 mx-auto mt-8 origin-right"
+          />
         </motion.div>
 
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-32">
           
-          {/* Gallery Images */}
+          {/* Image */}
           <motion.div 
             className="relative"
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 1 }}
           >
-            {/* Main Image Frame */}
-            <div className="relative">
-              {/* Decorative frame shadow */}
-              <div className="absolute -inset-4 bg-gradient-to-br from-teal-100 via-emerald-50 to-amber-100 rounded-2xl rotate-1" />
-              
-              <motion.div 
-                className="relative bg-white p-4 rounded-2xl shadow-2xl"
-                whileHover={{ y: -8, rotate: -1 }}
-                transition={{ duration: 0.4 }}
-              >
-                <div className="relative aspect-[4/5] overflow-hidden rounded-lg">
-                  <img
-                    src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&q=80"
-                    alt="Art Gallery"
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* Subtle overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-                </div>
-
-                {/* Frame label */}
-                <div className="mt-4 text-center">
-                  <p className="font-playfair text-lg text-gray-800">Curated Excellence</p>
-                  <p className="text-sm text-gray-500">Since 2020</p>
-                </div>
-              </motion.div>
-
-              {/* Floating small image */}
+            <motion.div 
+              className="relative overflow-hidden"
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            >
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                initial={{ scale: 1.2 }}
+                whileInView={{ scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.3, duration: 0.8 }}
-                whileHover={{ y: -5, rotate: 3 }}
-                className="absolute -bottom-12 -right-12 w-48 bg-white p-3 rounded-xl shadow-xl hidden lg:block"
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                className="aspect-[4/5] overflow-hidden"
               >
-                <div className="aspect-square overflow-hidden rounded-lg">
-                  <img
-                    src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80"
-                    alt="Featured Art"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <img
+                  src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&q=80"
+                  alt="Art Gallery"
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                />
               </motion.div>
 
-              {/* Stats badge */}
+              {/* Animated border */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.5 }}
-                className="absolute -top-6 -left-6 bg-white px-6 py-4 rounded-2xl shadow-xl border border-teal-100"
-              >
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-teal-700">500+</div>
-                  <div className="text-sm text-gray-600 font-medium">Artworks</div>
-                </div>
-              </motion.div>
-            </div>
+                className="absolute inset-0 border border-gray-900/20 pointer-events-none"
+              />
+            </motion.div>
+
+            {/* Caption with line animation */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.6 }}
+              className="mt-6 flex items-center gap-4"
+            >
+              <motion.div 
+                initial={{ scaleX: 0 }}
+                whileInView={{ scaleX: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.8, duration: 0.8 }}
+                className="w-12 h-px bg-gray-900 origin-left"
+              />
+              <span className="text-sm text-gray-900/60 tracking-wide">Since 2020</span>
+            </motion.div>
           </motion.div>
 
           {/* Content */}
           <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial="hidden"
+            whileInView="visible"
             viewport={{ once: true }}
-            transition={{ duration: 1 }}
-            className="space-y-8"
+            className="space-y-10"
           >
+            <motion.h3 
+              custom={0}
+              variants={textReveal}
+              className="font-playfair text-3xl lg:text-4xl font-bold text-gray-900 leading-tight"
+            >
+              Bringing the finest art directly to collectors who appreciate beauty
+            </motion.h3>
+            
             <div className="space-y-6">
-              <h3 className="font-playfair text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
-                Bringing the finest art directly to collectors who appreciate beauty
-              </h3>
-              
-              <div className="space-y-4 text-gray-700 text-lg leading-relaxed">
-                <p>
-                  We believe art has the power to transform spaces and inspire lives. 
-                  That's why we've dedicated ourselves to discovering exceptional talent 
-                  and making their work accessible to you.
-                </p>
-                <p>
-                  Every painting in our collection is chosen with care, authenticated with 
-                  precision, and delivered with pride. We're not just selling art—we're 
-                  building a community of passionate collectors and visionary artists.
-                </p>
-              </div>
+              <motion.p 
+                custom={1}
+                variants={textReveal}
+                className="text-gray-900/70 text-lg leading-relaxed"
+              >
+                We believe art has the power to transform spaces and inspire lives. 
+                That's why we've dedicated ourselves to discovering exceptional talent 
+                and making their work accessible to you.
+              </motion.p>
+              <motion.p 
+                custom={2}
+                variants={textReveal}
+                className="text-gray-900/70 text-lg leading-relaxed"
+              >
+                Every painting in our collection is chosen with care, authenticated with 
+                precision, and delivered with pride.
+              </motion.p>
             </div>
 
-            {/* Key features */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Stats - Simple inline */}
+            <motion.div 
+              custom={3}
+              variants={textReveal}
+              className="flex flex-wrap gap-x-12 gap-y-6 py-8 border-y border-gray-900/10"
+            >
               {[
                 { label: "Verified Artists", value: "100+" },
                 { label: "Happy Collectors", value: "2,000+" },
-                { label: "Satisfaction Rate", value: "98%" },
-                { label: "States Covered", value: "50" }
+                { label: "Satisfaction", value: "98%" },
               ].map((stat, idx) => (
                 <motion.div
                   key={stat.label}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="bg-gradient-to-br from-teal-50 to-emerald-50 p-5 rounded-xl border border-teal-100"
+                  transition={{ delay: 0.4 + idx * 0.1 }}
+                  className="group"
                 >
-                  <div className="text-2xl font-bold text-teal-700 mb-1">{stat.value}</div>
-                  <div className="text-sm text-gray-600 font-medium">{stat.label}</div>
+                  <motion.div 
+                    className="text-3xl font-playfair font-bold text-gray-900"
+                    whileHover={{ scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    {stat.value}
+                  </motion.div>
+                  <div className="text-sm text-gray-900/50 mt-1">{stat.label}</div>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Link
-                  to="/products"
-                  className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-teal-700 to-emerald-700 text-white px-8 py-4 rounded-xl font-semibold shadow-lg shadow-teal-700/30 hover:shadow-xl hover:shadow-teal-700/40 transition-all"
+            {/* CTA Buttons - Minimal */}
+            <motion.div 
+              custom={4}
+              variants={textReveal}
+              className="flex flex-col sm:flex-row gap-6"
+            >
+              <Link to="/products" className="group">
+                <motion.div
+                  className="inline-flex items-center gap-3 text-gray-900 font-medium"
+                  whileHover={{ x: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
                 >
-                  Explore Collection
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </motion.div>
+                  <span className="relative">
+                    Explore Collection
+                    <motion.span
+                      className="absolute bottom-0 left-0 w-full h-px bg-gray-900 origin-left"
+                      initial={{ scaleX: 1 }}
+                      whileHover={{ scaleX: 0 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </motion.div>
+              </Link>
 
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Link
-                  to="/artists"
-                  className="inline-flex items-center justify-center gap-3 bg-white text-teal-800 px-8 py-4 rounded-xl font-semibold border-2 border-teal-200 hover:bg-teal-50 transition-all"
+              <Link to="/artists" className="group">
+                <motion.div
+                  className="inline-flex items-center gap-3 text-gray-900/60 font-medium hover:text-gray-900 transition-colors"
+                  whileHover={{ x: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
                 >
-                  Meet Our Artists
-                  <Palette className="w-5 h-5" />
-                </Link>
-              </motion.div>
-            </div>
+                  <span>Meet Our Artists</span>
+                  <Palette className="w-4 h-4" />
+                </motion.div>
+              </Link>
+            </motion.div>
           </motion.div>
         </div>
 
         {/* Values Section */}
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          whileInView="visible"
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
           className="relative"
         >
           {/* Section header */}
-          <div className="text-center mb-16">
-            <h3 className="font-playfair text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-20">
+            <motion.div
+              variants={lineAnimation}
+              className="w-24 h-px bg-gray-900/20 mx-auto mb-8"
+            />
+            <motion.h3 
+              custom={0}
+              variants={textReveal}
+              className="font-playfair text-4xl lg:text-5xl font-bold text-gray-900 mb-4"
+            >
               Our Guiding Principles
-            </h3>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              The values that shape every decision we make and every relationship we build
-            </p>
+            </motion.h3>
+            <motion.p 
+              custom={1}
+              variants={textReveal}
+              className="text-lg text-gray-900/60 max-w-2xl mx-auto"
+            >
+              The values that shape every decision we make
+            </motion.p>
           </div>
 
-          {/* Values grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Values - Simple list */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
             {values.map((value, idx) => (
               <motion.div
                 key={value.title}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.1, duration: 0.6 }}
-                whileHover={{ y: -8 }}
-                className="group relative"
+                transition={{ delay: idx * 0.15, duration: 0.6 }}
+                className="group text-center lg:text-left border border-gray-900/10 text-gray-900 p-4 rounded-2xl"
               >
-                {/* Card */}
-                <div className="relative h-full bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all border border-gray-100">
-                  {/* Icon */}
-                  <motion.div
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.6 }}
-                    className="w-16 h-16 mb-6 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-xl flex items-center justify-center"
-                  >
-                    <value.icon className="w-8 h-8 text-teal-700" />
-                  </motion.div>
+                {/* Icon with hover animation */}
+                <motion.div
+                  whileHover={{ rotate: 360, scale: 1.1 }}
+                  transition={{ duration: 0.6 }}
+                  className="inline-flex items-center justify-center w-12 h-12 mb-6 border border-gray-900/10 text-gray-900 rounded-2xl"
+                >
+                  <value.icon className="w-5 h-5" strokeWidth={1.5} />
+                </motion.div>
 
-                  {/* Content */}
-                  <h4 className="font-playfair text-xl font-bold text-gray-900 mb-3">
-                    {value.title}
-                  </h4>
-                  <p className="text-gray-600 leading-relaxed">
-                    {value.desc}
-                  </p>
+                <h4 className="font-playfair text-xl font-bold text-gray-900 mb-3">
+                  {value.title}
+                </h4>
+                
+                <p className="text-gray-900/60 leading-relaxed text-sm">
+                  {value.desc}
+                </p>
 
-                  {/* Hover gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-teal-50 to-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl -z-10" />
-                </div>
+                {/* Animated underline on hover */}
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  whileHover={{ scaleX: 1 }}
+                  className="w-8 h-px bg-gray-900 mt-4 origin-left mx-auto lg:mx-0"
+                />
               </motion.div>
             ))}
           </div>
         </motion.div>
 
-        {/* Promise Banner */}
+        {/* Promise Section - Minimal */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="mt-24 relative overflow-hidden"
+          transition={{ duration: 1 }}
+          className="mt-32 pt-20 border-t border-gray-900/10"
         >
-          <div className="relative bg-gradient-to-r from-teal-700 via-emerald-700 to-teal-800 rounded-3xl p-12 lg:p-16 shadow-2xl">
-            {/* Background pattern */}
-            <div className="absolute inset-0 opacity-10">
-              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <motion.path
-                  d="M0,50 Q25,30 50,50 T100,50 L100,100 L0,100 Z"
-                  fill="white"
-                  initial={{ d: "M0,50 Q25,30 50,50 T100,50 L100,100 L0,100 Z" }}
-                  animate={{ d: "M0,50 Q25,70 50,50 T100,50 L100,100 L0,100 Z" }}
-                  transition={{ duration: 5, repeat: Infinity, repeatType: "reverse" }}
-                />
-              </svg>
-            </div>
+          <div className="text-center max-w-4xl mx-auto">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              whileInView={{ scale: 1, rotate: 0 }}
+              viewport={{ once: true }}
+              transition={{ type: "spring", duration: 1 }}
+              className="inline-flex items-center justify-center w-16 h-16 border border-gray-900/10 mb-8"
+            >
+              <Sparkles className="w-6 h-6 text-gray-900" strokeWidth={1.5} />
+            </motion.div>
 
-            <div className="relative z-10 text-center max-w-3xl mx-auto">
-              <motion.div
-                initial={{ scale: 0 }}
-                whileInView={{ scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ type: "spring", bounce: 0.5 }}
-                className="inline-flex items-center justify-center w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full mb-6"
-              >
-                <Sparkles className="w-10 h-10 text-white" />
-              </motion.div>
+            <motion.h3 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="font-playfair text-3xl lg:text-4xl font-bold text-gray-900 mb-6"
+            >
+              Our Promise to You
+            </motion.h3>
+            
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-lg text-gray-900/60 leading-relaxed mb-12"
+            >
+              Every artwork comes with our commitment to quality, authenticity, and exceptional 
+              service. We stand behind every piece we sell.
+            </motion.p>
 
-              <h3 className="font-playfair text-3xl lg:text-4xl font-bold text-white mb-6">
-                Our Promise to You
-              </h3>
-              
-              <p className="text-xl text-white/90 leading-relaxed mb-8">
-                Every artwork comes with our commitment to quality, authenticity, and exceptional 
-                service. We stand behind every piece we sell, ensuring your investment brings 
-                joy for years to come.
-              </p>
-
-              <div className="flex flex-wrap justify-center gap-6">
-                {['Free Shipping', 'Authenticity Guarantee', '30-Day Returns', '24/7 Support'].map((item, idx) => (
+            {/* Promise items - inline with animations */}
+            <div className="flex flex-wrap justify-center gap-x-12 gap-y-4">
+              {['Free Shipping', 'Authenticity Guarantee', '30-Day Returns', '24/7 Support'].map((item, idx) => (
+                <motion.div
+                  key={item}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.2 + idx * 0.1 }}
+                  whileHover={{ y: -3 }}
+                  className="flex items-center gap-2 text-gray-900"
+                >
                   <motion.div
-                    key={item}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
+                    initial={{ scale: 0 }}
+                    whileInView={{ scale: 1 }}
                     viewport={{ once: true }}
-                    transition={{ delay: idx * 0.1 }}
-                    className="flex items-center gap-2 text-white"
+                    transition={{ delay: 0.3 + idx * 0.1, type: "spring" }}
                   >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="font-semibold">{item}</span>
+                    <CheckCircle2 className="w-4 h-4" strokeWidth={1.5} />
                   </motion.div>
-                ))}
-              </div>
+                  <span className="text-sm font-medium">{item}</span>
+                </motion.div>
+              ))}
             </div>
+
+            {/* Bottom line animation */}
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.6, duration: 1 }}
+              className="w-32 h-px bg-gray-900/20 mx-auto mt-16 origin-center"
+            />
           </div>
         </motion.div>
 

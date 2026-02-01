@@ -1,396 +1,484 @@
 // src/components/home/ArtProcessSection.jsx
 import { motion } from 'framer-motion';
-import { Search, Heart, CreditCard, Truck, CheckCircle, Sparkles, Palette } from 'lucide-react';
+import { Search, Heart, CreditCard, Truck, CheckCircle, ArrowRight } from 'lucide-react';
 
 const steps = [
   {
     id: 1,
     icon: Search,
     title: "Discover",
-    description: "Browse our curated collection of original artworks from talented artists worldwide.",
-    color: "from-emerald-500 to-green-600",
-    dotColor: "bg-emerald-500"
+    description: "Browse our curated collection of original artworks from talented artists worldwide."
   },
   {
     id: 2,
     icon: Heart,
     title: "Fall in Love",
-    description: "Find the piece that speaks to you. Save favorites to your wishlist for later.",
-    color: "from-rose-500 to-pink-600",
-    dotColor: "bg-rose-500"
+    description: "Find the piece that speaks to you. Save favorites to your wishlist for later."
   },
   {
     id: 3,
     icon: CreditCard,
     title: "Secure Purchase",
-    description: "Complete your purchase with our secure payment system. Multiple payment options available.",
-    color: "from-teal-500 to-cyan-600",
-    dotColor: "bg-teal-500"
+    description: "Complete your purchase with our secure payment system."
   },
   {
     id: 4,
     icon: Truck,
     title: "Careful Delivery",
-    description: "Your artwork is carefully packaged and shipped directly to your door with full insurance.",
-    color: "from-amber-500 to-orange-600",
-    dotColor: "bg-amber-500"
+    description: "Your artwork is carefully packaged and shipped with full insurance."
   },
   {
     id: 5,
     icon: CheckCircle,
     title: "Enjoy",
-    description: "Hang your new masterpiece and enjoy the beauty it brings to your space every day.",
-    color: "from-emerald-600 to-green-700",
-    dotColor: "bg-emerald-600"
+    description: "Hang your new masterpiece and enjoy the beauty it brings every day."
   }
 ];
 
-const ArtProcessSection = () => {
+// Floating petal component
+const FloatingPetal = ({ delay, startX, duration, size = 16 }) => (
+  <motion.div
+    className="absolute pointer-events-none"
+    style={{ left: `${startX}%`, top: "-5%" }}
+    initial={{ opacity: 0, y: -20, rotate: 0 }}
+    animate={{
+      opacity: [0, 0.12, 0.12, 0],
+      y: [-20, 400, 800],
+      rotate: [0, 180, 360],
+      x: [0, 40, -30, 60],
+    }}
+    transition={{
+      duration: duration,
+      delay: delay,
+      repeat: Infinity,
+      ease: "linear",
+    }}
+  >
+    <svg width={size} height={size} viewBox="0 0 24 24" className="text-gray-900">
+      <path
+        d="M12 2C12 2 14 6 14 8C14 10 12 12 12 12C12 12 10 10 10 8C10 6 12 2 12 2Z"
+        fill="currentColor"
+      />
+    </svg>
+  </motion.div>
+);
+
+// Decorative corner component
+const CornerDecor = ({ position }) => {
+  const positions = {
+    'top-left': 'top-0 left-0 rotate-0',
+    'top-right': 'top-0 right-0 rotate-90',
+    'bottom-left': 'bottom-0 left-0 -rotate-90',
+    'bottom-right': 'bottom-0 right-0 rotate-180',
+  };
+
   return (
-    <section className="relative py-32 overflow-hidden bg-gradient-to-br from-stone-50 via-emerald-50/30 to-green-50/20">
-      {/* Canvas Texture Overlay */}
+    <div className={`absolute w-6 h-6 ${positions[position]}`}>
+      <svg viewBox="0 0 24 24" className="w-full h-full text-gray-900/20">
+        <path d="M0 0 L24 0 L24 4 L4 4 L4 24 L0 24 Z" fill="currentColor" />
+      </svg>
+    </div>
+  );
+};
+
+const ArtProcessSection = () => {
+  // Generate floating petals
+  const petals = Array.from({ length: 12 }).map((_, i) => ({
+    delay: i * 1.5,
+    startX: 5 + i * 8,
+    duration: 14 + Math.random() * 8,
+    size: 12 + Math.random() * 10,
+  }));
+
+  const textReveal = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.6, ease: "easeOut" }
+    })
+  };
+
+  const lineAnimation = {
+    hidden: { scaleX: 0 },
+    visible: { 
+      scaleX: 1, 
+      transition: { duration: 1.2, ease: "easeInOut" } 
+    }
+  };
+
+  return (
+    <section className="relative py-8 overflow-hidden bg-white">
+      {/* Subtle Background Pattern */}
       <div 
-        className="absolute inset-0 opacity-[0.03]"
+        className="absolute inset-0 opacity-[0.015]"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.3'/%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23111827' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }}
       />
 
-      {/* Animated Watercolor Background Washes */}
+      {/* Floating Petals */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Top left wash */}
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 0.1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 2.5 }}
-          className="absolute -top-48 -left-48 w-[600px] h-[600px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, rgba(5, 150, 105, 0.2) 50%, transparent 70%)',
-            filter: 'blur(60px)',
-          }}
-        >
-          <motion.div
-            animate={{ 
-              scale: [1, 1.2, 1],
-              rotate: [0, 90, 0]
-            }}
-            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-            className="w-full h-full"
-          />
-        </motion.div>
-
-        {/* Bottom right wash */}
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 0.12 }}
-          viewport={{ once: true }}
-          transition={{ duration: 3, delay: 0.5 }}
-          className="absolute -bottom-56 -right-56 w-[700px] h-[700px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(52, 211, 153, 0.3) 0%, rgba(16, 185, 129, 0.15) 50%, transparent 70%)',
-            filter: 'blur(70px)',
-          }}
-        >
-          <motion.div
-            animate={{ 
-              scale: [1, 1.15, 1],
-              rotate: [0, -90, 0]
-            }}
-            transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
-            className="w-full h-full"
-          />
-        </motion.div>
-
-        {/* Center organic blob */}
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 0.08 }}
-          viewport={{ once: true }}
-          transition={{ duration: 3.5, delay: 1 }}
-          className="absolute top-1/3 right-1/4 w-[500px] h-[400px]"
-          style={{
-            background: 'radial-gradient(ellipse, rgba(34, 197, 94, 0.25) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-            borderRadius: '45% 55% 60% 40% / 50% 45% 55% 50%',
-          }}
-        >
-          <motion.div
-            animate={{ 
-              rotate: [0, 360],
-              borderRadius: [
-                '45% 55% 60% 40% / 50% 45% 55% 50%',
-                '55% 45% 40% 60% / 45% 55% 45% 55%',
-                '45% 55% 60% 40% / 50% 45% 55% 50%'
-              ]
-            }}
-            transition={{ 
-              rotate: { duration: 35, repeat: Infinity, ease: "linear" },
-              borderRadius: { duration: 18, repeat: Infinity, ease: "easeInOut" }
-            }}
-            className="w-full h-full"
-          />
-        </motion.div>
-
-        {/* Floating paint dots */}
-        {Array.from({ length: 20 }).map((_, i) => (
-          <motion.div
-            key={`dot-${i}`}
-            className="absolute rounded-full"
-            style={{
-              width: Math.random() * 8 + 4,
-              height: Math.random() * 8 + 4,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              background: `rgba(16, 185, 129, ${Math.random() * 0.3 + 0.1})`,
-            }}
-            animate={{
-              y: [0, Math.random() * -40 - 20, 0],
-              x: [0, Math.random() * 30 - 15, 0],
-              opacity: [0.2, 0.5, 0.2],
-            }}
-            transition={{
-              duration: Math.random() * 8 + 10,
-              repeat: Infinity,
-              delay: Math.random() * 5,
-              ease: "easeInOut"
-            }}
-          />
+        {petals.map((petal, i) => (
+          <FloatingPetal key={i} {...petal} />
         ))}
       </div>
+
+      {/* Decorative side elements */}
+      <motion.div
+        className="absolute left-8 top-1/4 w-px h-32 bg-gradient-to-b from-transparent via-gray-900/20 to-transparent"
+        initial={{ scaleY: 0 }}
+        whileInView={{ scaleY: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.5 }}
+      />
+      <motion.div
+        className="absolute right-8 top-1/3 w-px h-48 bg-gradient-to-b from-transparent via-gray-900/20 to-transparent"
+        initial={{ scaleY: 0 }}
+        whileInView={{ scaleY: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.5, delay: 0.3 }}
+      />
 
       <div className="container mx-auto px-6 relative z-10">
         {/* Section Header */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          whileInView="visible"
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-20"
+          className="text-center mb-24"
         >
-          {/* Badge */}
           <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            whileInView={{ scale: 1, rotate: 0 }}
-            viewport={{ once: true }}
-            transition={{ type: "spring", duration: 1, bounce: 0.5 }}
-            className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white/80 backdrop-blur-sm border border-emerald-200 shadow-lg mb-6"
+            variants={lineAnimation}
+            className="w-16 h-px bg-gray-900 mx-auto mb-8 origin-center"
+          />
+
+          <motion.span
+            custom={0}
+            variants={textReveal}
+            className="inline-block text-sm font-medium tracking-[0.3em] text-gray-900/60 uppercase mb-6"
+          >
+            Your Art Journey
+          </motion.span>
+          
+          <motion.h2 
+            custom={1}
+            variants={textReveal}
+            className="font-playfair text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6"
+          >
+            How It Works
+          </motion.h2>
+
+          {/* Elegant decorative element */}
+          <motion.div
+            custom={2}
+            variants={textReveal}
+            className="flex items-center justify-center gap-4 mb-8"
           >
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            >
-              <Palette className="w-5 h-5 text-emerald-700" />
-            </motion.div>
-            <span className="text-sm font-bold tracking-wider text-emerald-900 uppercase">
-              Your Art Journey
-            </span>
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="w-12 h-px bg-gray-900/30 origin-right"
+            />
+            <motion.div
+              initial={{ scale: 0, rotate: 45 }}
+              whileInView={{ scale: 1, rotate: 45 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="w-2 h-2 border border-gray-900/40"
+            />
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="w-12 h-px bg-gray-900/30 origin-left"
+            />
           </motion.div>
           
-          <h2 className="font-playfair text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4">
-            How It{' '}
-            <span className="text-transparent bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text">
-              Works
-            </span>
-          </h2>
-
-          {/* Decorative brush stroke underline */}
-          <div className="flex justify-center mb-6">
-            <svg className="w-64 h-6" viewBox="0 0 300 20">
-              <motion.path
-                d="M 10 10 Q 75 5, 150 12 T 290 10"
-                stroke="url(#headerUnderline)"
-                strokeWidth="4"
-                fill="none"
-                strokeLinecap="round"
-                initial={{ pathLength: 0, opacity: 0 }}
-                whileInView={{ pathLength: 1, opacity: 0.5 }}
-                viewport={{ once: true }}
-                transition={{ duration: 1.5, delay: 0.3 }}
-              />
-              <defs>
-                <linearGradient id="headerUnderline" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgb(16, 185, 129)" />
-                  <stop offset="100%" stopColor="rgb(5, 150, 105)" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          
-          <p className="text-xl text-gray-700 max-w-2xl mx-auto font-medium">
+          <motion.p 
+            custom={3}
+            variants={textReveal}
+            className="text-lg text-gray-900/60 max-w-2xl mx-auto"
+          >
             From discovery to delivery, we make collecting art simple and delightful.
-          </p>
+          </motion.p>
         </motion.div>
 
-        {/* Steps Container */}
+        {/* Timeline Container */}
         <div className="relative max-w-7xl mx-auto">
-          {/* Flowing SVG Path - Desktop */}
+          
+          {/* Creative Zigzag Timeline - Desktop */}
           <div className="hidden lg:block absolute inset-0 pointer-events-none">
-            <svg className="w-full h-full" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid meet">
+            <svg className="w-full h-[500px]" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid meet">
               <defs>
-                {/* Gradient for the path */}
-                <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgb(16, 185, 129)" stopOpacity="0.6" />
-                  <stop offset="25%" stopColor="rgb(244, 63, 94)" stopOpacity="0.6" />
-                  <stop offset="50%" stopColor="rgb(20, 184, 166)" stopOpacity="0.6" />
-                  <stop offset="75%" stopColor="rgb(245, 158, 11)" stopOpacity="0.6" />
-                  <stop offset="100%" stopColor="rgb(16, 185, 129)" stopOpacity="0.6" />
-                </linearGradient>
-
-                {/* Brush texture filter */}
-                <filter id="brushTexture">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" result="noise"/>
-                  <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" />
-                </filter>
+                {/* Animated dash pattern */}
+                <pattern id="dashPattern" patternUnits="userSpaceOnUse" width="20" height="1">
+                  <motion.rect
+                    width="10"
+                    height="1"
+                    fill="#111827"
+                    initial={{ x: 0 }}
+                    animate={{ x: [0, 20] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                </pattern>
               </defs>
 
-              {/* Flowing curved path */}
+              {/* Main zigzag path */}
               <motion.path
-                d="M 120 200 Q 180 120, 300 180 T 540 160 T 780 190 T 1020 170 L 1080 200"
-                stroke="url(#pathGradient)"
-                strokeWidth="3"
+                d="M 100 250 
+                   L 200 250 
+                   Q 230 250 240 220 
+                   L 280 120 
+                   Q 290 90 320 90 
+                   L 400 90
+                   Q 430 90 440 120
+                   L 480 220
+                   Q 490 250 520 250
+                   L 600 250
+                   Q 630 250 640 280
+                   L 680 380
+                   Q 690 410 720 410
+                   L 800 410
+                   Q 830 410 840 380
+                   L 880 280
+                   Q 890 250 920 250
+                   L 1100 250"
+                stroke="#111827"
+                strokeWidth="1"
                 fill="none"
                 strokeLinecap="round"
-                strokeDasharray="8 8"
-                filter="url(#brushTexture)"
-                initial={{ pathLength: 0, opacity: 0 }}
-                whileInView={{ pathLength: 1, opacity: 1 }}
+                opacity="0.15"
+                initial={{ pathLength: 0 }}
+                whileInView={{ pathLength: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 3, ease: "easeInOut" }}
               />
 
-              {/* Animated flowing dots along the path */}
+              {/* Dotted overlay path */}
+              <motion.path
+                d="M 100 250 
+                   L 200 250 
+                   Q 230 250 240 220 
+                   L 280 120 
+                   Q 290 90 320 90 
+                   L 400 90
+                   Q 430 90 440 120
+                   L 480 220
+                   Q 490 250 520 250
+                   L 600 250
+                   Q 630 250 640 280
+                   L 680 380
+                   Q 690 410 720 410
+                   L 800 410
+                   Q 830 410 840 380
+                   L 880 280
+                   Q 890 250 920 250
+                   L 1100 250"
+                stroke="#111827"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray="4 12"
+                opacity="0.3"
+                initial={{ pathLength: 0 }}
+                whileInView={{ pathLength: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 3, delay: 0.5, ease: "easeInOut" }}
+              />
+
+              {/* Animated traveling dot 1 */}
               <motion.circle
-                r="4"
-                fill="rgb(16, 185, 129)"
+                r="6"
+                fill="#111827"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 1, 1, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
               >
                 <animateMotion
-                  dur="4s"
+                  dur="5s"
                   repeatCount="indefinite"
-                  path="M 120 200 Q 180 120, 300 180 T 540 160 T 780 190 T 1020 170 L 1080 200"
+                  path="M 100 250 L 200 250 Q 230 250 240 220 L 280 120 Q 290 90 320 90 L 400 90 Q 430 90 440 120 L 480 220 Q 490 250 520 250 L 600 250 Q 630 250 640 280 L 680 380 Q 690 410 720 410 L 800 410 Q 830 410 840 380 L 880 280 Q 890 250 920 250 L 1100 250"
                 />
               </motion.circle>
 
+              {/* Animated traveling dot 2 - delayed */}
               <motion.circle
                 r="4"
-                fill="rgb(244, 63, 94)"
+                fill="#111827"
+                opacity="0.5"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: [0, 1, 1, 0] }}
-                transition={{ duration: 4, delay: 1, repeat: Infinity, ease: "linear" }}
+                animate={{ opacity: [0, 0.5, 0.5, 0] }}
+                transition={{ duration: 5, delay: 2.5, repeat: Infinity, ease: "linear" }}
               >
                 <animateMotion
-                  dur="4s"
+                  dur="5s"
                   repeatCount="indefinite"
-                  path="M 120 200 Q 180 120, 300 180 T 540 160 T 780 190 T 1020 170 L 1080 200"
+                  path="M 100 250 L 200 250 Q 230 250 240 220 L 280 120 Q 290 90 320 90 L 400 90 Q 430 90 440 120 L 480 220 Q 490 250 520 250 L 600 250 Q 630 250 640 280 L 680 380 Q 690 410 720 410 L 800 410 Q 830 410 840 380 L 880 280 Q 890 250 920 250 L 1100 250"
                 />
               </motion.circle>
+
+              {/* Small decorative circles at junction points */}
+              {[
+                { cx: 100, cy: 250 },
+                { cx: 360, cy: 90 },
+                { cx: 560, cy: 250 },
+                { cx: 760, cy: 410 },
+                { cx: 1100, cy: 250 },
+              ].map((point, i) => (
+                <motion.circle
+                  key={i}
+                  cx={point.cx}
+                  cy={point.cy}
+                  r="8"
+                  fill="white"
+                  stroke="#111827"
+                  strokeWidth="1"
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.5 + i * 0.2, type: "spring" }}
+                />
+              ))}
             </svg>
           </div>
 
           {/* Steps Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-6">
             {steps.map((step, index) => (
               <motion.div
                 key={step.id}
-                initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ 
                   duration: 0.7, 
                   delay: index * 0.15,
-                  ease: [0.4, 0, 0.2, 1]
+                  ease: "easeOut"
                 }}
-                className="relative group"
+                className={`relative group ${
+                  index % 2 === 1 ? 'lg:mt-[-60px]' : 'lg:mt-[60px]'
+                }`}
               >
-                {/* Card */}
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-emerald-100/50 hover:shadow-2xl hover:border-emerald-200 transition-all duration-500">
-                  {/* Hover gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${step.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500 rounded-3xl`} />
+                {/* Card with borders */}
+                <motion.div
+                  whileHover={{ y: -8 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative bg-white border border-gray-900/10 p-8 group-hover:border-gray-900/30 transition-all duration-500"
+                >
+                  {/* Corner decorations */}
+                  <CornerDecor position="top-left" />
+                  <CornerDecor position="top-right" />
+                  <CornerDecor position="bottom-left" />
+                  <CornerDecor position="bottom-right" />
 
-                  {/* Step Number with Icon */}
+                  {/* Hover border animation */}
+                  <motion.div
+                    className="absolute inset-0 border-2 border-gray-900 pointer-events-none"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileHover={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                  />
+
+                  {/* Step Number - Top right */}
+                  <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    whileInView={{ scale: 1, rotate: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.4 + index * 0.1, type: "spring", bounce: 0.5 }}
+                    className="absolute -top-4 -right-4 w-10 h-10 bg-white border-2 border-gray-900 flex items-center justify-center text-lg font-bold text-gray-900 z-10"
+                  >
+                    {step.id}
+                  </motion.div>
+
+                  {/* Icon */}
                   <div className="relative mb-6">
                     <motion.div
                       whileHover={{ scale: 1.1, rotate: 5 }}
                       transition={{ type: "spring", stiffness: 300 }}
-                      className={`relative w-20 h-20 bg-gradient-to-br ${step.color} rounded-2xl flex items-center justify-center shadow-xl mx-auto transform rotate-3 group-hover:rotate-6 transition-transform duration-300`}
+                      className="relative w-16 h-16 border border-gray-900/20 flex items-center justify-center group-hover:border-gray-900 group-hover:bg-gray-900 transition-all duration-300"
                     >
-                      <step.icon className="w-10 h-10 text-white" strokeWidth={2.5} />
-                      
-                      {/* Animated glow */}
-                      <motion.div
-                        className={`absolute inset-0 bg-gradient-to-br ${step.color} rounded-2xl blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-500`}
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
+                      <step.icon 
+                        className="w-7 h-7 text-gray-900 group-hover:text-white transition-colors duration-300" 
+                        strokeWidth={1.5} 
                       />
                     </motion.div>
 
-                    {/* Step number badge */}
+                    {/* Decorative line from icon */}
                     <motion.div
-                      initial={{ scale: 0 }}
-                      whileInView={{ scale: 1 }}
+                      initial={{ scaleX: 0 }}
+                      whileInView={{ scaleX: 1 }}
                       viewport={{ once: true }}
-                      transition={{ delay: 0.5 + index * 0.1, type: "spring", bounce: 0.6 }}
-                      className="absolute -top-3 -right-3 w-10 h-10 bg-white border-2 border-emerald-200 rounded-full flex items-center justify-center font-bold text-emerald-700 shadow-lg"
-                    >
-                      {step.id}
-                    </motion.div>
+                      transition={{ delay: 0.6 + index * 0.1, duration: 0.5 }}
+                      className="absolute top-1/2 left-full w-8 h-px bg-gray-900/20 origin-left hidden lg:block"
+                    />
                   </div>
 
                   {/* Content */}
-                  <div className="relative text-center">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 font-playfair">
+                  <div className="relative">
+                    <h3 className="text-xl font-playfair font-bold text-gray-900 mb-3">
                       {step.title}
                     </h3>
                     
-                    <p className="text-gray-600 text-sm leading-relaxed">
+                    <p className="text-gray-900/60 text-sm leading-relaxed mb-4">
                       {step.description}
                     </p>
-                  </div>
 
-                  {/* Decorative elements */}
-                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                    {/* Bottom decorative line */}
                     <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      className="w-full h-px bg-gray-900/10 group-hover:bg-gray-900/30 transition-colors duration-300"
+                      initial={{ scaleX: 0 }}
+                      whileInView={{ scaleX: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.5 + index * 0.1, duration: 0.8 }}
+                    />
+
+                    {/* Arrow indicator */}
+                    <motion.div
+                      className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      animate={{ y: [0, 4, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
                     >
-                      <Sparkles className="w-5 h-5 text-emerald-400" />
+                      <div className="w-2 h-2 border-r border-b border-gray-900 rotate-45" />
                     </motion.div>
                   </div>
 
-                  {/* Bottom accent dot */}
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2">
-                    <motion.div
-                      whileHover={{ scale: 1.3 }}
-                      className={`w-6 h-6 ${step.dotColor} rounded-full shadow-lg border-4 border-white`}
-                    />
+                  {/* Subtle inner shadow on hover */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                    <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-gray-900/[0.02] to-transparent" />
                   </div>
-                </div>
+                </motion.div>
 
-                {/* Connecting arrow (mobile) */}
+                {/* Mobile connector */}
                 {index < steps.length - 1 && (
-                  <div className="lg:hidden flex justify-center my-6">
+                  <div className="lg:hidden flex justify-center my-8">
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
+                      initial={{ opacity: 0 }}
+                      whileInView={{ opacity: 1 }}
                       viewport={{ once: true }}
-                      transition={{ delay: 0.5 + index * 0.15 }}
+                      transition={{ delay: 0.3 + index * 0.15 }}
                       className="flex flex-col items-center gap-2"
                     >
-                      {[0, 1, 2].map((dot) => (
-                        <motion.div
-                          key={dot}
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ 
-                            duration: 1.5, 
-                            repeat: Infinity,
-                            delay: dot * 0.2
-                          }}
-                          className={`w-2 h-2 ${step.dotColor} rounded-full`}
-                        />
-                      ))}
+                      <motion.div
+                        initial={{ scaleY: 0 }}
+                        whileInView={{ scaleY: 1 }}
+                        viewport={{ once: true }}
+                        className="w-px h-8 bg-gray-900/20 origin-top"
+                      />
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="w-2 h-2 border border-gray-900/30 rotate-45"
+                      />
+                      <motion.div
+                        initial={{ scaleY: 0 }}
+                        whileInView={{ scaleY: 1 }}
+                        viewport={{ once: true }}
+                        className="w-px h-8 bg-gray-900/20 origin-top"
+                      />
                     </motion.div>
                   </div>
                 )}
@@ -399,73 +487,149 @@ const ArtProcessSection = () => {
           </div>
         </div>
 
-        {/* Bottom Decorative Element */}
+        {/* Bottom CTA Section */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 1 }}
-          className="mt-20 text-center"
+          transition={{ duration: 0.8, delay: 0.8 }}
+          className="mt-32 text-center"
         >
-          <div className="inline-flex items-center gap-4 px-8 py-5 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-emerald-100">
+          {/* Decorative element */}
+          <div className="flex items-center justify-center gap-4 mb-12">
             <motion.div
-              animate={{ 
-                rotate: [0, 15, -15, 0],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ duration: 3, repeat: Infinity }}
-            >
-              <CheckCircle className="w-8 h-8 text-emerald-600" />
-            </motion.div>
-            <div className="text-left">
-              <p className="text-lg font-bold text-gray-900">Ready to start your journey?</p>
-              <p className="text-sm text-gray-600">Browse our collection and find your perfect piece</p>
-            </div>
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1 }}
+              className="w-16 h-px bg-gray-900/20 origin-right"
+            />
             <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <a 
-                href="/products"
-                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Browse Art
-              </a>
-            </motion.div>
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              className="w-3 h-3 border border-gray-900/30"
+            />
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1 }}
+              className="w-16 h-px bg-gray-900/20 origin-left"
+            />
           </div>
+
+          {/* CTA Card */}
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="inline-block border border-gray-900/10 p-8 md:p-10 hover:border-gray-900/30 transition-all duration-300"
+          >
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+              <div className="flex items-center gap-4">
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-12 h-12 border border-gray-900/20 flex items-center justify-center"
+                >
+                  <CheckCircle className="w-5 h-5 text-gray-900" strokeWidth={1.5} />
+                </motion.div>
+                <div className="text-left">
+                  <p className="text-gray-900 font-medium">Ready to start your journey?</p>
+                  <p className="text-sm text-gray-900/50">Find your perfect piece today</p>
+                </div>
+              </div>
+              
+              <motion.a 
+                href="/products"
+                className="group relative border border-gray-900 px-8 py-4 overflow-hidden"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {/* Hover fill */}
+                <motion.div
+                  className="absolute inset-0 bg-gray-900"
+                  initial={{ x: "-100%" }}
+                  whileHover={{ x: 0 }}
+                  transition={{ duration: 0.3 }}
+                />
+                <span className="relative z-10 flex items-center gap-2 font-medium text-gray-900 group-hover:text-white transition-colors duration-300">
+                  Browse Collection
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </motion.a>
+            </div>
+          </motion.div>
         </motion.div>
 
-        {/* Decorative paint brush strokes */}
-        <div className="absolute top-20 left-10 opacity-5 pointer-events-none hidden xl:block">
-          <svg width="200" height="200" viewBox="0 0 200 200">
-            <motion.path
-              d="M 20 100 Q 60 50, 100 80 T 180 100"
-              stroke="rgb(16, 185, 129)"
-              strokeWidth="20"
-              fill="none"
-              strokeLinecap="round"
-              initial={{ pathLength: 0 }}
-              whileInView={{ pathLength: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 2, ease: "easeInOut" }}
-            />
-          </svg>
+        {/* Decorative corner elements */}
+        <div className="absolute top-20 left-8 opacity-10 pointer-events-none hidden xl:block">
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+          >
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <motion.path
+                d="M 10 50 Q 30 30, 50 50 T 90 50"
+                stroke="#111827"
+                strokeWidth="1"
+                fill="none"
+                initial={{ pathLength: 0 }}
+                whileInView={{ pathLength: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 2 }}
+              />
+              <motion.path
+                d="M 10 60 Q 30 40, 50 60 T 90 60"
+                stroke="#111827"
+                strokeWidth="1"
+                fill="none"
+                initial={{ pathLength: 0 }}
+                whileInView={{ pathLength: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 2, delay: 0.3 }}
+              />
+            </svg>
+          </motion.div>
         </div>
 
-        <div className="absolute bottom-20 right-10 opacity-5 pointer-events-none hidden xl:block">
-          <svg width="200" height="200" viewBox="0 0 200 200">
-            <motion.path
-              d="M 20 100 Q 60 150, 100 120 T 180 100"
-              stroke="rgb(34, 197, 94)"
-              strokeWidth="20"
-              fill="none"
-              strokeLinecap="round"
-              initial={{ pathLength: 0 }}
-              whileInView={{ pathLength: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 2, delay: 0.5, ease: "easeInOut" }}
-            />
-          </svg>
+        <div className="absolute bottom-20 right-8 opacity-10 pointer-events-none hidden xl:block">
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+          >
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <motion.rect
+                x="20"
+                y="20"
+                width="60"
+                height="60"
+                stroke="#111827"
+                strokeWidth="1"
+                fill="none"
+                initial={{ pathLength: 0 }}
+                whileInView={{ pathLength: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 2 }}
+              />
+              <motion.rect
+                x="35"
+                y="35"
+                width="30"
+                height="30"
+                stroke="#111827"
+                strokeWidth="1"
+                fill="none"
+                initial={{ pathLength: 0, rotate: 45 }}
+                whileInView={{ pathLength: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 2, delay: 0.5 }}
+                style={{ transformOrigin: "50px 50px" }}
+              />
+            </svg>
+          </motion.div>
         </div>
       </div>
     </section>

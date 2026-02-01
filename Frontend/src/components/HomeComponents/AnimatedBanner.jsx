@@ -4,7 +4,7 @@ import { ArrowRight, Palette } from "lucide-react";
 
 const AnimatedBanner = () => {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-900 via-emerald-800 to-black">
+    <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900">
       {/* animated blobs */}
       <motion.div
         className="absolute -top-20 -left-20 h-72 w-72 rounded-full bg-emerald-400/25 blur-3xl"
