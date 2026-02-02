@@ -92,7 +92,7 @@ const HomePage = () => {
         
         <AnimatedBanner />
         <ProductRail
-          title="Featured Originals"
+          title="Artworks"
           subtitle="Handpicked paintings curated for modern collectors in the USA."
           loading={loading}
           products={featured}

@@ -223,35 +223,7 @@ const Store = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // --- Background Dots ---
-  const generateDots = () => {
-    const dots = [];
-    const numDots = 30;
-    for (let i = 0; i < numDots; i++) {
-      const size = Math.random() * 20 + 10;
-      const top = Math.random() * 100;
-      const left = Math.random() * 100;
-      const delay = Math.random() * 5;
-      const duration = Math.random() * 5 + 5;
-      dots.push(
-        <div
-          key={i}
-          className="animated-dot"
-          style={{
-            width: `${size}px`,
-            height: `${size}px`,
-            top: `${top}%`,
-            left: `${left}%`,
-            animationDelay: `${delay}s`,
-            animationDuration: `${duration}s`,
-          }}
-        ></div>
-      );
-    }
-    return dots;
-  };
-
-  // --- Re-styled Components ---
+  
 
   const renderPagination = () => {
     if (totalPages <= 1) return null;
@@ -269,7 +241,7 @@ const Store = () => {
           onClick={() => setCurrentPage(i)}
           className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
             currentPage === i
-              ? 'bg-green-700 text-white border border-green-700'
+              ? 'bg-gray-700 text-white border border-gray-700'
               : 'bg-white text-gray-700 border border-gray-300 hover:bg-neutral-50'
           }`}
         >
@@ -279,14 +251,14 @@ const Store = () => {
     }
     return (
       <div className="flex flex-col sm:flex-row items-center justify-between !mt-12 !pt-8 border-t border-neutral-200 !space-y-4 sm:!space-y-0 font-playfair">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-600 cursor-pointer">
           Showing <span className="font-bold">{(currentPage - 1) * 12 + 1} - {Math.min(currentPage * 12, totalProducts)}</span> of <span className="font-bold">{totalProducts}</span> products
         </div>
         <div className="flex items-center !space-x-2">
           <button
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className="!px-4 !py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 font-semibold"
+            className="!px-4 !py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 font-semibold cursor-pointer"
           >
             Previous
           </button>
@@ -294,7 +266,7 @@ const Store = () => {
           <button
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className="!px-4 !py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 font-semibold"
+            className="!px-4 !py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 font-semibold cursor-pointer"
           >
             Next
           </button>
@@ -311,7 +283,7 @@ const Store = () => {
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="text-sm text-green-700 hover:text-green-800 font-semibold"
+            className="text-sm text-gray-700 hover:text-gray-800 font-semibold cursor-pointer"
           >
             Clear all
           </button>
@@ -320,13 +292,13 @@ const Store = () => {
 
       {/* Sort By */}
       <div className="!mb-6">
-        <label className="block text-base font-semibold text-gray-700 !mb-2">
+        <label className="block text-base font-semibold text-gray-700 !mb-2 cursor-pointer">
           Sort By
         </label>
         <select
           value={sortBy}
           onChange={(e) => handleSortChange(e.target.value)}
-          className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
+          className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600 cursor-pointer"
         >
           <option value="createdAt_desc">Newest First</option>
           <option value="createdAt_asc">Oldest First</option>
@@ -349,7 +321,7 @@ const Store = () => {
             placeholder="Min"
             value={priceRange.min}
             onChange={(e) => handlePriceRangeChange('min', e.target.value)}
-            className="!px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
+            className="!px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
             min="0"
           />
           <input
@@ -357,37 +329,21 @@ const Store = () => {
             placeholder="Max"
             value={priceRange.max}
             onChange={(e) => handlePriceRangeChange('max', e.target.value)}
-            className="!px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
+            className="!px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
             min="0"
           />
         </div>
       </div>
 
-      {/* Featured Filter */}
-      <div className="!mb-6">
-        <label className="block text-base font-semibold text-gray-700 !mb-2">
-          Featured
-        </label>
-        <select
-          value={featured}
-          onChange={(e) => handleFeaturedChange(e.target.value)}
-          className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
-        >
-          <option value="">All Products</option>
-          <option value="true">Featured Only</option>
-          <option value="false">Not Featured</option>
-        </select>
-      </div>
-
       {/* On Sale Filter */}
       <div className="!mb-6">
-        <label className="block text-base font-semibold text-gray-700 !mb-2">
+        <label className="block text-base font-semibold text-gray-700 !mb-2 cursor-pointer">
           Special Offers
         </label>
         <select
           value={onSale}
           onChange={(e) => handleOnSaleChange(e.target.value)}
-          className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
+          className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600 cursor-pointer"
         >
           <option value="">All Products</option>
           <option value="true">On Sale Only</option>
@@ -407,7 +363,7 @@ const Store = () => {
             value={categorySearch}
             onChange={(e) => setCategorySearch(e.target.value)}
             onFocus={() => setShowCategoryDropdown(true)}
-            className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
+            className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
           />
           {showCategoryDropdown ? (
             <ChevronUp className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
@@ -424,7 +380,7 @@ const Store = () => {
                       type="checkbox"
                       checked={selectedCategories.includes(category._id)}
                       onChange={() => handleCategoryChange(category._id)}
-                      className="rounded border-gray-300 text-green-700 focus:ring-green-600"
+                      className="rounded border-gray-300 text-gray-700 focus:ring-gray-600"
                     />
                     <span className="!ml-2 text-sm text-gray-700">{category.name}</span>
                   </label>
@@ -442,11 +398,11 @@ const Store = () => {
             {selectedCategories.map(catId => {
               const category = categories.find(c => c._id === catId);
               return category ? (
-                <span key={catId} className="bg-green-100 text-green-800 !px-2 !py-1 rounded-full text-xs flex items-center">
+                <span key={catId} className="bg-gray-100 text-gray-800 !px-2 !py-1 rounded-full text-xs flex items-center">
                   {category.name}
                   <button
                     onClick={() => handleCategoryChange(catId)}
-                    className="ml-1 hover:text-green-900"
+                    className="ml-1 hover:text-gray-900 cursor-pointer"
                   >
                     <X size={12} />
                   </button>
@@ -469,7 +425,7 @@ const Store = () => {
             value={authorSearch}
             onChange={(e) => setAuthorSearch(e.target.value)}
             onFocus={() => setShowAuthorDropdown(true)}
-            className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600"
+            className="w-full !px-3 !py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600"
           />
           {showAuthorDropdown ? (
             <ChevronUp className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
@@ -486,7 +442,7 @@ const Store = () => {
                       type="checkbox"
                       checked={selectedAuthors.includes(author._id)}
                       onChange={() => handleAuthorChange(author._id)}
-                      className="rounded border-gray-300 text-green-700 focus:ring-green-600"
+                      className="rounded border-gray-300 text-gray-700 focus:ring-gray-600"
                     />
                     <span className="!ml-2 text-sm text-gray-700">{author.name}</span>
                   </label>
@@ -504,11 +460,11 @@ const Store = () => {
             {selectedAuthors.map(authorId => {
               const author = authors.find(a => a._id === authorId);
               return author ? (
-                <span key={authorId} className="bg-green-100 text-green-800 !px-2 !py-1 rounded-full text-xs flex items-center">
+                <span key={authorId} className="bg-gray-100 text-gray-800 !px-2 !py-1 rounded-full text-xs flex items-center">
                   {author.name}
                   <button
                     onClick={() => handleAuthorChange(authorId)}
-                    className="!ml-1 hover:text-green-900"
+                    className="!ml-1 hover:text-gray-900 cursor-pointer"
                   >
                     <X size={12} />
                   </button>
@@ -523,10 +479,6 @@ const Store = () => {
 
   return (
     <div className="min-h-screen bg-neutral-50 relative overflow-x-hidden font-playfair">
-      {/* Animated Background */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden">
-        {generateDots()}
-      </div>
 
       {/* Filter Overlay */}
       <AnimatePresence>
@@ -551,7 +503,7 @@ const Store = () => {
             >
               <button
                 onClick={() => setShowFilters(false)}
-                className="absolute top-4 right-4 !p-2 hover:bg-gray-100 rounded-lg z-10"
+                className="absolute top-4 right-4 !p-2 hover:bg-gray-100 rounded-lg z-10 cursor-pointer"
               >
                 <X size={24} />
               </button>
@@ -568,7 +520,7 @@ const Store = () => {
               <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <button
                   onClick={() => setShowFilters(false)}
-                  className="absolute top-4 right-4 !p-2 hover:bg-gray-100 rounded-lg z-10"
+                  className="absolute top-4 right-4 !p-2 hover:bg-gray-100 rounded-lg z-10 cursor-pointer"
                 >
                   <X size={24} />
                 </button>
@@ -596,17 +548,17 @@ const Store = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search artworks, artists, or tags..."
-                className="w-full !pl-12 !pr-4 !py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600 shadow-sm"
+                className="w-full !pl-12 !pr-4 !py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600 shadow-sm"
               />
             </div>
             <button
               onClick={() => setShowFilters(true)}
-              className="!px-4 !py-3 border border-gray-300 rounded-lg hover:bg-neutral-100 flex items-center gap-2 bg-white font-semibold shadow-sm transition-colors"
+              className="!px-4 !py-3 border border-gray-300 rounded-lg hover:bg-neutral-100 flex items-center gap-2 bg-white font-semibold shadow-sm transition-colors cursor-pointer"
             >
-              <Filter size={20} className="text-green-700" />
+              <Filter size={20} className="text-gray-700" />
               <span>Filters</span>
               {hasActiveFilters && (
-                <span className="bg-green-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                <span className="bg-gray-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                   {
                     (search ? 1 : 0) + 
                     selectedCategories.length + 
@@ -630,9 +582,9 @@ const Store = () => {
               <button
                 key={category._id}
                 onClick={() => handleCategoryChange(category._id)}
-                className={`!px-4 !py-2 rounded-full font-semibold text-sm transition-colors border whitespace-nowrap ${
+                className={`!px-4 !py-2 rounded-full font-semibold text-sm transition-colors border whitespace-nowrap cursor-pointer ${
                   selectedCategories.includes(category._id)
-                  ? 'bg-green-700 text-white border-green-700'
+                  ? 'bg-gray-700 text-white border-gray-700'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-neutral-50 hover:border-gray-400'
                 }`}
               >
@@ -650,9 +602,9 @@ const Store = () => {
               <button
                 key={author._id}
                 onClick={() => handleAuthorChange(author._id)}
-                className={`!px-4 !py-2 rounded-full font-semibold text-sm transition-colors border whitespace-nowrap ${
+                className={`!px-4 !py-2 rounded-full font-semibold text-sm transition-colors border whitespace-nowrap cursor-pointer ${
                   selectedAuthors.includes(author._id)
-                  ? 'bg-green-700 text-white border-green-700'
+                  ? 'bg-gray-700 text-white border-gray-700'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-neutral-50 hover:border-gray-400'
                 }`}
               >
@@ -671,23 +623,23 @@ const Store = () => {
               {search && (
                 <span className="bg-neutral-200 text-gray-800 !px-3 !py-1 rounded-full text-sm flex items-center gap-1">
                   Search: "{search}"
-                  <button onClick={() => setSearch('')} className="hover:text-black"><X size={14} /></button>
+                  <button onClick={() => setSearch('')} className="hover:text-black cursor-pointer"><X size={14} /></button>
                 </span>
               )}
               {priceRange.min && (
                 <span className="bg-neutral-200 text-gray-800 !px-3 !py-1 rounded-full text-sm flex items-center gap-1">
                   Min: ${priceRange.min}
-                  <button onClick={() => handlePriceRangeChange('min', '')} className="hover:text-black"><X size={14} /></button>
+                  <button onClick={() => handlePriceRangeChange('min', '')} className="hover:text-black cursor-pointer"><X size={14} /></button>
                 </span>
               )}
               {priceRange.max && (
                 <span className="bg-neutral-200 text-gray-800 !px-3 !py-1 rounded-full text-sm flex items-center gap-1">
                   Max: ${priceRange.max}
-                  <button onClick={() => handlePriceRangeChange('max', '')} className="hover:text-black"><X size={14} /></button>
+                  <button onClick={() => handlePriceRangeChange('max', '')} className="hover:text-black cursor-pointer"><X size={14} /></button>
                 </span>
               )}
               {/* Other active filters can be added here (e.g., featured, onSale) */}
-              <button onClick={clearFilters} className="text-green-700 hover:underline text-sm font-semibold ml-2">Clear All</button>
+              <button onClick={clearFilters} className="text-gray-700 hover:underline text-sm font-semibold ml-2">Clear All</button>
             </div>
           )}
 
@@ -716,7 +668,7 @@ const Store = () => {
               <p className="text-gray-500 !mb-6">Try adjusting your filters or search terms</p>
               <button
                 onClick={clearFilters}
-                className="bg-green-700 text-white !px-5 !py-2 rounded-lg hover:bg-green-800 transition-colors font-semibold"
+                className="bg-gray-700 text-white !px-5 !py-2 rounded-lg hover:bg-gray-800 transition-colors font-semibold"
               >
                 Clear all filters
               </button>

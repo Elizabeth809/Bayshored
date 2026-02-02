@@ -285,7 +285,7 @@ const NewsletterSubscription = ({ variant = "default" }) => {
             disabled={loading}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="group relative w-full flex items-center justify-center gap-3 rounded-lg bg-gray-900 px-6 py-4 font-light text-white disabled:opacity-60 disabled:cursor-not-allowed"
+            className="group relative w-full flex items-center justify-center gap-3 rounded-lg bg-gray-900 px-6 py-4 font-light text-white disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             <motion.div
               animate={{ x: [0, 5, 0] }}

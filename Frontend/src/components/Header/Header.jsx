@@ -96,7 +96,7 @@ const Header = () => {
                 title="ArtGallery Home"
               >
                 {/*  */}
-                <span className="font-parisienne text-4xl font-bold text-green-700 group-hover:opacity-80 transition-opacity">
+                <span className="font-parisienne text-4xl font-bold text-gray-700 group-hover:opacity-80 transition-opacity">
                   ArtGallery
                 </span>
               </Link>
@@ -112,7 +112,7 @@ const Header = () => {
                   className={({ isActive }) =>
                     `relative !py-2 text-base font-medium transition-all duration-200 ${
                       isActive 
-                        ? 'text-green-700' 
+                        ? 'text-gray-800' 
                         : 'text-gray-600 hover:text-gray-900'
                     }`
                   }
@@ -122,7 +122,7 @@ const Header = () => {
                       <span className="relative z-10">{link.name}</span>
                       {isActive && (
                         <motion.div
-                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-700 rounded-full"
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-700 rounded-full"
                           layoutId="activeNav"
                           transition={{ type: "spring", stiffness: 300, damping: 30 }}
                         />
@@ -160,7 +160,7 @@ const Header = () => {
               {/* Cart Icon */}
               <Link
                 to="/cart"
-                className="relative !p-2 text-gray-600 hover:text-green-700 transition-all duration-200 hover:scale-110 group"
+                className="relative !p-2 text-gray-600 hover:text-gray-700 transition-all duration-200 hover:scale-110 group"
                 aria-label="Cart"
               >
                 <ShoppingCart 
@@ -172,7 +172,7 @@ const Header = () => {
                   <motion.span 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-green-700 text-white text-xs font-bold rounded-full shadow-lg"
+                    className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-gray-700 text-white text-xs font-bold rounded-full shadow-lg"
                   >
                     {cartItemsCount > 99 ? '99+' : cartItemsCount}
                   </motion.span>
@@ -188,7 +188,7 @@ const Header = () => {
                       className="flex items-center !space-x-2 !p-1 rounded-full hover:bg-neutral-100 transition-all duration-200 border border-transparent hover:border-neutral-200 cursor-pointer"
                       aria-label="User menu"
                     >
-                      <div className="flex items-center justify-center w-10 h-10 bg-green-700 text-white rounded-full font-semibold shadow-lg cursor-pointer text-lg !p-4">
+                      <div className="flex items-center justify-center w-10 h-10 bg-gray-700 text-white rounded-full font-semibold shadow-lg cursor-pointer text-lg !p-4">
                         {user?.name ? user.name[0].toUpperCase() : <User size={18} />}
                       </div>
                       <ChevronDown 
@@ -209,13 +209,13 @@ const Header = () => {
                   <div className="flex items-center !space-x-3">
                     <Link
                       to="/login"
-                      className="!px-4 !py-2 text-base font-medium text-gray-700 hover:text-green-700 transition-colors duration-200 cursor-pointer"
+                      className="!px-4 !py-2 text-base font-medium text-gray-700 hover:text-gray-700 transition-colors duration-200 cursor-pointer"
                     >
                       Sign In
                     </Link>
                     <Link
                       to="/register"
-                      className="!px-6 !py-2 text-base font-medium text-white bg-green-700 rounded-full hover:bg-green-800 transition-all duration-200 shadow-lg hover:shadow-green-100 cursor-pointer"
+                      className="!px-6 !py-2 text-base font-medium text-white bg-gray-700 rounded-full hover:bg-gray-800 transition-all duration-200 shadow-lg hover:shadow-gray-100 cursor-pointer"
                     >
                       Join Now
                     </Link>
@@ -225,7 +225,7 @@ const Header = () => {
 
               {/* Mobile Menu Button */}
               <button
-                className="lg:hidden !p-2 text-gray-700 hover:text-green-700 transition-colors duration-200 cursor-pointer"
+                className="lg:hidden !p-2 text-gray-700 hover:text-gray-700 transition-colors duration-200 cursor-pointer"
                 onClick={() => setIsMobileMenuOpen(true)}
                 aria-label="Toggle mobile menu"
               >
@@ -262,9 +262,9 @@ const AvatarDropdown = ({ isOpen, user, onLogout, onClose }) => (
         transition={{ duration: 0.2, ease: "easeOut" }}
         className="absolute right-0 top-14 w-72 bg-white rounded-2xl shadow-xl border border-neutral-100 overflow-hidden"
       >
-        <div className="!p-6 bg-green-50 border-b border-green-100">
+        <div className="!p-6 bg-gray-50 border-b border-gray-100">
           <div className="flex items-center !space-x-4">
-            <div className="flex items-center justify-center w-14 h-14 bg-green-700 text-white rounded-2xl font-semibold text-xl shadow-lg">
+            <div className="flex items-center justify-center w-14 h-14 bg-gray-700 text-white rounded-2xl font-semibold text-xl shadow-lg">
               {user?.name ? user.name[0].toUpperCase() : <User size={20} />}
             </div>
             <div className="flex-1 min-w-0">
@@ -277,18 +277,18 @@ const AvatarDropdown = ({ isOpen, user, onLogout, onClose }) => (
           <Link
             to="/profile"
             onClick={onClose}
-            className="flex items-center w-full !px-4 !py-3 text-gray-700 hover:bg-green-50 rounded-xl transition-all duration-200 group"
+            className="flex items-center w-full !px-4 !py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 group"
           >
-            <User size={18} className="!mr-3 text-gray-400 group-hover:text-green-700" />
+            <User size={18} className="!mr-3 text-gray-400 group-hover:text-gray-700" />
             <span className="font-medium">My Profile</span>
           </Link>
           
           <Link
             to="/orders"
             onClick={onClose}
-            className="flex items-center w-full !px-4 !py-3 text-gray-700 hover:bg-green-50 rounded-xl transition-all duration-200 group"
+            className="flex items-center w-full !px-4 !py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 group"
           >
-            <Package size={18} className="!mr-3 text-gray-400 group-hover:text-green-700" />
+            <Package size={18} className="!mr-3 text-gray-400 group-hover:text-gray-700" />
             <span className="font-medium">My Orders</span>
           </Link>
         </div>
@@ -339,7 +339,7 @@ const MobileMenu = ({
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
           <div className="flex items-center justify-between !p-6 border-b border-neutral-200">
-            <span className="font-parisienne text-2xl font-bold text-green-700">Menu</span>
+            <span className="font-parisienne text-2xl font-bold text-gray-700">Menu</span>
             <button
               onClick={onClose}
               className="!p-2 text-gray-600 hover:text-gray-900 hover:bg-neutral-100 rounded-lg"
@@ -359,7 +359,7 @@ const MobileMenu = ({
                 className={({ isActive }) =>
                   `flex items-center !px-4 !py-3 text-lg font-medium rounded-xl transition-all duration-200 ${
                     isActive 
-                      ? 'bg-green-50 text-green-700' 
+                      ? 'bg-gray-50 text-gray-700' 
                       : 'text-gray-700 hover:bg-neutral-50'
                   }`
                 }
@@ -374,7 +374,7 @@ const MobileMenu = ({
             {isAuthenticated ? (
               <>
                 <div className="flex items-center !space-x-3">
-                  <div className="flex items-center justify-center w-12 h-12 bg-green-700 text-white rounded-full font-semibold text-lg shadow-md">
+                  <div className="flex items-center justify-center w-12 h-12 bg-gray-700 text-white rounded-full font-semibold text-lg shadow-md">
                     {user?.name ? user.name[0].toUpperCase() : <User size={20} />}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -423,7 +423,7 @@ const MobileMenu = ({
                 <Link
                   to="/register"
                   onClick={onClose}
-                  className="flex items-center justify-center w-full !px-4 !py-3 text-white bg-green-700 rounded-xl hover:bg-green-800 transition-all shadow-lg font-medium"
+                  className="flex items-center justify-center w-full !px-4 !py-3 text-white bg-gray-700 rounded-xl hover:bg-gray-800 transition-all shadow-lg font-medium"
                 >
                   Create Account
                 </Link>

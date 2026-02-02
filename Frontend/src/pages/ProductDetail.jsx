@@ -495,7 +495,7 @@ const ProductDetail = () => {
             {/* Close button */}
             <motion.button
               onClick={closeLightbox}
-              className="absolute top-6 right-6 w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 transition-colors z-20"
+              className="absolute top-6 right-6 w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 transition-colors z-20 cursor-pointer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -505,7 +505,7 @@ const ProductDetail = () => {
             {/* Navigation */}
             <motion.button
               onClick={() => navigateImage('prev')}
-              className="absolute left-6 w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 transition-colors z-20"
+              className="absolute left-6 w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 transition-colors z-20 cursor-pointer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -514,7 +514,7 @@ const ProductDetail = () => {
             
             <motion.button
               onClick={() => navigateImage('next')}
-              className="absolute right-6 w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 transition-colors z-20"
+              className="absolute right-6 w-12 h-12 border border-gray-900/20 flex items-center justify-center hover:border-gray-900 transition-colors z-20 cursor-pointer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -538,20 +538,6 @@ const ProductDetail = () => {
                   alt={`${product.name} - ${selectedImageIndex + 1}`}
                   className="max-w-full max-h-[85vh] object-contain"
                 />
-                
-                {/* Corner decorations */}
-                <div className="absolute top-4 left-4">
-                  <CornerDecor className="w-6 h-6 text-gray-900/10" />
-                </div>
-                <div className="absolute top-4 right-4 rotate-90">
-                  <CornerDecor className="w-6 h-6 text-gray-900/10" />
-                </div>
-                <div className="absolute bottom-4 left-4 -rotate-90">
-                  <CornerDecor className="w-6 h-6 text-gray-900/10" />
-                </div>
-                <div className="absolute bottom-4 right-4 rotate-180">
-                  <CornerDecor className="w-6 h-6 text-gray-900/10" />
-                </div>
               </motion.div>
             </AnimatePresence>
 
@@ -594,7 +580,7 @@ const ProductDetail = () => {
                 </div>
                 <button
                   onClick={() => setIsInquiryModalOpen(false)}
-                  className="w-10 h-10 border border-gray-900/10 flex items-center justify-center hover:border-gray-900 transition-colors"
+                  className="w-10 h-10 border border-gray-900/10 flex items-center justify-center hover:border-gray-900 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -708,7 +694,7 @@ const ProductDetail = () => {
                   <button
                     type="button"
                     onClick={() => setIsInquiryModalOpen(false)}
-                    className="flex-1 py-3 border border-gray-900/10 text-gray-900 font-medium hover:border-gray-900 transition-colors"
+                    className="flex-1 py-3 border border-gray-900/10 text-gray-900 font-medium hover:border-gray-900 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -717,7 +703,7 @@ const ProductDetail = () => {
                     disabled={submittingInquiry}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="flex-1 py-3 bg-gray-900 text-white font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-gray-900 text-white font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {submittingInquiry ? (
                       <LoadingSpinner size="small" />
@@ -777,12 +763,12 @@ const ProductDetail = () => {
           >
             {/* Main Image */}
             <div 
-              className="relative aspect-[4/5] border border-gray-900/10 bg-gray-50 cursor-zoom-in group overflow-hidden"
+              className="relative aspect-[4/5] border border-gray-900/10 bg-white cursor-zoom-in group overflow-hidden"
               onClick={() => openLightbox(selectedImageIndex)}
             >
               {/* Loading skeleton */}
               {!imageLoaded && (
-                <div className="absolute inset-0 bg-gray-100">
+                <div className="absolute inset-0 bg-white">
                   <motion.div
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent"
                     animate={{ x: ['-100%', '100%'] }}
@@ -799,20 +785,6 @@ const ProductDetail = () => {
                   imageLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
               />
-
-              {/* Corner decorations */}
-              <div className="absolute top-4 left-4">
-                <CornerDecor className="w-6 h-6 text-gray-900/10" />
-              </div>
-              <div className="absolute top-4 right-4 rotate-90">
-                <CornerDecor className="w-6 h-6 text-gray-900/10" />
-              </div>
-              <div className="absolute bottom-4 left-4 -rotate-90">
-                <CornerDecor className="w-6 h-6 text-gray-900/10" />
-              </div>
-              <div className="absolute bottom-4 right-4 rotate-180">
-                <CornerDecor className="w-6 h-6 text-gray-900/10" />
-              </div>
 
               {/* Zoom icon */}
               <motion.div
@@ -834,7 +806,7 @@ const ProductDetail = () => {
                 )}
                 {product.askForPrice && (
                   <span className="bg-gray-900 text-white px-3 py-1 text-xs font-medium">
-                    Price on Request
+                    Price Upon Request
                   </span>
                 )}
                 {isSoldOut && (
@@ -1035,7 +1007,7 @@ const ProductDetail = () => {
                         onClick={handleAskForPrice}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="flex-1 bg-gray-900 text-white py-4 font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 bg-gray-900 text-white py-4 font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <MessageCircle className="w-5 h-5" />
                         Request Price
@@ -1046,7 +1018,7 @@ const ProductDetail = () => {
                         disabled={addingToCart}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="flex-1 bg-gray-900 text-white py-4 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 bg-gray-900 text-white py-4 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                       >
                         {addingToCart ? (
                           <LoadingSpinner size="small" />
@@ -1064,7 +1036,7 @@ const ProductDetail = () => {
                       disabled={addingToWishlist || checkingWishlist}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-14 h-14 border flex items-center justify-center transition-all ${
+                      className={`w-14 h-14 border flex items-center justify-center transition-all cursor-pointer ${
                         isWishlisted 
                           ? 'border-gray-900 bg-gray-900 text-white' 
                           : 'border-gray-900/20 hover:border-gray-900'
@@ -1222,7 +1194,7 @@ const ProductDetail = () => {
           {relatedProducts.length > 0 && (
             <div className="text-center mt-12">
               <Link
-                to="/products"
+                to="/store"
                 className="inline-flex items-center gap-2 text-gray-900 font-medium group"
               >
                 <span className="relative">

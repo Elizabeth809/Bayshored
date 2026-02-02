@@ -5,8 +5,8 @@ import { Facebook, Instagram, Twitter, Linkedin, Heart } from 'lucide-react';
 
 const Footer = () => {
   const navLinks = [
-    { name: 'Store', path: '/products' },
-    { name: 'Virtual Gallery', path: '/gallery' },
+    { name: 'Store', path: '/store' },
+    { name: 'Virtual Gallery', path: '/virtual-gallery' },
     { name: 'Artist', path: '/artists' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' }
@@ -20,9 +20,9 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="relative bg-gradient-to-br from-stone-50 via-emerald-50/30 to-green-50/20 border-t border-emerald-100/50 overflow-hidden">
+    <footer className="relative bg-gray-200 border-t border-gray-400 rounded-t-2xl overflow-hidden">
       {/* Canvas Texture */}
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.02]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.3'/%3E%3C/svg%3E")`,
@@ -58,10 +58,10 @@ const Footer = () => {
               whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.3 }}
             >
-              <h1 className="font-playfair text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-emerald-700 via-green-700 to-teal-700 bg-clip-text text-transparent mb-3">
+              <h1 className="font-playfair text-5xl md:text-6xl lg:text-7xl font-bold text-gray-800 bg-clip-text mb-3">
                 ArtGallery
               </h1>
-              
+
               {/* Decorative brush stroke underline */}
               <svg className="w-64 md:w-80 h-4 mx-auto" viewBox="0 0 320 16">
                 <motion.path
@@ -78,15 +78,15 @@ const Footer = () => {
                 />
                 <defs>
                   <linearGradient id="logoUnderline" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgb(16, 185, 129)" />
-                    <stop offset="50%" stopColor="rgb(5, 150, 105)" />
-                    <stop offset="100%" stopColor="rgb(4, 120, 87)" />
+                    <stop offset="0%" stopColor="rgb(107, 114, 128)" /> {/* gray-500 */}
+                    <stop offset="50%" stopColor="rgb(17, 24, 39)" />   {/* gray-900 */}
+                    <stop offset="100%" stopColor="rgb(107, 114, 128)" /> {/* gray-500 */}
                   </linearGradient>
                 </defs>
               </svg>
             </motion.div>
           </Link>
-          
+
           <motion.p
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -116,10 +116,10 @@ const Footer = () => {
             >
               <Link
                 to={link.path}
-                className="group relative text-gray-700 hover:text-emerald-700 font-semibold text-lg transition-colors"
+                className="group relative text-gray-700 hover:text-gray-700 font-semibold text-lg transition-colors"
               >
                 {link.name}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-600 to-green-600 group-hover:w-full transition-all duration-300" />
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-gray-600 to-gray-900 group-hover:w-full transition-all duration-300" />
               </Link>
             </motion.div>
           ))}
@@ -142,15 +142,15 @@ const Footer = () => {
               initial={{ opacity: 0, scale: 0 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ 
-                duration: 0.5, 
+              transition={{
+                duration: 0.5,
                 delay: 0.5 + idx * 0.1,
                 type: "spring",
                 bounce: 0.5
               }}
               whileHover={{ scale: 1.15, y: -5 }}
               whileTap={{ scale: 0.95 }}
-              className="group w-12 h-12 bg-white hover:bg-gradient-to-br hover:from-emerald-500 hover:to-green-600 rounded-full flex items-center justify-center shadow-md hover:shadow-xl border-2 border-emerald-100 hover:border-emerald-500 transition-all duration-300"
+              className="group w-12 h-12 bg-white hover:bg-gradient-to-br hover:from-gray-500 hover:to-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-xl border-2 border-gray-100 hover:border-gray-500 transition-all duration-300"
               aria-label={social.name}
             >
               <social.icon className="w-5 h-5 text-gray-600 group-hover:text-white transition-colors" />
@@ -164,7 +164,7 @@ const Footer = () => {
           whileInView={{ scaleX: 1, opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 1, delay: 0.6 }}
-          className="w-full max-w-3xl mx-auto h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent mb-8"
+          className="w-full max-w-3xl mx-auto h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-8"
         />
 
         {/* Copyright */}
@@ -178,11 +178,11 @@ const Footer = () => {
           <p className="flex items-center justify-center gap-2 text-sm md:text-base">
             © {new Date().getFullYear()} ArtGallery. Crafted with
             <motion.span
-              animate={{ 
+              animate={{
                 scale: [1, 1.2, 1],
               }}
-              transition={{ 
-                duration: 1.5, 
+              transition={{
+                duration: 1.5,
                 repeat: Infinity,
                 repeatDelay: 1
               }}

@@ -369,11 +369,6 @@ const ArtProcessSection = () => {
                   transition={{ duration: 0.3 }}
                   className="relative bg-white border border-gray-900/10 p-8 group-hover:border-gray-900/30 transition-all duration-500"
                 >
-                  {/* Corner decorations */}
-                  <CornerDecor position="top-left" />
-                  <CornerDecor position="top-right" />
-                  <CornerDecor position="bottom-left" />
-                  <CornerDecor position="bottom-right" />
 
                   {/* Hover border animation */}
                   <motion.div
@@ -539,7 +534,7 @@ const ArtProcessSection = () => {
               </div>
               
               <motion.a 
-                href="/products"
+                href="/store"
                 className="group relative border border-gray-900 px-8 py-4 overflow-hidden"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -551,7 +546,7 @@ const ArtProcessSection = () => {
                   whileHover={{ x: 0 }}
                   transition={{ duration: 0.3 }}
                 />
-                <span className="relative z-10 flex items-center gap-2 font-medium text-gray-900 group-hover:text-white transition-colors duration-300">
+                <span className="relative z-10 flex items-center gap-2 font-medium text-gray-900 group-hover:text-gray-500 transition-colors duration-300">
                   Browse Collection
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </span>

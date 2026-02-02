@@ -47,7 +47,7 @@ const HeroSlider = () => {
             className="font-playfair text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight"
           >
             Welcome to Our<br />
-            <span className="text-emerald-400">Art Gallery</span>
+            <span className="text-gray-400">Art Gallery</span>
           </motion.h1>
 
           {/* Subtitle */}

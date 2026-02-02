@@ -12,11 +12,9 @@ const Cart = () => {
   const { 
     items, 
     cartItemsCount, 
-    cartTotal, 
     updateQuantity, 
     removeFromCart, 
-    clearCart,
-    refreshCart 
+    clearCart
   } = useCart(); // Use CartContext instead of local state
   const navigate = useNavigate();
 
@@ -171,7 +169,7 @@ const Cart = () => {
           <p className="text-gray-600 !mb-8">Add some amazing artworks to get started!</p>
           <Link
             to="/store"
-            className="bg-emerald-600 text-white !px-6 !py-3 rounded-lg hover:bg-emerald-700 transition-colors font-medium inline-block"
+            className="bg-gray-600 text-white !px-6 !py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium inline-block"
           >
             Continue Shopping
           </Link>
@@ -192,7 +190,7 @@ const Cart = () => {
             <button
               onClick={handleClearCart}
               disabled={updating}
-              className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 font-medium"
+              className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 font-medium cursor-pointer"
             >
               {updating ? 'Clearing...' : 'Clear Cart'}
             </button>
@@ -231,7 +229,7 @@ const Cart = () => {
                         <h3 className="text-lg font-semibold text-gray-900 truncate">
                           <Link 
                             to={`/product/${product.slug}`} 
-                            className="hover:text-emerald-600 transition-colors"
+                            className="hover:text-gray-700 transition-colors"
                           >
                             {product.name || 'Unknown Product'}
                           </Link>
@@ -248,7 +246,7 @@ const Cart = () => {
                         <div className="flex items-center !space-x-2 !mt-3">
                           {discountPercentage > 0 ? (
                             <>
-                              <span className="text-lg font-bold text-emerald-600">
+                              <span className="text-lg font-bold text-gray-900">
                                 {formatPrice(currentPrice)}
                               </span>
                               <span className="text-sm text-gray-400 line-through">
@@ -301,7 +299,7 @@ const Cart = () => {
                         <button
                           onClick={() => handleRemoveFromCart(product._id)}
                           disabled={updating}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors !p-2 rounded-lg disabled:opacity-50"
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors !p-2 rounded-lg disabled:opacity-50 cursor-pointer"
                           title="Remove item"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,12 +328,12 @@ const Cart = () => {
                   <span className="text-gray-600">Shipping</span>
                   <span className="font-medium">
                     {shippingCost > 0 ? formatPrice(shippingCost) : (
-                      <span className="text-emerald-600 font-bold">FREE</span>
+                      <span className="text-gray-600 font-bold">FREE</span>
                     )}
                   </span>
                 </div>
                 {shippingCost > 0 && subtotal < 100 && (
-                  <div className="text-sm text-emerald-600 bg-emerald-50 !p-3 rounded-lg">
+                  <div className="text-sm text-gray-600 bg-gray-50 !p-3 rounded-lg">
                     🚚 Add ${formatPrice(100 - subtotal).replace('$', '')} more for free shipping!
                   </div>
                 )}
@@ -346,7 +344,7 @@ const Cart = () => {
                 <div className="border-t border-gray-200 !pt-4">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span className="text-emerald-700">{formatPrice(finalTotal)}</span>
+                    <span className="text-gray-900">{formatPrice(finalTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -354,7 +352,7 @@ const Cart = () => {
               <div className="!space-y-3">
                 <Link
                   to="/checkout"
-                  className="block w-full bg-emerald-600 text-white !py-3 !px-6 rounded-lg hover:bg-emerald-700 transition-colors font-medium text-center shadow-md hover:shadow-lg"
+                  className="block w-full bg-gray-600 text-white !py-3 !px-6 rounded-lg hover:bg-gray-700 transition-colors font-medium text-center shadow-md hover:shadow-lg"
                 >
                   Proceed to Checkout
                 </Link>
@@ -365,41 +363,6 @@ const Cart = () => {
                   Continue Shopping
                 </Link>
               </div>
-
-              <div className="!mt-8 text-sm text-gray-600 !space-y-3">
-                <div className="flex items-start">
-                  <span className="text-emerald-600 mr-2">🛡️</span>
-                  <span>Free shipping on orders over $100</span>
-                </div>
-                <div className="flex items-start">
-                  <span className="text-emerald-600 mr-2">↩️</span>
-                  <span>30-day return policy</span>
-                </div>
-                <div className="flex items-start">
-                  <span className="text-emerald-600 mr-2">🔒</span>
-                  <span>Secure SSL checkout</span>
-                </div>
-                <div className="flex items-start">
-                  <span className="text-emerald-600 mr-2">🎁</span>
-                  <span>Free gift wrapping available</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recently Viewed / Recommendations */}
-        <div className="!mt-12">
-          <h3 className="text-xl font-bold text-gray-900 !mb-6">You might also like</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* This would be populated with product recommendations */}
-            <div className="bg-white rounded-lg border border-gray-200 !p-4 text-center">
-              <div className="text-gray-400 !mb-2">
-                <svg className="!mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <p className="text-gray-600 text-sm">Continue shopping to see recommendations</p>
             </div>
           </div>
         </div>

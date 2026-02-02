@@ -1,4 +1,3 @@
-// src/components/home/TrustBar.jsx
 import { motion } from "framer-motion";
 import { BadgeCheck, Lock, Truck, Undo2, Sparkles, Shield } from "lucide-react";
 
@@ -27,13 +26,13 @@ const items = [
 
 const TrustBar = () => {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900">
+    <section className="relative overflow-hidden bg-gray-50">
       {/* Subtle floating particles */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(15)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full bg-white/10"
+            className="absolute rounded-full bg-gray-900/10"
             style={{
               width: Math.random() * 4 + 2,
               height: Math.random() * 4 + 2,
@@ -42,7 +41,7 @@ const TrustBar = () => {
             }}
             animate={{
               y: [0, -20, 0],
-              opacity: [0.2, 0.5, 0.2],
+              opacity: [0.1, 0.3, 0.1],
             }}
             transition={{
               duration: Math.random() * 3 + 4,
@@ -69,8 +68,8 @@ const TrustBar = () => {
             transition={{ type: "spring", duration: 0.6 }}
             className="inline-flex items-center gap-2 mb-4"
           >
-            <Shield className="w-6 h-6 text-white" />
-            <span className="text-white text-sm font-medium tracking-wide">
+            <Shield className="w-6 h-6 text-gray-900" />
+            <span className="text-gray-900 text-sm font-medium tracking-wide">
               YOUR PEACE OF MIND
             </span>
           </motion.div>
@@ -79,7 +78,7 @@ const TrustBar = () => {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-white/80 font-light text-lg"
+            className="text-gray-600 font-light text-lg"
           >
             Art collecting made simple, secure, and enjoyable
           </motion.p>
@@ -101,7 +100,7 @@ const TrustBar = () => {
             >
               {/* Animated line */}
               <motion.div
-                className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-px bg-white/30"
+                className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-px bg-gray-900/20"
                 initial={{ width: 0 }}
                 whileInView={{ width: '80%' }}
                 viewport={{ once: true }}
@@ -125,14 +124,14 @@ const TrustBar = () => {
                     repeatType: "reverse" 
                   }}
                 >
-                  <item.icon className="w-10 h-10 text-white" />
+                  <item.icon className="w-10 h-10 text-gray-900" />
                 </motion.div>
               </motion.div>
 
               {/* Content */}
               <div className="text-center">
                 <motion.h3 
-                  className="text-white font-medium text-lg mb-2"
+                  className="text-gray-900 font-medium text-lg mb-2"
                   initial={{ opacity: 0 }}
                   whileInView={{ opacity: 1 }}
                   viewport={{ once: true }}
@@ -142,7 +141,7 @@ const TrustBar = () => {
                 </motion.h3>
                 
                 <motion.p 
-                  className="text-white/60 text-sm leading-relaxed"
+                  className="text-gray-600 text-sm leading-relaxed"
                   initial={{ opacity: 0 }}
                   whileInView={{ opacity: 1 }}
                   viewport={{ once: true }}
@@ -178,16 +177,16 @@ const TrustBar = () => {
               animate={{ rotate: 360 }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             >
-              <Sparkles className="w-4 h-4 text-white" />
+              <Sparkles className="w-4 h-4 text-gray-900" />
             </motion.div>
-            <span className="text-white/70 text-sm font-light">
-              Trusted by over <span className="text-white font-medium">10,000+</span> art collectors
+            <span className="text-gray-600 text-sm font-light">
+              Trusted by over <span className="text-gray-900 font-medium">10,000+</span> art collectors
             </span>
             <motion.div
               animate={{ rotate: -360 }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             >
-              <Sparkles className="w-4 h-4 text-white" />
+              <Sparkles className="w-4 h-4 text-gray-900" />
             </motion.div>
           </motion.div>
         </motion.div>
@@ -197,7 +196,7 @@ const TrustBar = () => {
       <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-5" viewBox="0 0 1200 200">
         <motion.path
           d="M 0 100 Q 300 80, 600 100 T 1200 100"
-          stroke="white"
+          stroke="rgb(17, 24, 39)"
           strokeWidth="1"
           fill="none"
           strokeLinecap="round"

@@ -288,7 +288,7 @@ const ProductCard = ({ product, index }) => {
               whileTap={{ scale: 0.95 }}
               onClick={handleAddToWishlist}
               disabled={addingToWishlist || checkingWishlist}
-              className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 !disabled:!opacity-50"
+              className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 !disabled:!opacity-50 cursor-pointer"
               title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
             >
               {addingToWishlist || checkingWishlist ? (
@@ -311,7 +311,7 @@ const ProductCard = ({ product, index }) => {
                 e.stopPropagation();
                 setShowQuickView(true);
               }}
-              className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200"
+              className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 cursor-pointer"
               title="Quick View"
             >
               <Eye className="!text-gray-700 !hover:!text-emerald-600" size={20} />
@@ -326,7 +326,7 @@ const ProductCard = ({ product, index }) => {
                 whileTap={{ scale: 0.95 }}
                 onClick={isSoldOut ? undefined : handleAddToCart}
                 disabled={addingToCart || isSoldOut}
-                className={`!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 ${isSoldOut
+                className={`!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 cursor-pointer ${isSoldOut
                   ? '!cursor-not-allowed'
                   : '!disabled:!opacity-50'
                   }`}

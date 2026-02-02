@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/others/LoadingSpinner';
 import { CLIENT_BASE_URL } from '../components/others/clientApiUrl';
 import {
   CreditCard,
@@ -15,7 +14,6 @@ import {
   Gift,
   Lock,
   RotateCcw,
-  Star,
   Clock,
   Package,
   Navigation,
@@ -24,7 +22,13 @@ import {
   Building,
   CheckCircle,
   Info,
-  RefreshCw
+  RefreshCw,
+  ChevronRight,
+  ChevronDown,
+  User,
+  Phone,
+  Mail,
+  ArrowRight
 } from 'lucide-react';
 import { usePayment } from '../context/PaymentContext';
 
@@ -83,11 +87,8 @@ const US_STATES = [
   { code: 'WY', name: 'Wyoming' }
 ];
 
-// Helper function to format price in USD
 const formatPrice = (price) => {
-  if (isNaN(price) || price === null || price === undefined) {
-    return '$0.00';
-  }
+  if (isNaN(price) || price === null || price === undefined) return '$0.00';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -95,7 +96,6 @@ const formatPrice = (price) => {
   }).format(price);
 };
 
-// Format phone number for display
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
   const cleaned = phone.replace(/\D/g, '');
@@ -105,31 +105,18 @@ const formatPhoneNumber = (phone) => {
   return phone;
 };
 
-// Get state name from code
-const getStateName = (code) => {
-  const state = US_STATES.find(s => s.code === code);
-  return state ? state.name : code;
-};
-
 const Checkout = () => {
-  // Cart and address state
   const [cart, setCart] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [selectedAddress, setSelectedAddress] = useState(null);
-  
-  // Coupon state
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
-  
-  // Loading states
   const [loading, setLoading] = useState(true);
   const [validatingAddress, setValidatingAddress] = useState(false);
   const [fetchingRates, setFetchingRates] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
-  
-  // Address form state
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({
     recipientName: '',
@@ -141,29 +128,20 @@ const Checkout = () => {
     phoneNumber: '',
     isResidential: true
   });
-  
-  // FedEx integration state
   const [addressValidation, setAddressValidation] = useState(null);
   const [shippingOptions, setShippingOptions] = useState([]);
   const [selectedShippingOption, setSelectedShippingOption] = useState(null);
   const [shippingMethod, setShippingMethod] = useState('ground');
   const [fedexAvailable, setFedexAvailable] = useState(false);
-  
-  // FedEx locations
-  const [showFedExLocations, setShowFedExLocations] = useState(false);
-  const [fedExLocations, setFedExLocations] = useState([]);
-  const [loadingLocations, setLoadingLocations] = useState(false);
-  
-  // Payment
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [signatureRequired, setSignatureRequired] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
+  const [activeStep, setActiveStep] = useState(1);
 
   const { token, updateCartCount, user } = useAuth();
   const navigate = useNavigate();
   const { initiatePayment, loading: paymentLoading, paymentError } = usePayment();
 
-  // Load saved coupon from localStorage
   useEffect(() => {
     const savedCoupon = localStorage.getItem('appliedCoupon');
     if (savedCoupon) {
@@ -172,13 +150,11 @@ const Checkout = () => {
         setAppliedCoupon(parsedCoupon);
         setCouponCode(parsedCoupon.coupon?.code || '');
       } catch (error) {
-        console.error('Error parsing saved coupon:', error);
         localStorage.removeItem('appliedCoupon');
       }
     }
   }, []);
 
-  // Initial data fetch
   useEffect(() => {
     const initializeCheckout = async () => {
       setLoading(true);
@@ -188,7 +164,6 @@ const Checkout = () => {
     initializeCheckout();
   }, []);
 
-  // Save coupon to localStorage when applied
   useEffect(() => {
     if (appliedCoupon) {
       localStorage.setItem('appliedCoupon', JSON.stringify(appliedCoupon));
@@ -197,40 +172,27 @@ const Checkout = () => {
     }
   }, [appliedCoupon]);
 
-  // Fetch cart data
   const fetchCart = async () => {
     try {
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.success) {
-        setCart(data.data);
-      }
+      if (data.success) setCart(data.data);
     } catch (error) {
       console.error('Error fetching cart:', error);
     }
   };
 
-  // Fetch user addresses
   const fetchAddresses = async () => {
     try {
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       if (data.success && data.data) {
-        // Filter for US addresses only
-        const usAddresses = data.data.filter(addr => 
-          addr.countryCode === 'US' || !addr.countryCode
-        );
+        const usAddresses = data.data.filter(addr => addr.countryCode === 'US' || !addr.countryCode);
         setAddresses(usAddresses);
-        
-        // Auto-select default or first address
         if (usAddresses.length > 0) {
           const defaultAddr = usAddresses.find(addr => addr.isDefault) || usAddresses[0];
           setSelectedAddressId(defaultAddr._id);
@@ -242,7 +204,6 @@ const Checkout = () => {
     }
   };
 
-  // Handle address selection change
   useEffect(() => {
     if (selectedAddressId && addresses.length > 0) {
       const addr = addresses.find(a => a._id === selectedAddressId);
@@ -253,16 +214,13 @@ const Checkout = () => {
     }
   }, [selectedAddressId]);
 
-  // Validate address and fetch shipping rates
   const validateAndFetchRates = async (address) => {
     if (!address) return;
-
     setValidatingAddress(true);
     setAddressValidation(null);
     setShippingOptions([]);
 
     try {
-      // Prepare address for validation
       const addressForValidation = {
         streetLine1: address.streetLine1 || address.street,
         streetLine2: address.streetLine2 || address.apartment || '',
@@ -272,21 +230,16 @@ const Checkout = () => {
         isResidential: address.isResidential !== false
       };
 
-      // Validate address with FedEx
-      const validationResponse = await fetch(
-        `${CLIENT_BASE_URL}/api/v1/orders/validate-address`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ shippingAddress: addressForValidation })
-        }
-      );
+      const validationResponse = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/validate-address`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ shippingAddress: addressForValidation })
+      });
 
       const validationData = await validationResponse.json();
-      
       if (validationData.success) {
         setAddressValidation(validationData.data);
       } else {
@@ -297,7 +250,6 @@ const Checkout = () => {
         });
       }
     } catch (error) {
-      console.error('Address validation error:', error);
       setAddressValidation({
         isValid: false,
         requiresManualVerification: true,
@@ -307,16 +259,13 @@ const Checkout = () => {
       setValidatingAddress(false);
     }
 
-    // Fetch shipping rates regardless of validation result
     await fetchShippingRates(address);
   };
 
-  // Fetch shipping rates from FedEx
   const fetchShippingRates = async (address) => {
     if (!address || !cart) return;
-
     setFetchingRates(true);
-    
+
     try {
       const shippingAddress = {
         streetLine1: address.streetLine1 || address.street,
@@ -337,19 +286,15 @@ const Checkout = () => {
       });
 
       const data = await response.json();
-      
       if (data.success && data.data?.rates?.length > 0) {
         const rates = data.data.rates;
         setShippingOptions(rates);
         setFedexAvailable(data.data.fedexAvailable !== false);
-        
-        // Auto-select first/cheapest option or ground shipping
-        const groundOption = rates.find(r => 
-          r.id === 'ground' || 
-          r.serviceType === 'FEDEX_GROUND' || 
-          r.serviceType === 'FEDEX_HOME_DELIVERY'
+
+        const groundOption = rates.find(r =>
+          r.id === 'ground' || r.serviceType === 'FEDEX_GROUND' || r.serviceType === 'FEDEX_HOME_DELIVERY'
         );
-        
+
         if (groundOption) {
           setSelectedShippingOption(groundOption);
           setShippingMethod('ground');
@@ -358,14 +303,12 @@ const Checkout = () => {
           setShippingMethod(rates[0].id || 'standard');
         }
       } else {
-        // Set fallback rates
         const fallbackRates = getFallbackShippingRates();
         setShippingOptions(fallbackRates);
         setFedexAvailable(false);
         setSelectedShippingOption(fallbackRates[0]);
       }
     } catch (error) {
-      console.error('Error fetching shipping rates:', error);
       const fallbackRates = getFallbackShippingRates();
       setShippingOptions(fallbackRates);
       setFedexAvailable(false);
@@ -375,7 +318,6 @@ const Checkout = () => {
     }
   };
 
-  // Fallback shipping rates
   const getFallbackShippingRates = () => {
     const subtotal = cart?.total || 0;
     return [
@@ -412,52 +354,10 @@ const Checkout = () => {
     ];
   };
 
-  // Find nearby FedEx locations
-  const findFedExLocations = async () => {
-    if (!selectedAddress) return;
-
-    setLoadingLocations(true);
-    try {
-      const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/fedex-locations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          address: {
-            street: selectedAddress.streetLine1 || selectedAddress.street,
-            city: selectedAddress.city,
-            state: selectedAddress.stateCode || selectedAddress.state,
-            zipCode: selectedAddress.zipCode
-          },
-          radius: 25
-        })
-      });
-
-      const data = await response.json();
-      if (data.success && data.data?.length > 0) {
-        setFedExLocations(data.data);
-        setShowFedExLocations(true);
-      } else {
-        alert('No FedEx locations found nearby');
-      }
-    } catch (error) {
-      console.error('Error finding FedEx locations:', error);
-      alert('Failed to find FedEx locations');
-    } finally {
-      setLoadingLocations(false);
-    }
-  };
-
-  // Apply coupon
   const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) {
-      alert('Please enter a coupon code');
-      return;
-    }
-
+    if (!couponCode.trim()) return;
     setApplyingCoupon(true);
+
     try {
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/apply-coupon`, {
         method: 'POST',
@@ -465,14 +365,10 @@ const Checkout = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          code: couponCode.trim(),
-          subtotal: cart?.total || 0
-        })
+        body: JSON.stringify({ code: couponCode.trim(), subtotal: cart?.total || 0 })
       });
 
       const data = await response.json();
-
       if (data.success) {
         setAppliedCoupon(data.data);
       } else {
@@ -480,43 +376,31 @@ const Checkout = () => {
         setCouponCode('');
       }
     } catch (error) {
-      console.error('Error applying coupon:', error);
       alert('Failed to apply coupon');
     } finally {
       setApplyingCoupon(false);
     }
   };
 
-  // Remove coupon
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode('');
     localStorage.removeItem('appliedCoupon');
   };
 
-  // Save new address
   const handleSaveNewAddress = async () => {
     const { recipientName, streetLine1, city, stateCode, zipCode, phoneNumber } = newAddress;
-    
-    // Validate required fields
+
     if (!streetLine1 || !city || !stateCode || !zipCode || !phoneNumber) {
       alert('Please fill all required address fields');
       return;
     }
 
-    // Validate ZIP code format
     if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
-      alert('Please enter a valid US ZIP code (e.g., 90210 or 90210-1234)');
+      alert('Please enter a valid US ZIP code');
       return;
     }
 
-    // Validate state code
-    if (!US_STATES.find(s => s.code === stateCode)) {
-      alert('Please select a valid US state');
-      return;
-    }
-
-    // Validate phone number (basic)
     const cleanedPhone = phoneNumber.replace(/\D/g, '');
     if (cleanedPhone.length < 10) {
       alert('Please enter a valid phone number');
@@ -531,44 +415,32 @@ const Checkout = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...newAddress,
-          countryCode: 'US',
-          phoneNumber: cleanedPhone
-        })
+        body: JSON.stringify({ ...newAddress, countryCode: 'US', phoneNumber: cleanedPhone })
       });
 
       const data = await response.json();
-
       if (data.success) {
         const updatedAddresses = data.data;
         setAddresses(updatedAddresses);
-
-        // Find and select the new address
         const addedAddress = updatedAddresses.find(addr =>
-          addr.streetLine1 === newAddress.streetLine1 &&
-          addr.zipCode === newAddress.zipCode
+          addr.streetLine1 === newAddress.streetLine1 && addr.zipCode === newAddress.zipCode
         );
-
         if (addedAddress) {
           setSelectedAddressId(addedAddress._id);
           setSelectedAddress(addedAddress);
         }
-
         setShowNewAddress(false);
         resetNewAddress();
       } else {
         alert(data.message || 'Failed to add address');
       }
     } catch (error) {
-      console.error('Error adding address:', error);
       alert('Failed to add address');
     } finally {
       setValidatingAddress(false);
     }
   };
 
-  // Reset new address form
   const resetNewAddress = () => {
     setNewAddress({
       recipientName: '',
@@ -582,32 +454,24 @@ const Checkout = () => {
     });
   };
 
-  // Calculate shipping cost
   const getShippingCost = () => {
     if (selectedShippingOption) {
-      return selectedShippingOption.price || 
-             selectedShippingOption.totalCharge?.amount || 
-             0;
+      return selectedShippingOption.price || selectedShippingOption.totalCharge?.amount || 0;
     }
-    
-    // Fallback
     if (cart && cart.total >= 500) return 0;
     return 25;
   };
 
-  // Calculate discount amount
   const getDiscountAmount = () => {
     if (!appliedCoupon || !cart) return 0;
     return appliedCoupon.discountAmount || 0;
   };
 
-  // Calculate totals
   const subtotal = cart?.total || 0;
   const shippingCost = getShippingCost();
   const discountAmount = getDiscountAmount();
   const finalTotal = Math.max(0, subtotal + shippingCost - discountAmount);
 
-  // Get current price for product
   const getCurrentPrice = (product) => {
     if (!product) return 0;
     if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
@@ -616,36 +480,19 @@ const Checkout = () => {
     return product.mrpPrice || 0;
   };
 
-  // Place order
   const handlePlaceOrder = async () => {
-    // Validate address selection
     if (!selectedAddress && !showNewAddress) {
       alert('Please select a shipping address');
       return;
     }
 
-    // Validate new address if showing form
-    if (showNewAddress) {
-      const { streetLine1, city, stateCode, zipCode, phoneNumber } = newAddress;
-      if (!streetLine1 || !city || !stateCode || !zipCode || !phoneNumber) {
-        alert('Please fill all required address fields');
-        return;
-      }
-    }
-
-    // Warn about unverified address (but don't block)
     if (addressValidation && !addressValidation.isValid && addressValidation.requiresManualVerification) {
-      const warningMessage = addressValidation.warning || 
-                            addressValidation.messages?.[0] || 
-                            'Address could not be verified. Delivery may be delayed.';
-      if (!confirm(`Warning: ${warningMessage}\n\nDo you want to continue with this address?`)) {
-        return;
-      }
+      const warningMessage = addressValidation.warning || addressValidation.messages?.[0] || 'Address could not be verified.';
+      if (!confirm(`Warning: ${warningMessage}\n\nContinue with this address?`)) return;
     }
 
     setPlacingOrder(true);
     try {
-      // Prepare shipping address
       let shippingAddress;
       if (showNewAddress) {
         shippingAddress = {
@@ -673,7 +520,6 @@ const Checkout = () => {
         };
       }
 
-      // Map shipping method
       const shippingMethodMap = {
         'ground': 'ground',
         'standard': 'express_saver',
@@ -705,48 +551,33 @@ const Checkout = () => {
       });
 
       const data = await response.json();
-
       if (data.success) {
-        // Clear cart count
         updateCartCount(0);
-
-        // Clear coupon
         localStorage.removeItem('appliedCoupon');
         setAppliedCoupon(null);
         setCouponCode('');
 
-        // Handle payment
         if (paymentMethod === 'cod') {
-          // Redirect to order confirmation for COD
           navigate(`/order-confirmation/${data.data._id}`);
         } else {
-          // Initiate payment
           await initiatePayment(data.data);
         }
       } else {
         alert(data.message || 'Failed to place order');
       }
     } catch (error) {
-      console.error('Error placing order:', error);
       alert('Failed to place order. Please try again.');
     } finally {
       setPlacingOrder(false);
     }
   };
 
-  // Format address for display
   const formatAddressDisplay = (address) => {
     const parts = [];
-    if (address.streetLine2 || address.apartment) {
-      parts.push(address.streetLine2 || address.apartment);
-    }
-    if (address.streetLine1 || address.street) {
-      parts.push(address.streetLine1 || address.street);
-    }
+    if (address.streetLine2 || address.apartment) parts.push(address.streetLine2 || address.apartment);
+    if (address.streetLine1 || address.street) parts.push(address.streetLine1 || address.street);
     if (address.city) parts.push(address.city);
-    if (address.stateCode || address.state) {
-      parts.push(address.stateCode || address.state);
-    }
+    if (address.stateCode || address.state) parts.push(address.stateCode || address.state);
     if (address.zipCode) parts.push(address.zipCode);
     return parts.join(', ');
   };
@@ -754,8 +585,11 @@ const Checkout = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <LoadingSpinner size="large" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-gray-900 border-t-transparent animate-spin mx-auto"></div>
+          <p className="mt-6 text-gray-500">Preparing checkout...</p>
+        </div>
       </div>
     );
   }
@@ -763,18 +597,19 @@ const Checkout = () => {
   // Empty cart state
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center bg-white rounded-2xl shadow-xl !p-12 max-w-md">
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Truck className="w-12 h-12 text-gray-400" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <div className="w-24 h-24 border-2 border-gray-200 flex items-center justify-center mx-auto mb-8">
+            <Package className="w-12 h-12 text-gray-300" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Your cart is empty</h1>
-          <p className="text-gray-600 mb-8">Add some amazing artworks to proceed to checkout</p>
+          <h1 className="text-2xl font-light text-gray-900 mb-4">Your cart is empty</h1>
+          <p className="text-gray-500 mb-8">Add some items to your cart to proceed</p>
           <button
             onClick={() => navigate('/store')}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 font-medium shadow-lg"
+            className="group inline-flex items-center space-x-2 bg-gray-900 text-white px-8 py-4 border-2 border-gray-900 hover:bg-white hover:text-gray-900 transition-all duration-300 cursor-pointer"
           >
-            Continue Shopping
+            <span>Continue Shopping</span>
+            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform duration-300" />
           </button>
         </div>
       </div>
@@ -782,942 +617,796 @@ const Checkout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
+          <div className="flex items-center justify-between py-5">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="group flex items-center space-x-2 text-gray-500 hover:text-gray-900 transition-colors duration-300 cursor-pointer"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform duration-300" />
               <span>Back</span>
             </button>
+            
             <div className="text-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Secure Checkout
-              </h1>
-              <p className="text-sm text-gray-600">FedEx Shipping • US Delivery</p>
+              <h1 className="text-2xl font-light text-gray-900">Checkout</h1>
+              <p className="text-sm text-gray-500">Secure payment</p>
             </div>
-            <div className="w-20"></div>
+
+            <div className="flex items-center space-x-2 text-gray-400">
+              <Lock size={16} />
+              <span className="text-sm">SSL Encrypted</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Shipping & Payment */}
-          <div className="space-y-6">
-            {/* Progress Steps */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                    1
-                  </div>
-                  <span className="font-semibold text-gray-900">Shipping</span>
-                </div>
-                <div className="flex-1 h-1 bg-gray-200 mx-4">
-                  <div className="h-full bg-blue-600 rounded-full w-1/2"></div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-bold">
-                    2
-                  </div>
-                  <span className="font-semibold text-gray-600">Payment</span>
-                </div>
-              </div>
-            </div>
+      {/* Progress Steps */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-center space-x-4">
+            {[
+              { step: 1, label: 'Shipping', icon: MapPin },
+              { step: 2, label: 'Delivery', icon: Truck },
+              { step: 3, label: 'Payment', icon: CreditCard }
+            ].map((item, index) => {
+              const Icon = item.icon;
+              const isActive = activeStep >= item.step;
+              const isCompleted = activeStep > item.step;
 
-            {/* Customer Information */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Star className="w-5 h-5 text-blue-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900">Customer Information</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-xl">
-                <div>
-                  <p className="text-sm text-gray-600">Name</p>
-                  <p className="font-semibold text-gray-900">{user?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-semibold text-gray-900">{user?.email}</p>
-                </div>
-                {user?.phoneNumber && (
-                  <div>
-                    <p className="text-sm text-gray-600">Phone</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatPhoneNumber(user.phoneNumber)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Shipping Address Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-green-600" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">Shipping Address</h2>
-                </div>
-                {selectedAddress && (
-                  <button
-                    onClick={findFedExLocations}
-                    disabled={loadingLocations}
-                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50"
-                  >
-                    {loadingLocations ? (
-                      <RefreshCw size={16} className="animate-spin" />
-                    ) : (
-                      <Navigation size={16} />
-                    )}
-                    <span>Find FedEx Locations</span>
-                  </button>
-                )}
-              </div>
-
-              {!showNewAddress ? (
-                <>
-                  {addresses.length > 0 ? (
-                    <div className="space-y-3 mb-4">
-                      {addresses.map(address => (
-                        <div key={address._id}>
-                          <label
-                            className={`flex items-start space-x-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                              selectedAddressId === address._id
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="address"
-                              value={address._id}
-                              checked={selectedAddressId === address._id}
-                              onChange={(e) => setSelectedAddressId(e.target.value)}
-                              className="mt-1 text-blue-600 focus:ring-blue-500"
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                  {address.isResidential !== false ? (
-                                    <Home className="w-4 h-4 text-gray-500" />
-                                  ) : (
-                                    <Building className="w-4 h-4 text-gray-500" />
-                                  )}
-                                  <span className="font-semibold text-gray-900">
-                                    {address.isResidential !== false ? 'Residential' : 'Business'}
-                                  </span>
-                                  {address.isDefault && (
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                      Default
-                                    </span>
-                                  )}
-                                </div>
-                                {selectedAddressId === address._id && (
-                                  <Check className="w-5 h-5 text-green-500" />
-                                )}
-                              </div>
-                              <p className="text-gray-700">
-                                {address.recipientName || user?.name}
-                              </p>
-                              <p className="text-gray-600 text-sm">
-                                {formatAddressDisplay(address)}
-                              </p>
-                              <p className="text-gray-600 text-sm mt-1">
-                                📞 {formatPhoneNumber(address.phoneNumber || address.phoneNo)}
-                              </p>
-                            </div>
-                          </label>
-
-                          {/* Address Validation Status */}
-                          {selectedAddressId === address._id && (
-                            <div className="mt-2">
-                              {validatingAddress ? (
-                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm flex items-center space-x-2">
-                                  <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-                                  <span className="text-blue-700">Validating address with FedEx...</span>
-                                </div>
-                              ) : addressValidation ? (
-                                <div className={`p-3 rounded-lg text-sm flex items-start space-x-2 ${
-                                  addressValidation.isValid
-                                    ? 'bg-green-50 border border-green-200'
-                                    : 'bg-yellow-50 border border-yellow-200'
-                                }`}>
-                                  {addressValidation.isValid ? (
-                                    <>
-                                      <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
-                                      <div>
-                                        <p className="text-green-700 font-medium">Address Verified by FedEx</p>
-                                        {addressValidation.classification && (
-                                          <p className="text-green-600 text-xs mt-1">
-                                            Classification: {addressValidation.classification}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
-                                      <div>
-                                        <p className="text-yellow-700 font-medium">Address Verification Warning</p>
-                                        <p className="text-yellow-600 text-xs mt-1">
-                                          {addressValidation.warning || 
-                                           addressValidation.messages?.[0] || 
-                                           'Address could not be fully verified. Delivery may be delayed.'}
-                                        </p>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              ) : null}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+              return (
+                <div key={item.step} className="flex items-center">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 flex items-center justify-center transition-all duration-300 ${
+                      isActive ? 'bg-gray-900 text-white' : 'border-2 border-gray-200 text-gray-400'
+                    }`}>
+                      {isCompleted ? <Check size={18} /> : <Icon size={18} />}
                     </div>
-                  ) : (
-                    <div className="text-center py-8 px-4 bg-gray-50 rounded-xl mb-4">
-                      <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-500">No saved addresses found</p>
-                      <p className="text-gray-400 text-sm mt-1">Add a new US shipping address below</p>
+                    <span className={`font-medium hidden sm:inline ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                      {item.label}
+                    </span>
+                  </div>
+                  {index < 2 && (
+                    <div className={`w-12 sm:w-20 h-0.5 mx-4 ${activeStep > item.step ? 'bg-gray-900' : 'bg-gray-200'}`}></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Customer Info */}
+            <div className="bg-white border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gray-900 text-white flex items-center justify-center">
+                    <User size={18} />
+                  </div>
+                  <h2 className="text-lg font-medium text-gray-900">Customer</h2>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Name</p>
+                    <p className="font-medium text-gray-900">{user?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Email</p>
+                    <p className="font-medium text-gray-900">{user?.email}</p>
+                  </div>
+                  {user?.phoneNumber && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Phone</p>
+                      <p className="font-medium text-gray-900">{formatPhoneNumber(user.phoneNumber)}</p>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
 
-                  <button
-                    onClick={() => setShowNewAddress(true)}
-                    className="w-full flex items-center justify-center space-x-2 py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-blue-600 font-medium"
-                  >
-                    <Plus size={20} />
-                    <span>Add New Address</span>
-                  </button>
-                </>
-              ) : (
-                /* New Address Form */
-                <div className="space-y-4 bg-gray-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
-                    <Plus className="w-5 h-5" />
-                    <span>Add New US Shipping Address</span>
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Recipient Name */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Recipient Name (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={newAddress.recipientName}
-                        onChange={(e) => setNewAddress({...newAddress, recipientName: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder={user?.name || "Full Name"}
-                      />
+            {/* Shipping Address */}
+            <div className="bg-white border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gray-900 text-white flex items-center justify-center">
+                      <MapPin size={18} />
                     </div>
+                    <h2 className="text-lg font-medium text-gray-900">Shipping Address</h2>
+                  </div>
+                  <span className="text-xs text-gray-500 uppercase tracking-wider">US Only</span>
+                </div>
+              </div>
 
-                    {/* Street Address Line 1 */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Street Address *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newAddress.streetLine1}
-                        onChange={(e) => setNewAddress({...newAddress, streetLine1: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder="123 Main Street"
-                      />
-                    </div>
+              <div className="p-6">
+                {!showNewAddress ? (
+                  <>
+                    {addresses.length > 0 ? (
+                      <div className="space-y-4">
+                        {addresses.map(address => (
+                          <div key={address._id}>
+                            <label
+                              className={`block p-5 border-2 cursor-pointer transition-all duration-300 ${
+                                selectedAddressId === address._id
+                                  ? 'border-gray-900 bg-gray-50'
+                                  : 'border-gray-200 hover:border-gray-400'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-4">
+                                <input
+                                  type="radio"
+                                  name="address"
+                                  value={address._id}
+                                  checked={selectedAddressId === address._id}
+                                  onChange={(e) => setSelectedAddressId(e.target.value)}
+                                  className="mt-1 cursor-pointer"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    {address.isResidential !== false ? (
+                                      <Home size={14} className="text-gray-400" />
+                                    ) : (
+                                      <Building size={14} className="text-gray-400" />
+                                    )}
+                                    <span className="font-medium text-gray-900">
+                                      {address.isResidential !== false ? 'Home' : 'Business'}
+                                    </span>
+                                    {address.isDefault && (
+                                      <span className="text-xs px-2 py-0.5 border border-gray-900 text-gray-900">Default</span>
+                                    )}
+                                  </div>
+                                  <p className="text-gray-700">{address.recipientName || user?.name}</p>
+                                  <p className="text-gray-600 text-sm">{formatAddressDisplay(address)}</p>
+                                  <p className="text-gray-500 text-sm mt-1">
+                                    {formatPhoneNumber(address.phoneNumber || address.phoneNo)}
+                                  </p>
+                                </div>
+                                {selectedAddressId === address._id && (
+                                  <Check size={20} className="text-gray-900" />
+                                )}
+                              </div>
+                            </label>
 
-                    {/* Street Address Line 2 */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Apartment, Suite, Unit (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={newAddress.streetLine2}
-                        onChange={(e) => setNewAddress({...newAddress, streetLine2: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder="Apt 4B, Suite 100, etc."
-                      />
-                    </div>
-
-                    {/* City */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newAddress.city}
-                        onChange={(e) => setNewAddress({...newAddress, city: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder="Los Angeles"
-                      />
-                    </div>
-
-                    {/* State */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        State *
-                      </label>
-                      <select
-                        required
-                        value={newAddress.stateCode}
-                        onChange={(e) => setNewAddress({...newAddress, stateCode: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      >
-                        <option value="">Select State</option>
-                        {US_STATES.map(state => (
-                          <option key={state.code} value={state.code}>
-                            {state.code} - {state.name}
-                          </option>
+                            {/* Validation Status */}
+                            {selectedAddressId === address._id && (
+                              <div className="mt-3">
+                                {validatingAddress ? (
+                                  <div className="p-4 border border-gray-200 bg-gray-50 flex items-center space-x-3">
+                                    <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent animate-spin"></div>
+                                    <span className="text-sm text-gray-600">Validating address...</span>
+                                  </div>
+                                ) : addressValidation ? (
+                                  <div className={`p-4 border flex items-start space-x-3 ${
+                                    addressValidation.isValid
+                                      ? 'border-gray-900 bg-gray-50'
+                                      : 'border-gray-300 bg-gray-50'
+                                  }`}>
+                                    {addressValidation.isValid ? (
+                                      <>
+                                        <CheckCircle size={18} className="text-gray-900 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                          <p className="font-medium text-gray-900">Address Verified</p>
+                                          {addressValidation.classification && (
+                                            <p className="text-sm text-gray-600 mt-0.5">
+                                              Classification: {addressValidation.classification}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertCircle size={18} className="text-gray-500 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                          <p className="font-medium text-gray-700">Verification Warning</p>
+                                          <p className="text-sm text-gray-500 mt-0.5">
+                                            {addressValidation.warning || addressValidation.messages?.[0] || 'Could not verify address'}
+                                          </p>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
                         ))}
-                      </select>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200">
+                        <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500 mb-2">No saved addresses</p>
+                        <p className="text-sm text-gray-400">Add a US shipping address</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setShowNewAddress(true)}
+                      className="w-full mt-6 flex items-center justify-center space-x-2 py-4 border-2 border-dashed border-gray-300 hover:border-gray-900 text-gray-600 hover:text-gray-900 transition-all duration-300 cursor-pointer"
+                    >
+                      <Plus size={18} />
+                      <span>Add New Address</span>
+                    </button>
+                  </>
+                ) : (
+                  /* New Address Form */
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-gray-900">New Address</h3>
+                      <button
+                        onClick={() => { setShowNewAddress(false); resetNewAddress(); }}
+                        className="text-gray-400 hover:text-gray-900 transition-colors duration-300 cursor-pointer"
+                      >
+                        <X size={20} />
+                      </button>
                     </div>
 
-                    {/* ZIP Code */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        ZIP Code *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newAddress.zipCode}
-                        onChange={(e) => {
-                          // Allow only digits and dash
-                          const value = e.target.value.replace(/[^\d-]/g, '');
-                          setNewAddress({...newAddress, zipCode: value});
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder="90210"
-                        maxLength={10}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Format: 12345 or 12345-6789</p>
-                    </div>
-
-                    {/* Phone Number */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number *
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={newAddress.phoneNumber}
-                        onChange={(e) => setNewAddress({...newAddress, phoneNumber: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        placeholder="(555) 123-4567"
-                      />
-                    </div>
-
-                    {/* Address Type */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Address Type
-                      </label>
-                      <div className="flex space-x-4">
-                        <label className={`flex-1 flex items-center justify-center space-x-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          newAddress.isResidential
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 hover:border-gray-400'
-                        }`}>
-                          <input
-                            type="radio"
-                            name="addressType"
-                            checked={newAddress.isResidential}
-                            onChange={() => setNewAddress({...newAddress, isResidential: true})}
-                            className="sr-only"
-                          />
-                          <Home className="w-5 h-5" />
-                          <span className="font-medium">Residential</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          Recipient Name
                         </label>
-                        <label className={`flex-1 flex items-center justify-center space-x-2 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          !newAddress.isResidential
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 hover:border-gray-400'
-                        }`}>
-                          <input
-                            type="radio"
-                            name="addressType"
-                            checked={!newAddress.isResidential}
-                            onChange={() => setNewAddress({...newAddress, isResidential: false})}
-                            className="sr-only"
-                          />
-                          <Building className="w-5 h-5" />
-                          <span className="font-medium">Business</span>
+                        <input
+                          type="text"
+                          value={newAddress.recipientName}
+                          onChange={(e) => setNewAddress({ ...newAddress, recipientName: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          placeholder={user?.name}
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          Street Address *
                         </label>
+                        <input
+                          type="text"
+                          required
+                          value={newAddress.streetLine1}
+                          onChange={(e) => setNewAddress({ ...newAddress, streetLine1: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          placeholder="123 Main Street"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          Apt, Suite, Unit
+                        </label>
+                        <input
+                          type="text"
+                          value={newAddress.streetLine2}
+                          onChange={(e) => setNewAddress({ ...newAddress, streetLine2: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          placeholder="Apt 4B"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newAddress.city}
+                          onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          placeholder="Los Angeles"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          State *
+                        </label>
+                        <div className="relative">
+                          <select
+                            required
+                            value={newAddress.stateCode}
+                            onChange={(e) => setNewAddress({ ...newAddress, stateCode: e.target.value })}
+                            className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none appearance-none bg-white cursor-pointer transition-colors duration-300"
+                          >
+                            <option value="">Select State</option>
+                            {US_STATES.map(state => (
+                              <option key={state.code} value={state.code}>{state.name}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={16} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          ZIP Code *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newAddress.zipCode}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^\d-]/g, '');
+                            setNewAddress({ ...newAddress, zipCode: value });
+                          }}
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          placeholder="90210"
+                          maxLength={10}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+                          Phone *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={newAddress.phoneNumber}
+                          onChange={(e) => setNewAddress({ ...newAddress, phoneNumber: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-3">
+                          Address Type
+                        </label>
+                        <div className="flex space-x-4">
+                          <button
+                            type="button"
+                            onClick={() => setNewAddress({ ...newAddress, isResidential: true })}
+                            className={`flex-1 flex items-center justify-center space-x-2 py-3 border-2 transition-all duration-300 cursor-pointer ${
+                              newAddress.isResidential
+                                ? 'border-gray-900 bg-gray-900 text-white'
+                                : 'border-gray-200 hover:border-gray-400'
+                            }`}
+                          >
+                            <Home size={18} />
+                            <span>Residential</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewAddress({ ...newAddress, isResidential: false })}
+                            className={`flex-1 flex items-center justify-center space-x-2 py-3 border-2 transition-all duration-300 cursor-pointer ${
+                              !newAddress.isResidential
+                                ? 'border-gray-900 bg-gray-900 text-white'
+                                : 'border-gray-200 hover:border-gray-400'
+                            }`}
+                          >
+                            <Building size={18} />
+                            <span>Business</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-4 pt-4">
+                      <button
+                        onClick={() => { setShowNewAddress(false); resetNewAddress(); }}
+                        className="flex-1 py-3 border-2 border-gray-200 text-gray-600 hover:border-gray-900 hover:text-gray-900 transition-all duration-300 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveNewAddress}
+                        disabled={validatingAddress}
+                        className="flex-1 flex items-center justify-center space-x-2 py-3 bg-gray-900 text-white border-2 border-gray-900 hover:bg-white hover:text-gray-900 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {validatingAddress ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin"></div>
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={18} />
+                            <span>Save Address</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Shipping Method */}
+            <div className="bg-white border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gray-900 text-white flex items-center justify-center">
+                      <Truck size={18} />
+                    </div>
+                    <h2 className="text-lg font-medium text-gray-900">Delivery Method</h2>
+                  </div>
+                  {fedexAvailable && (
+                    <span className="text-xs px-3 py-1 bg-gray-900 text-white">FedEx</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                {fetchingRates ? (
+                  <div className="flex items-center justify-center py-12 space-x-3">
+                    <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent animate-spin"></div>
+                    <span className="text-gray-600">Loading shipping options...</span>
+                  </div>
+                ) : shippingOptions.length > 0 ? (
+                  <div className="space-y-3">
+                    {shippingOptions.map((option, index) => {
+                      const isSelected = selectedShippingOption?.id === option.id ||
+                        selectedShippingOption?.serviceType === option.serviceType;
+                      const price = option.price || option.totalCharge?.amount || 0;
+
+                      return (
+                        <label
+                          key={option.id || option.serviceType || index}
+                          className={`flex items-center justify-between p-5 border-2 cursor-pointer transition-all duration-300 ${
+                            isSelected
+                              ? 'border-gray-900 bg-gray-50'
+                              : 'border-gray-200 hover:border-gray-400'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <input
+                              type="radio"
+                              name="shippingMethod"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedShippingOption(option);
+                                setShippingMethod(option.id || option.serviceType);
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <p className="font-medium text-gray-900">{option.name || option.serviceName}</p>
+                                {option.fedexService && (
+                                  <span className="text-xs px-2 py-0.5 border border-gray-300">FedEx</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500 mt-0.5">
+                                {option.transitDays ? `${option.transitDays} business days` : 'Standard delivery'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-gray-900">
+                              {price === 0 ? 'FREE' : formatPrice(price)}
+                            </p>
+                            {option.deliveryDate && (
+                              <p className="text-sm text-gray-500">
+                                Est. {new Date(option.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Select an address to see shipping options</p>
+                  </div>
+                )}
+
+                {/* Signature Required */}
+                {shippingOptions.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-100">
+                    <label className="flex items-center space-x-4 cursor-pointer group">
+                      <div
+                        onClick={() => setSignatureRequired(!signatureRequired)}
+                        className={`w-6 h-6 border-2 flex items-center justify-center transition-all duration-300 cursor-pointer ${
+                          signatureRequired
+                            ? 'bg-gray-900 border-gray-900'
+                            : 'border-gray-300 group-hover:border-gray-900'
+                        }`}
+                      >
+                        {signatureRequired && <Check size={14} className="text-white" />}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Require Signature</p>
+                        <p className="text-sm text-gray-500">Someone must sign for delivery</p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Payment Method */}
+            <div className="bg-white border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gray-900 text-white flex items-center justify-center">
+                    <CreditCard size={18} />
+                  </div>
+                  <h2 className="text-lg font-medium text-gray-900">Payment Method</h2>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-3">
+                <label
+                  className={`flex items-center justify-between p-5 border-2 cursor-pointer transition-all duration-300 ${
+                    paymentMethod === 'card'
+                      ? 'border-gray-900 bg-gray-50'
+                      : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="card"
+                      checked={paymentMethod === 'card'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="cursor-pointer"
+                    />
+                    <div className="flex items-center space-x-3">
+                      <CreditCard size={20} className="text-gray-700" />
+                      <div>
+                        <p className="font-medium text-gray-900">Credit/Debit Card</p>
+                        <p className="text-sm text-gray-500">Pay securely with your card</p>
                       </div>
                     </div>
                   </div>
+                  {paymentMethod === 'card' && <Check size={20} className="text-gray-900" />}
+                </label>
 
-                  {/* Form Actions */}
-                  <div className="flex space-x-3 pt-2">
-                    <button
-                      onClick={() => {
-                        setShowNewAddress(false);
-                        resetNewAddress();
-                      }}
-                      className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveNewAddress}
-                      disabled={validatingAddress}
-                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-medium disabled:opacity-50 flex items-center justify-center space-x-2"
-                    >
-                      {validatingAddress ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-5 h-5" />
-                          <span>Save & Use Address</span>
-                        </>
-                      )}
-                    </button>
+                <label
+                  className={`flex items-center justify-between p-5 border-2 cursor-pointer transition-all duration-300 ${
+                    paymentMethod === 'cod'
+                      ? 'border-gray-900 bg-gray-50'
+                      : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="cod"
+                      checked={paymentMethod === 'cod'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="cursor-pointer"
+                    />
+                    <div className="flex items-center space-x-3">
+                      <Package size={20} className="text-gray-700" />
+                      <div>
+                        <p className="font-medium text-gray-900">Cash on Delivery</p>
+                        <p className="text-sm text-gray-500">Pay when you receive your order</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                  {paymentMethod === 'cod' && <Check size={20} className="text-gray-900" />}
+                </label>
+              </div>
             </div>
 
-            {/* Shipping Method Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Truck className="w-5 h-5 text-orange-600" />
+            {/* Coupon Code */}
+            <div className="bg-white border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gray-900 text-white flex items-center justify-center">
+                    <Gift size={18} />
+                  </div>
+                  <h2 className="text-lg font-medium text-gray-900">Promo Code</h2>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Shipping Method</h2>
-                  {fedexAvailable && (
-                    <p className="text-sm text-green-600 flex items-center space-x-1">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>FedEx rates available</span>
-                    </p>
+              </div>
+
+              <div className="p-6">
+                <div className="flex space-x-3">
+                  <input
+                    type="text"
+                    placeholder="Enter code"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    className="flex-1 px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300 uppercase"
+                    disabled={!!appliedCoupon}
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="px-6 py-3 border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-300 cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={applyingCoupon || !couponCode.trim()}
+                      className="px-6 py-3 bg-gray-900 text-white border-2 border-gray-900 hover:bg-white hover:text-gray-900 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {applyingCoupon ? 'Applying...' : 'Apply'}
+                    </button>
                   )}
                 </div>
-              </div>
 
-              {fetchingRates ? (
-                <div className="flex items-center justify-center py-8 space-x-2 text-blue-600">
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>Fetching shipping rates...</span>
-                </div>
-              ) : shippingOptions.length > 0 ? (
-                <div className="space-y-3">
-                  {shippingOptions.map((option, index) => {
-                    const isSelected = selectedShippingOption?.id === option.id || 
-                                      selectedShippingOption?.serviceType === option.serviceType;
-                    const price = option.price || option.totalCharge?.amount || 0;
-                    
-                    return (
-                      <label
-                        key={option.id || option.serviceType || index}
-                        className={`flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <input
-                            type="radio"
-                            name="shippingMethod"
-                            checked={isSelected}
-                            onChange={() => {
-                              setSelectedShippingOption(option);
-                              setShippingMethod(option.id || option.serviceType);
-                            }}
-                            className="text-blue-600 focus:ring-blue-500"
-                          />
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <p className="font-semibold text-gray-900">
-                                {option.name || option.serviceName}
-                              </p>
-                              {option.fedexService && (
-                                <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
-                                  FedEx
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {option.transitDays ? `${option.transitDays} business day${option.transitDays !== '1' ? 's' : ''}` : 'Standard delivery'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-gray-900">
-                            {price === 0 ? 'FREE' : formatPrice(price)}
-                          </p>
-                          {option.deliveryDate && (
-                            <p className="text-sm text-gray-600">
-                              Est. {new Date(option.deliveryDate).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric'
-                              })}
-                            </p>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                  <p>Select an address to see shipping options</p>
-                </div>
-              )}
-
-              {/* Signature Required Option */}
-              {shippingOptions.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={signatureRequired}
-                      onChange={(e) => setSignatureRequired(e.target.checked)}
-                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900">Require Signature</p>
-                      <p className="text-sm text-gray-600">
-                        Someone must be present to sign for delivery
+                {appliedCoupon && (
+                  <div className="mt-4 p-4 border-2 border-gray-900 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900 flex items-center space-x-2">
+                          <CheckCircle size={16} />
+                          <span>{appliedCoupon.coupon.code}</span>
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {appliedCoupon.coupon.discountType === 'percentage'
+                            ? `${appliedCoupon.coupon.discountValue}% OFF`
+                            : `${formatPrice(appliedCoupon.coupon.discountValue)} OFF`
+                          }
+                        </p>
+                      </div>
+                      <p className="text-lg font-medium text-gray-900">
+                        -{formatPrice(appliedCoupon.discountAmount)}
                       </p>
                     </div>
-                  </label>
-                </div>
-              )}
-
-              {/* FedEx Info */}
-              {fedexAvailable && (
-                <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <div className="flex items-start space-x-2">
-                    <Info className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div className="text-sm text-purple-700">
-                      <p className="font-medium">FedEx Shipping Benefits</p>
-                      <ul className="mt-1 space-y-1">
-                        <li>• Real-time tracking updates</li>
-                        <li>• Full insurance coverage</li>
-                        <li>• Delivery notifications</li>
-                      </ul>
-                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Payment Method Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-purple-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900">Payment Method</h2>
-              </div>
-              
-              <div className="space-y-3">
-                <label className={`flex items-center space-x-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  paymentMethod === 'card'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="card"
-                    checked={paymentMethod === 'card'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="text-purple-600 focus:ring-purple-500"
-                  />
-                  <CreditCard className="w-6 h-6 text-purple-600" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">Credit/Debit Card</p>
-                    <p className="text-sm text-gray-600">Pay securely with your card</p>
-                  </div>
-                  {paymentMethod === 'card' && <Check className="w-5 h-5 text-green-500" />}
-                </label>
-
-                <label className={`flex items-center space-x-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  paymentMethod === 'cod'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="cod"
-                    checked={paymentMethod === 'cod'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="text-purple-600 focus:ring-purple-500"
-                  />
-                  <Truck className="w-6 h-6 text-purple-600" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">Cash on Delivery</p>
-                    <p className="text-sm text-gray-600">Pay when you receive your order</p>
-                  </div>
-                  {paymentMethod === 'cod' && <Check className="w-5 h-5 text-green-500" />}
-                </label>
-              </div>
-            </div>
-
-            {/* Coupon Code Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Gift className="w-5 h-5 text-orange-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900">Coupon Code</h2>
-              </div>
-              
-              <div className="flex space-x-3">
-                <input
-                  type="text"
-                  placeholder="Enter coupon code"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all uppercase"
-                  disabled={!!appliedCoupon}
-                />
-                {appliedCoupon ? (
-                  <button
-                    onClick={handleRemoveCoupon}
-                    className="bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-all font-medium flex items-center space-x-2"
-                  >
-                    <X size={18} />
-                    <span>Remove</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleApplyCoupon}
-                    disabled={applyingCoupon || !couponCode.trim()}
-                    className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-xl hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-                  >
-                    {applyingCoupon ? 'Applying...' : 'Apply'}
-                  </button>
                 )}
               </div>
-              
-              {appliedCoupon && (
-                <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-green-800 font-bold text-lg">🎉 Coupon Applied!</p>
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  </div>
-                  <p className="text-green-700">
-                    <strong>{appliedCoupon.coupon.code}</strong> - {
-                      appliedCoupon.coupon.discountType === 'percentage'
-                        ? `${appliedCoupon.coupon.discountValue}% OFF`
-                        : `${formatPrice(appliedCoupon.coupon.discountValue)} OFF`
-                    }
-                  </p>
-                  <p className="text-green-700 font-semibold">
-                    You saved {formatPrice(appliedCoupon.discountAmount)}!
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Order Notes */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Notes (Optional)</h3>
-              <textarea
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                placeholder="Add any special instructions for your order..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
-                rows={3}
-                maxLength={500}
-              />
-              <p className="text-xs text-gray-500 mt-1">{orderNotes.length}/500 characters</p>
+            <div className="bg-white border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="font-medium text-gray-900">Order Notes (Optional)</h3>
+              </div>
+              <div className="p-6">
+                <textarea
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  placeholder="Add any special instructions..."
+                  className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300 resize-none"
+                  rows={3}
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-400 mt-2 text-right">{orderNotes.length}/500</p>
+              </div>
             </div>
           </div>
 
           {/* Right Column - Order Summary */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sticky top-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6 border-b border-gray-200 pb-4">
-                Order Summary
-              </h2>
-
-              {/* Order Items */}
-              <div className="space-y-4 mb-6 max-h-80 overflow-y-auto custom-scrollbar">
-                {cart.items.map(item => {
-                  const currentPrice = getCurrentPrice(item.product);
-                  const itemTotal = currentPrice * item.quantity;
-                  const mainImage = item.product.images?.[0] || item.product.image || '/placeholder-image.jpg';
-
-                  return (
-                    <div key={item._id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-xl">
-                      <img
-                        src={mainImage}
-                        alt={item.product.name}
-                        className="w-16 h-16 object-cover rounded-lg shadow-sm"
-                        onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm line-clamp-2">
-                          {item.product.name}
-                        </p>
-                        {item.product.author?.name && (
-                          <p className="text-gray-600 text-xs">by {item.product.author.name}</p>
-                        )}
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-gray-600 text-xs">Qty: {item.quantity}</p>
-                          {item.product.discountPrice && item.product.discountPrice < item.product.mrpPrice && (
-                            <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold">
-                              {Math.round(((item.product.mrpPrice - item.product.discountPrice) / item.product.mrpPrice) * 100)}% OFF
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <p className="font-bold text-gray-900 text-sm whitespace-nowrap">
-                        {formatPrice(itemTotal)}
-                      </p>
-                    </div>
-                  );
-                })}
+          <div className="lg:col-span-1">
+            <div className="bg-white border border-gray-200 shadow-lg sticky top-32">
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-lg font-medium text-gray-900">Order Summary</h2>
               </div>
 
-              {/* Price Breakdown */}
-              <div className="space-y-3 border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Subtotal ({cart.items.length} items)</span>
-                  <span className="font-semibold text-gray-900">{formatPrice(subtotal)}</span>
+              {/* Items */}
+              <div className="p-6 border-b border-gray-100 max-h-80 overflow-y-auto">
+                <div className="space-y-4">
+                  {cart.items.map(item => {
+                    const currentPrice = getCurrentPrice(item.product);
+                    const itemTotal = currentPrice * item.quantity;
+                    const mainImage = item.product.images?.[0] || item.product.image || '/placeholder-image.jpg';
+                    const hasDiscount = item.product.discountPrice && item.product.discountPrice < item.product.mrpPrice;
+
+                    return (
+                      <div key={item._id} className="flex space-x-4">
+                        <div className="w-20 h-20 border border-gray-200 flex-shrink-0 overflow-hidden">
+                          <img
+                            src={mainImage}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{item.product.name}</p>
+                          {item.product.author?.name && (
+                            <p className="text-xs text-gray-500">by {item.product.author.name}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-sm text-gray-500">Qty: {item.quantity}</span>
+                            <div className="text-right">
+                              <p className="font-medium text-gray-900">{formatPrice(itemTotal)}</p>
+                              {hasDiscount && (
+                                <p className="text-xs text-gray-400 line-through">
+                                  {formatPrice(item.product.mrpPrice * item.quantity)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">
-                    Shipping
-                    {selectedShippingOption && (
-                      <span className="text-xs text-gray-500 ml-1">
-                        ({selectedShippingOption.name || selectedShippingOption.serviceName})
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-semibold text-gray-900">
+              </div>
+
+              {/* Totals */}
+              <div className="p-6 space-y-4">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal ({cart.items.length} items)</span>
+                  <span className="font-medium text-gray-900">{formatPrice(subtotal)}</span>
+                </div>
+
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  <span className={`font-medium ${shippingCost === 0 ? 'text-gray-900' : 'text-gray-900'}`}>
                     {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                   </span>
                 </div>
+
                 {appliedCoupon && (
-                  <div className="flex justify-between items-center text-green-600">
-                    <span>Discount ({appliedCoupon.coupon.code})</span>
-                    <span className="font-bold">-{formatPrice(discountAmount)}</span>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Discount</span>
+                    <span className="font-medium text-gray-900">-{formatPrice(discountAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center text-lg font-bold border-t border-gray-200 pt-3">
-                  <span>Total</span>
-                  <span className="text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    {formatPrice(finalTotal)}
-                  </span>
-                </div>
-              </div>
 
-              {/* FedEx Shipping Info */}
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Package className="w-5 h-5 text-blue-600" />
-                  <p className="text-blue-800 font-semibold">
-                    {fedexAvailable ? 'FedEx Shipping' : 'Standard Shipping'}
-                  </p>
-                </div>
-                <ul className="text-blue-700 text-sm space-y-1">
-                  <li className="flex items-center space-x-2">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>Real-time tracking</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>Insurance coverage</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>Delivery to all 50 US states</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* COD Warning */}
-              {paymentMethod === 'cod' && (
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Truck className="w-5 h-5 text-yellow-600" />
-                    <p className="text-yellow-800 font-semibold">Cash on Delivery</p>
+                <div className="pt-4 border-t border-dashed border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium text-gray-900">Total</span>
+                    <span className="text-2xl font-light text-gray-900">{formatPrice(finalTotal)}</span>
                   </div>
-                  <p className="text-yellow-700 text-sm">
-                    Pay {formatPrice(finalTotal)} when you receive your order.
-                  </p>
                 </div>
-              )}
 
-              {/* Security Badges */}
-              <div className="flex items-center justify-center space-x-6 mt-6 pt-4 border-t border-gray-200">
-                <div className="flex items-center space-x-2 text-gray-600">
-                  <Shield className="w-4 h-4 text-green-500" />
-                  <span className="text-xs">Secure</span>
+                {/* Security Features */}
+                <div className="pt-6 border-t border-gray-100">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <Shield size={20} className="mx-auto text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-500">Secure</span>
+                    </div>
+                    <div>
+                      <Lock size={20} className="mx-auto text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-500">Encrypted</span>
+                    </div>
+                    <div>
+                      <RotateCcw size={20} className="mx-auto text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-500">30-Day Returns</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2 text-gray-600">
-                  <Lock className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs">Encrypted</span>
-                </div>
-                <div className="flex items-center space-x-2 text-gray-600">
-                  <RotateCcw className="w-4 h-4 text-orange-500" />
-                  <span className="text-xs">30-Day Returns</span>
-                </div>
-              </div>
 
-              {/* Place Order Button */}
-              <button
-                onClick={handlePlaceOrder}
-                disabled={
-                  placingOrder || 
-                  paymentLoading || 
-                  (!selectedAddress && !showNewAddress) ||
-                  !shippingOptions.length
-                }
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all font-semibold text-lg mt-6 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
-              >
-                {placingOrder || paymentLoading ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>{placingOrder ? 'Creating Order...' : 'Processing...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-5 h-5" />
-                    <span>
-                      {paymentMethod === 'cod' ? 'Place Order' : `Pay Now • ${formatPrice(finalTotal)}`}
-                    </span>
-                  </>
+                {/* Place Order Button */}
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={
+                    placingOrder ||
+                    paymentLoading ||
+                    (!selectedAddress && !showNewAddress) ||
+                    !shippingOptions.length
+                  }
+                  className="w-full flex items-center justify-center space-x-2 py-4 bg-gray-900 text-white border-2 border-gray-900 hover:bg-white hover:text-gray-900 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-900 disabled:hover:text-white font-medium text-lg mt-4"
+                >
+                  {placingOrder || paymentLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin"></div>
+                      <span>{placingOrder ? 'Creating Order...' : 'Processing...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={18} />
+                      <span>{paymentMethod === 'cod' ? 'Place Order' : `Pay ${formatPrice(finalTotal)}`}</span>
+                    </>
+                  )}
+                </button>
+
+                {paymentError && (
+                  <div className="mt-4 p-4 border border-gray-300 bg-gray-50">
+                    <p className="text-sm text-gray-700">{paymentError}</p>
+                  </div>
                 )}
-              </button>
 
-              {paymentError && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">{paymentError}</p>
-                </div>
-              )}
-
-              <p className="mt-4 text-center text-xs text-gray-500">
-                By completing your purchase, you agree to our Terms of Service
-              </p>
+                <p className="text-center text-xs text-gray-400 mt-4">
+                  By placing your order, you agree to our Terms of Service
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* FedEx Locations Modal */}
-      {showFedExLocations && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Package className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Nearby FedEx Locations</h2>
-                    <p className="text-sm text-gray-600">{fedExLocations.length} locations found</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowFedExLocations(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 overflow-y-auto max-h-96">
-              <div className="space-y-4">
-                {fedExLocations.length > 0 ? (
-                  fedExLocations.map((location, index) => (
-                    <div
-                      key={location.locationId || index}
-                      className="p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-all"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {location.name || 'FedEx Location'}
-                          </h3>
-                          {location.address && (
-                            <>
-                              <p className="text-gray-600 text-sm mt-1">
-                                {location.address.streetLines?.[0] || location.address.street}
-                              </p>
-                              <p className="text-gray-600 text-sm">
-                                {location.address.city}, {location.address.state || location.address.stateOrProvinceCode} {location.address.zipCode || location.address.postalCode}
-                              </p>
-                            </>
-                          )}
-                          {location.phone && (
-                            <p className="text-gray-600 text-sm mt-1">📞 {location.phone}</p>
-                          )}
-                        </div>
-                        {location.distance && (
-                          <div className="text-right">
-                            <span className="text-sm font-medium text-purple-600">
-                              {location.distance.value} {location.distance.units}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500">No FedEx locations found nearby</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-200">
-              <button
-                onClick={() => setShowFedExLocations(false)}
-                className="w-full bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
     </div>
   );
 };

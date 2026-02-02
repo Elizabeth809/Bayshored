@@ -243,8 +243,8 @@ const AboutCompanySection = () => {
               className="flex flex-wrap gap-x-12 gap-y-6 py-8 border-y border-gray-900/10"
             >
               {[
-                { label: "Verified Artists", value: "100+" },
-                { label: "Happy Collectors", value: "2,000+" },
+                { label: "Verified Artists", value: "10+" },
+                { label: "Happy Collectors", value: "100+" },
                 { label: "Satisfaction", value: "98%" },
               ].map((stat, idx) => (
                 <motion.div
@@ -273,7 +273,7 @@ const AboutCompanySection = () => {
               variants={textReveal}
               className="flex flex-col sm:flex-row gap-6"
             >
-              <Link to="/products" className="group">
+              <Link to="/store" className="group">
                 <motion.div
                   className="inline-flex items-center gap-3 text-gray-900 font-medium"
                   whileHover={{ x: 5 }}

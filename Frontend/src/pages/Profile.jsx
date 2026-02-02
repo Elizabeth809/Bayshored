@@ -23,7 +23,11 @@ import {
   Building,
   AlertCircle,
   RefreshCw,
-  Star
+  Star,
+  ChevronRight,
+  ArrowRight,
+  Package,
+  ShoppingBag
 } from 'lucide-react';
 
 // US States list
@@ -81,13 +85,6 @@ const US_STATES = [
   { code: 'WY', name: 'Wyoming' }
 ];
 
-// Get state name from code
-const getStateName = (code) => {
-  const state = US_STATES.find(s => s.code === code);
-  return state ? state.name : code;
-};
-
-// Format phone number
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
   const cleaned = phone.replace(/\D/g, '');
@@ -102,6 +99,7 @@ const Profile = () => {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showToastState, setShowToastState] = useState({ show: false, message: '', type: 'success' });
   const [userData, setUserData] = useState({
     name: '',
     email: '',
@@ -176,131 +174,194 @@ const Profile = () => {
   };
 
   const showToast = (message, type = 'success') => {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
-    
-    if (toast && toastMessage) {
-      toastMessage.textContent = message;
-      toast.className = `fixed top-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 transform transition-all duration-500 flex items-center space-x-2 ${
-        type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
-      }`;
-      
-      setTimeout(() => {
-        toast.className = 'hidden';
-      }, 3000);
-    }
+    setShowToastState({ show: true, message, type });
+    setTimeout(() => {
+      setShowToastState({ show: false, message: '', type: 'success' });
+    }, 3000);
   };
 
+  const tabs = [
+    { id: 'personal', label: 'Personal Info', icon: User, description: 'Manage your details' },
+    { id: 'security', label: 'Security', icon: Shield, description: 'Password & safety' },
+    { id: 'addresses', label: 'Addresses', icon: MapPin, description: 'Shipping locations' }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
+    <div className="min-h-screen bg-white">
       {/* Toast Notification */}
-      <div id="toast" className="hidden">
-        <div id="toastMessage" className="flex items-center space-x-2">
-          <CheckCircle size={20} />
-          <span></span>
+      <div 
+        className={`fixed top-6 right-6 z-50 transform transition-all duration-500 ease-out ${
+          showToastState.show 
+            ? 'translate-x-0 opacity-100' 
+            : 'translate-x-full opacity-0'
+        }`}
+      >
+        <div className={`flex items-center space-x-3 px-6 py-4 border-2 ${
+          showToastState.type === 'success' 
+            ? 'border-gray-900 bg-gray-900 text-white' 
+            : 'border-gray-900 bg-white text-gray-900'
+        }`}>
+          <CheckCircle size={18} />
+          <span className="font-medium">{showToastState.message}</span>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="relative inline-block">
-            <div className="w-32 h-32 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl transform hover:scale-105 transition-transform duration-300">
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <User className="w-16 h-16 text-white" />
-              )}
-              <button className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
-                <Camera className="w-4 h-4 text-emerald-600" />
-              </button>
+      {/* Hero Header Section */}
+      <div className="border-b-2 border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+            {/* Profile Info */}
+            <div className="flex items-center space-x-6">
+              <div className="relative group">
+                <div className="w-28 h-28 border-2 border-gray-900 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-gray-600">
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-light text-gray-900">
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  )}
+                </div>
+                <button className="absolute -bottom-2 -right-2 w-10 h-10 bg-gray-900 flex items-center justify-center cursor-pointer hover:bg-gray-700 transition-all duration-300">
+                  <Camera className="w-4 h-4 text-white" />
+                </button>
+              </div>
+              
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-light text-gray-900 tracking-tight">
+                  {user?.name || 'Welcome'}
+                </h1>
+                <p className="text-gray-500 mt-1 flex items-center space-x-2">
+                  <Mail className="w-4 h-4" />
+                  <span>{user?.email}</span>
+                </p>
+                <div className="flex items-center space-x-4 mt-3">
+                  <span className={`inline-flex items-center space-x-1.5 text-sm ${user?.isVerified ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`w-2 h-2 rounded-full ${user?.isVerified ? 'bg-gray-900' : 'bg-gray-400'}`}></span>
+                    <span>{user?.isVerified ? 'Verified Account' : 'Unverified'}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-4">
+              <Link
+                to="/orders"
+                className="group flex items-center space-x-3 border-2 border-gray-900 bg-gray-900 text-white px-6 py-4 cursor-pointer hover:bg-white hover:text-gray-900 transition-all duration-300"
+              >
+                <Package className="w-5 h-5" />
+                <span className="font-medium">My Orders</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+              </Link>
+              <Link
+                to="/store"
+                className="group flex items-center space-x-3 border-2 border-gray-900 text-gray-900 px-6 py-4 cursor-pointer hover:bg-gray-900 hover:text-white transition-all duration-300"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                <span className="font-medium">Shop Now</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+              </Link>
             </div>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-            {user?.name}
-          </h1>
-          <p className="text-gray-600 mt-2 text-lg">Welcome to your personal space</p>
-          <div className="flex justify-center space-x-6 mt-4">
-            <Link
-              to="/orders"
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all transform hover:scale-105 font-medium shadow-lg"
-            >
-              View My Orders
-            </Link>
-            <Link
-              to="/store"
-              className="bg-white text-gray-700 px-6 py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-all transform hover:scale-105 font-medium shadow-lg"
-            >
-              Continue Shopping
-            </Link>
-          </div>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex flex-col lg:flex-row gap-12">
           {/* Sidebar Navigation */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 sticky top-8">
-              <nav className="p-6">
-                <div className="space-y-2">
-                  {[
-                    { id: 'personal', label: 'Personal Info', icon: User },
-                    { id: 'security', label: 'Security', icon: Shield },
-                    { id: 'addresses', label: 'My Addresses', icon: MapPin }
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full flex items-center space-x-3 p-4 rounded-xl transition-all duration-300 ${
-                          activeTab === item.id
-                            ? 'bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-600 border border-emerald-200 shadow-md'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          <div className="lg:w-80 flex-shrink-0">
+            <div className="sticky top-8">
+              <h2 className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-6">
+                Account Settings
+              </h2>
+              <nav className="space-y-2">
+                {tabs.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center justify-between p-5 cursor-pointer transition-all duration-300 group ${
+                        isActive
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-900 border-2 border-gray-100 hover:border-gray-900'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <Icon size={20} className={isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'} />
+                        <div className="text-left">
+                          <span className="font-medium block">{item.label}</span>
+                          <span className={`text-xs ${isActive ? 'text-gray-300' : 'text-gray-400'}`}>
+                            {item.description}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight 
+                        size={18} 
+                        className={`transform transition-all duration-300 ${
+                          isActive ? 'text-white' : 'text-gray-300 group-hover:text-gray-900 group-hover:translate-x-1'
                         }`}
-                      >
-                        <Icon size={20} />
-                        <span className="font-medium">{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                      />
+                    </button>
+                  );
+                })}
               </nav>
+
+              {/* Account Stats */}
+              <div className="mt-8 pt-8 border-t-2 border-gray-100">
+                <h2 className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-6">
+                  Quick Stats
+                </h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 border-2 border-gray-100 hover:border-gray-900 transition-colors duration-300 cursor-default">
+                    <p className="text-2xl font-light text-gray-900">{user?.addresses?.length || 0}</p>
+                    <p className="text-xs text-gray-500 mt-1">Addresses</p>
+                  </div>
+                  <div className="p-4 border-2 border-gray-100 hover:border-gray-900 transition-colors duration-300 cursor-default">
+                    <p className="text-2xl font-light text-gray-900">
+                      {user?.createdAt ? new Date(user.createdAt).getFullYear() : '-'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Member Since</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Main Content Area */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-              <div className="p-8">
-                {loading ? (
-                  <div className="flex justify-center py-12">
-                    <LoadingSpinner size="large" />
-                  </div>
-                ) : activeTab === 'personal' ? (
-                  <PersonalInfoTab
-                    userData={userData}
-                    setUserData={setUserData}
-                    onSave={handleSaveProfile}
-                    saving={saving}
-                    user={user}
-                  />
-                ) : activeTab === 'security' ? (
-                  <SecurityTab token={token} showToast={showToast} />
-                ) : activeTab === 'addresses' ? (
-                  <AddressesTab
-                    addresses={addresses}
-                    fetchAddresses={fetchAddresses}
-                    token={token}
-                    showToast={showToast}
-                  />
-                ) : null}
+          <div className="flex-1 min-w-0">
+            {loading ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-2 border-gray-900 border-t-transparent animate-spin mx-auto"></div>
+                  <p className="text-gray-500 mt-4">Loading...</p>
+                </div>
               </div>
-            </div>
+            ) : activeTab === 'personal' ? (
+              <PersonalInfoTab
+                userData={userData}
+                setUserData={setUserData}
+                onSave={handleSaveProfile}
+                saving={saving}
+                user={user}
+              />
+            ) : activeTab === 'security' ? (
+              <SecurityTab token={token} showToast={showToast} />
+            ) : activeTab === 'addresses' ? (
+              <AddressesTab
+                addresses={addresses}
+                fetchAddresses={fetchAddresses}
+                token={token}
+                showToast={showToast}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -315,113 +376,129 @@ const PersonalInfoTab = ({ userData, setUserData, onSave, saving, user }) => {
                     userData.phoneNumber !== user?.phoneNumber;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Personal Information</h2>
-          <p className="text-gray-600">Update your personal details</p>
+          <h2 className="text-2xl font-light text-gray-900">Personal Information</h2>
+          <p className="text-gray-500 mt-1">Update your account details and preferences</p>
         </div>
         <button
           onClick={onSave}
           disabled={saving || !hasChanges}
-          className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed font-medium flex items-center space-x-2 shadow-lg"
+          className="inline-flex items-center justify-center space-x-2 border-2 border-gray-900 bg-gray-900 text-white px-8 py-3 cursor-pointer hover:bg-white hover:text-gray-900 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-gray-900 disabled:hover:text-white"
         >
           {saving ? (
-            <LoadingSpinner size="small" />
+            <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin"></div>
           ) : (
             <>
               <Save size={18} />
-              <span>Save Changes</span>
+              <span className="font-medium">Save Changes</span>
             </>
           )}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Personal Details */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-            <User className="w-5 h-5 text-emerald-600" />
-            <span>Basic Information</span>
-          </h3>
+      {/* Form Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Form Fields */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="border-2 border-gray-100 p-8 hover:border-gray-200 transition-colors duration-300">
+            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wider mb-8 flex items-center space-x-2">
+              <User className="w-4 h-4" />
+              <span>Basic Details</span>
+            </h3>
 
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-              <input
-                type="text"
-                value={userData.name}
-                onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300"
-                placeholder="Enter your full name"
-              />
-            </div>
+            <div className="space-y-8">
+              <div>
+                <label className="block text-sm text-gray-500 mb-3">Full Name</label>
+                <input
+                  type="text"
+                  value={userData.name}
+                  onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 text-gray-900 placeholder-gray-400"
+                  placeholder="Enter your full name"
+                />
+              </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 flex items-center space-x-2">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span>Email Address</span>
-              </label>
-              <input
-                type="email"
-                value={userData.email}
-                onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300"
-                placeholder="Enter your email"
-              />
-            </div>
+              <div>
+                <label className="block text-sm text-gray-500 mb-3 flex items-center space-x-2">
+                  <Mail className="w-4 h-4" />
+                  <span>Email Address</span>
+                </label>
+                <input
+                  type="email"
+                  value={userData.email}
+                  onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 text-gray-900 placeholder-gray-400"
+                  placeholder="Enter your email"
+                />
+              </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 flex items-center space-x-2">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span>Phone Number</span>
-              </label>
-              <input
-                type="tel"
-                value={userData.phoneNumber}
-                onChange={(e) => setUserData({ ...userData, phoneNumber: e.target.value })}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300"
-                placeholder="(555) 123-4567"
-              />
+              <div>
+                <label className="block text-sm text-gray-500 mb-3 flex items-center space-x-2">
+                  <Phone className="w-4 h-4" />
+                  <span>Phone Number</span>
+                </label>
+                <input
+                  type="tel"
+                  value={userData.phoneNumber}
+                  onChange={(e) => setUserData({ ...userData, phoneNumber: e.target.value })}
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 text-gray-900 placeholder-gray-400"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Account Info */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-            <Star className="w-5 h-5 text-emerald-600" />
-            <span>Account Information</span>
-          </h3>
-          
-          <div className="space-y-4">
-            <div className="p-4 bg-white rounded-xl border border-gray-200">
-              <p className="text-sm text-gray-600">Account Status</p>
-              <div className="flex items-center space-x-2 mt-1">
-                <div className={`w-2 h-2 rounded-full ${user?.isVerified ? 'bg-emerald-500' : 'bg-yellow-500'}`}></div>
+        {/* Right Column - Account Info */}
+        <div className="space-y-6">
+          <div className="border-2 border-gray-100 p-6 hover:border-gray-200 transition-colors duration-300">
+            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wider mb-6 flex items-center space-x-2">
+              <Star className="w-4 h-4" />
+              <span>Account Status</span>
+            </h3>
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between py-4 border-b border-gray-100">
+                <span className="text-gray-500">Status</span>
+                <span className="flex items-center space-x-2">
+                  <span className={`w-2 h-2 rounded-full ${user?.isVerified ? 'bg-gray-900' : 'bg-gray-400'}`}></span>
+                  <span className="font-medium text-gray-900">
+                    {user?.isVerified ? 'Verified' : 'Pending'}
+                  </span>
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between py-4 border-b border-gray-100">
+                <span className="text-gray-500">Member Since</span>
                 <span className="font-medium text-gray-900">
-                  {user?.isVerified ? 'Verified' : 'Pending Verification'}
+                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+                    month: 'short',
+                    year: 'numeric'
+                  }) : 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <span className="text-gray-500">Addresses</span>
+                <span className="font-medium text-gray-900">
+                  {user?.addresses?.length || 0} saved
                 </span>
               </div>
             </div>
-            
-            <div className="p-4 bg-white rounded-xl border border-gray-200">
-              <p className="text-sm text-gray-600">Member Since</p>
-              <p className="font-medium text-gray-900">
-                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long',
-                  day: 'numeric'
-                }) : 'N/A'}
-              </p>
-            </div>
+          </div>
 
-            <div className="p-4 bg-white rounded-xl border border-gray-200">
-              <p className="text-sm text-gray-600">Saved Addresses</p>
-              <p className="font-medium text-gray-900">
-                {user?.addresses?.length || 0} address{(user?.addresses?.length || 0) !== 1 ? 'es' : ''}
-              </p>
-            </div>
+          {/* Help Box */}
+          <div className="border-2 border-gray-900 p-6 bg-gray-900 text-white">
+            <h4 className="font-medium mb-2">Need Help?</h4>
+            <p className="text-gray-300 text-sm mb-4">
+              Contact our support team for assistance with your account.
+            </p>
+            <button className="text-sm underline underline-offset-4 cursor-pointer hover:no-underline transition-all duration-300">
+              Get Support →
+            </button>
           </div>
         </div>
       </div>
@@ -488,123 +565,137 @@ const SecurityTab = ({ token, showToast }) => {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Security Settings</h2>
-        <p className="text-gray-600">Manage your account security</p>
+    <div>
+      {/* Header */}
+      <div className="mb-10">
+        <h2 className="text-2xl font-light text-gray-900">Security Settings</h2>
+        <p className="text-gray-500 mt-1">Manage your password and account security</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Change Password */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-            <Lock className="w-5 h-5 text-emerald-600" />
-            <span>Change Password</span>
-          </h3>
-          
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-              <div className="relative">
-                <input
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 pr-12"
-                  placeholder="Enter current password"
-                  required
-                />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Change Password Form */}
+        <div className="lg:col-span-2">
+          <div className="border-2 border-gray-100 p-8 hover:border-gray-200 transition-colors duration-300">
+            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wider mb-8 flex items-center space-x-2">
+              <Lock className="w-4 h-4" />
+              <span>Change Password</span>
+            </h3>
+            
+            <form onSubmit={handleChangePassword} className="space-y-6">
+              <div>
+                <label className="block text-sm text-gray-500 mb-3">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 text-gray-900 pr-12"
+                    placeholder="Enter current password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-900 cursor-pointer transition-colors duration-300"
+                  >
+                    {showCurrentPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-500 mb-3">New Password</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 text-gray-900 pr-12"
+                    placeholder="Enter new password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-900 cursor-pointer transition-colors duration-300"
+                  >
+                    {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-500 mb-3">Confirm New Password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 text-gray-900 pr-12"
+                    placeholder="Confirm new password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-900 cursor-pointer transition-colors duration-300"
+                  >
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4">
                 <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  type="submit"
+                  disabled={changingPassword}
+                  className="w-full flex items-center justify-center space-x-2 border-2 border-gray-900 bg-gray-900 text-white py-4 cursor-pointer hover:bg-white hover:text-gray-900 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  {showCurrentPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {changingPassword ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin"></div>
+                  ) : (
+                    <>
+                      <Lock size={18} />
+                      <span className="font-medium">Update Password</span>
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? "text" : "password"}
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 pr-12"
-                  placeholder="Enter new password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 pr-12"
-                  placeholder="Confirm new password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={changingPassword}
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none font-medium flex items-center justify-center space-x-2"
-            >
-              {changingPassword ? (
-                <LoadingSpinner size="small" />
-              ) : (
-                <>
-                  <Lock size={18} />
-                  <span>Change Password</span>
-                </>
-              )}
-            </button>
-          </form>
+            </form>
+          </div>
         </div>
 
         {/* Security Tips */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-            <Shield className="w-5 h-5 text-emerald-600" />
-            <span>Security Tips</span>
-          </h3>
-          
-          <div className="space-y-4">
-            {[
-              { title: 'Use a strong password', desc: 'Include uppercase, lowercase, numbers, and symbols' },
-              { title: "Don't reuse passwords", desc: 'Use unique passwords for different accounts' },
-              { title: 'Enable 2FA', desc: 'Add an extra layer of security' },
-              { title: 'Regular updates', desc: 'Change your password every 3-6 months' }
-            ].map((tip, index) => (
-              <div key={index} className="p-4 bg-white rounded-xl border border-gray-200">
-                <p className="font-medium text-gray-900 flex items-center space-x-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                  <span>{tip.title}</span>
-                </p>
-                <p className="text-sm text-gray-600 mt-1 pl-4">{tip.desc}</p>
-              </div>
-            ))}
+        <div className="space-y-6">
+          <div className="border-2 border-gray-100 p-6 hover:border-gray-200 transition-colors duration-300">
+            <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wider mb-6 flex items-center space-x-2">
+              <Shield className="w-4 h-4" />
+              <span>Security Tips</span>
+            </h3>
+            
+            <div className="space-y-4">
+              {[
+                { title: 'Use strong passwords', desc: 'Mix letters, numbers & symbols' },
+                { title: 'Unique passwords', desc: 'Different for each account' },
+                { title: 'Enable 2FA', desc: 'Extra security layer' },
+                { title: 'Update regularly', desc: 'Change every 3-6 months' }
+              ].map((tip, index) => (
+                <div 
+                  key={index} 
+                  className="py-4 border-b border-gray-100 last:border-0 group cursor-default"
+                >
+                  <div className="flex items-start space-x-3">
+                    <span className="w-6 h-6 flex items-center justify-center border border-gray-200 text-xs text-gray-500 flex-shrink-0 group-hover:border-gray-900 group-hover:bg-gray-900 group-hover:text-white transition-all duration-300">
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{tip.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{tip.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -612,7 +703,7 @@ const SecurityTab = ({ token, showToast }) => {
   );
 };
 
-// Addresses Tab Component - Updated for US addresses with FedEx validation
+// Addresses Tab Component
 const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
@@ -664,7 +755,6 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
     setShowAddForm(true);
   };
 
-  // Validate address with FedEx
   const validateAddress = async () => {
     const { streetLine1, city, stateCode, zipCode } = formData;
     
@@ -697,8 +787,6 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
       
       if (data.success) {
         setValidationResult(data.data);
-        
-        // If normalized address is available, offer to use it
         if (data.data.normalizedAddress && data.data.isValid) {
           showToast('Address validated successfully!', 'success');
         } else {
@@ -726,25 +814,21 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
 
     const { streetLine1, city, stateCode, zipCode, phoneNumber } = formData;
 
-    // Validate required fields
     if (!streetLine1 || !city || !stateCode || !zipCode || !phoneNumber) {
       showToast('Please fill all required fields', 'error');
       return;
     }
 
-    // Validate ZIP code format
     if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
       showToast('Please enter a valid US ZIP code', 'error');
       return;
     }
 
-    // Validate state code
     if (!US_STATES.find(s => s.code === stateCode)) {
       showToast('Please select a valid US state', 'error');
       return;
     }
 
-    // Validate phone number
     const cleanedPhone = phoneNumber.replace(/\D/g, '');
     if (cleanedPhone.length < 10) {
       showToast('Please enter a valid phone number', 'error');
@@ -763,7 +847,6 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
         ...formData,
         phoneNumber: cleanedPhone,
         countryCode: 'US',
-        // Store FedEx validation result if available
         fedexValidated: validationResult?.isValid || false,
         fedexClassification: validationResult?.classification || null,
         normalizedAddress: validationResult?.normalizedAddress || null
@@ -823,31 +906,34 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">My Addresses</h2>
-          <p className="text-gray-600">Manage your US shipping addresses</p>
+          <h2 className="text-2xl font-light text-gray-900">My Addresses</h2>
+          <p className="text-gray-500 mt-1">Manage your shipping addresses</p>
         </div>
-        <button
-          onClick={() => {
-            setShowAddForm(true);
-            setEditingAddress(null);
-            resetFormData();
-          }}
-          className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all transform hover:scale-105 font-medium flex items-center space-x-2 shadow-lg"
-        >
-          <Plus size={20} />
-          <span>Add New Address</span>
-        </button>
+        {!showAddForm && (
+          <button
+            onClick={() => {
+              setShowAddForm(true);
+              setEditingAddress(null);
+              resetFormData();
+            }}
+            className="inline-flex items-center justify-center space-x-2 border-2 border-gray-900 bg-gray-900 text-white px-6 py-3 cursor-pointer hover:bg-white hover:text-gray-900 transition-all duration-300"
+          >
+            <Plus size={18} />
+            <span className="font-medium">Add Address</span>
+          </button>
+        )}
       </div>
 
-      {/* Add/Edit Address Form */}
+      {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {editingAddress ? 'Edit Address' : 'Add New US Address'}
+        <div className="border-2 border-gray-900 mb-10 overflow-hidden">
+          <div className="bg-gray-900 text-white px-8 py-5 flex items-center justify-between">
+            <h3 className="font-medium text-lg">
+              {editingAddress ? 'Edit Address' : 'New Address'}
             </h3>
             <button
               onClick={() => {
@@ -855,112 +941,129 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
                 setEditingAddress(null);
                 resetFormData();
               }}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="w-8 h-8 flex items-center justify-center hover:bg-white hover:text-gray-900 cursor-pointer transition-all duration-300"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Label */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address Label (Optional)
-                </label>
+                <label className="block text-sm text-gray-500 mb-3">Label</label>
                 <input
                   type="text"
                   value={formData.label}
                   onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300"
                   placeholder="Home, Office, etc."
                 />
               </div>
 
-              {/* Phone Number */}
+              {/* Phone */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number *
-                </label>
+                <label className="block text-sm text-gray-500 mb-3">Phone Number *</label>
                 <input
                   type="tel"
                   required
                   value={formData.phoneNumber}
                   onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300"
                   placeholder="(555) 123-4567"
                 />
               </div>
 
-              {/* Street Line 1 */}
+              {/* Address Type */}
+              <div>
+                <label className="block text-sm text-gray-500 mb-3">Type</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isResidential: true })}
+                    className={`flex-1 flex items-center justify-center space-x-2 py-4 border-2 cursor-pointer transition-all duration-300 ${
+                      formData.isResidential
+                        ? 'bg-gray-900 border-gray-900 text-white'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-900'
+                    }`}
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>Home</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isResidential: false })}
+                    className={`flex-1 flex items-center justify-center space-x-2 py-4 border-2 cursor-pointer transition-all duration-300 ${
+                      !formData.isResidential
+                        ? 'bg-gray-900 border-gray-900 text-white'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-900'
+                    }`}
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Office</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Street 1 */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Street Address *
-                </label>
+                <label className="block text-sm text-gray-500 mb-3">Street Address *</label>
                 <input
                   type="text"
                   required
                   value={formData.streetLine1}
                   onChange={(e) => setFormData({ ...formData, streetLine1: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300"
                   placeholder="123 Main Street"
                 />
               </div>
 
-              {/* Street Line 2 */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Apartment, Suite, Unit (Optional)
-                </label>
+              {/* Street 2 */}
+              <div>
+                <label className="block text-sm text-gray-500 mb-3">Apt, Suite, Unit</label>
                 <input
                   type="text"
                   value={formData.streetLine2}
                   onChange={(e) => setFormData({ ...formData, streetLine2: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  placeholder="Apt 4B, Suite 100, etc."
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300"
+                  placeholder="Apt 4B"
                 />
               </div>
 
               {/* City */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City *
-                </label>
+                <label className="block text-sm text-gray-500 mb-3">City *</label>
                 <input
                   type="text"
                   required
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300"
                   placeholder="Los Angeles"
                 />
               </div>
 
               {/* State */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  State *
-                </label>
+                <label className="block text-sm text-gray-500 mb-3">State *</label>
                 <select
                   required
                   value={formData.stateCode}
                   onChange={(e) => setFormData({ ...formData, stateCode: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300 cursor-pointer appearance-none"
                 >
                   <option value="">Select State</option>
                   {US_STATES.map(state => (
                     <option key={state.code} value={state.code}>
-                      {state.code} - {state.name}
+                      {state.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* ZIP Code */}
+              {/* ZIP */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ZIP Code *
-                </label>
+                <label className="block text-sm text-gray-500 mb-3">ZIP Code *</label>
                 <input
                   type="text"
                   required
@@ -969,107 +1072,77 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
                     const value = e.target.value.replace(/[^\d-]/g, '');
                     setFormData({ ...formData, zipCode: value });
                   }}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-transparent focus:border-gray-900 focus:bg-white focus:outline-none transition-all duration-300"
                   placeholder="90210"
                   maxLength={10}
                 />
-                <p className="text-xs text-gray-500 mt-1">Format: 12345 or 12345-6789</p>
-              </div>
-
-              {/* Address Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address Type
-                </label>
-                <div className="flex space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, isResidential: true })}
-                    className={`flex-1 px-4 py-3 rounded-xl border transition-all flex items-center justify-center space-x-2 ${
-                      formData.isResidential
-                        ? 'bg-emerald-100 border-emerald-500 text-emerald-700'
-                        : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Home className="w-4 h-4" />
-                    <span>Residential</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, isResidential: false })}
-                    className={`flex-1 px-4 py-3 rounded-xl border transition-all flex items-center justify-center space-x-2 ${
-                      !formData.isResidential
-                        ? 'bg-emerald-100 border-emerald-500 text-emerald-700'
-                        : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Building className="w-4 h-4" />
-                    <span>Business</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Default Address Toggle */}
-              <div className="flex items-center">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isDefault}
-                    onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-                    className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500"
-                  />
-                  <span className="text-gray-700">Set as default address</span>
-                </label>
               </div>
             </div>
 
-            {/* FedEx Validation */}
-            <div className="border-t border-gray-200 pt-6">
-              <div className="flex items-center justify-between mb-4">
+            {/* Default Toggle */}
+            <div className="mt-8 pt-8 border-t border-gray-100">
+              <label className="flex items-center space-x-4 cursor-pointer group">
+                <div 
+                  className={`w-6 h-6 border-2 flex items-center justify-center transition-all duration-300 ${
+                    formData.isDefault 
+                      ? 'bg-gray-900 border-gray-900' 
+                      : 'border-gray-300 group-hover:border-gray-900'
+                  }`}
+                  onClick={() => setFormData({ ...formData, isDefault: !formData.isDefault })}
+                >
+                  {formData.isDefault && <CheckCircle className="w-4 h-4 text-white" />}
+                </div>
+                <span className="text-gray-700">Set as default address</span>
+              </label>
+            </div>
+
+            {/* Validation */}
+            <div className="mt-8 pt-8 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <div>
-                  <h4 className="font-medium text-gray-900">FedEx Address Validation</h4>
-                  <p className="text-sm text-gray-600">Validate your address for accurate delivery</p>
+                  <h4 className="font-medium text-gray-900">Validate Address</h4>
+                  <p className="text-sm text-gray-500">Verify for accurate delivery</p>
                 </div>
                 <button
                   type="button"
                   onClick={validateAddress}
                   disabled={validating}
-                  className="bg-purple-100 text-purple-700 px-4 py-2 rounded-lg hover:bg-purple-200 transition-all flex items-center space-x-2 disabled:opacity-50"
+                  className="inline-flex items-center space-x-2 border-2 border-gray-200 text-gray-700 px-5 py-2.5 cursor-pointer hover:border-gray-900 hover:text-gray-900 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {validating ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Validating...</span>
+                      <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent animate-spin"></div>
+                      <span>Checking...</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />
-                      <span>Validate Address</span>
+                      <span>Validate</span>
                     </>
                   )}
                 </button>
               </div>
 
               {validationResult && (
-                <div className={`p-4 rounded-xl ${
+                <div className={`p-5 border-2 ${
                   validationResult.isValid
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-yellow-50 border border-yellow-200'
+                    ? 'border-gray-900'
+                    : 'border-gray-300 bg-gray-50'
                 }`}>
                   <div className="flex items-start space-x-3">
                     {validationResult.isValid ? (
-                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      <CheckCircle className="w-5 h-5 text-gray-900 flex-shrink-0 mt-0.5" />
                     ) : (
-                      <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
                     )}
                     <div>
-                      <p className={`font-medium ${validationResult.isValid ? 'text-green-800' : 'text-yellow-800'}`}>
-                        {validationResult.isValid ? 'Address Validated' : 'Validation Warning'}
+                      <p className={`font-medium ${validationResult.isValid ? 'text-gray-900' : 'text-gray-600'}`}>
+                        {validationResult.isValid ? 'Address Verified' : 'Verification Warning'}
                       </p>
-                      <p className={`text-sm mt-1 ${validationResult.isValid ? 'text-green-700' : 'text-yellow-700'}`}>
+                      <p className="text-sm text-gray-500 mt-1">
                         {validationResult.isValid 
-                          ? `Classification: ${validationResult.classification || 'Standard'}`
-                          : validationResult.warning || validationResult.messages?.[0] || 'Please verify address details'
+                          ? `Type: ${validationResult.classification || 'Standard'}`
+                          : validationResult.warning || 'Please check address details'
                         }
                       </p>
                     </div>
@@ -1078,8 +1151,8 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
               )}
             </div>
 
-            {/* Form Actions */}
-            <div className="flex space-x-4 pt-4">
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-4 mt-10">
               <button
                 type="button"
                 onClick={() => {
@@ -1087,20 +1160,17 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
                   setEditingAddress(null);
                   resetFormData();
                 }}
-                className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
+                className="flex-1 border-2 border-gray-200 text-gray-600 py-4 cursor-pointer hover:border-gray-900 hover:text-gray-900 transition-all duration-300 font-medium"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+                className="flex-1 flex items-center justify-center space-x-2 border-2 border-gray-900 bg-gray-900 text-white py-4 cursor-pointer hover:bg-white hover:text-gray-900 transition-all duration-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>Saving...</span>
-                  </>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin"></div>
                 ) : (
                   <>
                     <Save size={18} />
@@ -1114,104 +1184,103 @@ const AddressesTab = ({ addresses, fetchAddresses, token, showToast }) => {
       )}
 
       {/* Address List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {addresses.map((address, index) => (
-          <div
-            key={address._id || index}
-            className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 group"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  {address.isResidential !== false ? (
-                    <Home className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <Building className="w-5 h-5 text-emerald-600" />
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-semibold text-gray-900">
-                      {address.label || (address.isResidential !== false ? 'Home' : 'Business')}
-                    </h3>
-                    {address.isDefault && (
-                      <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                        Default
-                      </span>
-                    )}
-                    {address.fedexValidated && (
-                      <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
-                        <CheckCircle className="w-3 h-3" />
-                        <span>Verified</span>
-                      </span>
+      {addresses.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {addresses.map((address, index) => (
+            <div
+              key={address._id || index}
+              className="border-2 border-gray-100 hover:border-gray-900 transition-all duration-300 group"
+            >
+              {/* Card Header */}
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 border border-gray-200 flex items-center justify-center group-hover:border-gray-900 group-hover:bg-gray-900 transition-all duration-300">
+                    {address.isResidential !== false ? (
+                      <Home className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors duration-300" />
+                    ) : (
+                      <Building className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors duration-300" />
                     )}
                   </div>
-                  <p className="text-sm text-gray-500">
-                    {address.isResidential !== false ? 'Residential' : 'Business'} Address
-                  </p>
+                  <div>
+                    <h3 className="font-medium text-gray-900 flex items-center space-x-2">
+                      <span>{address.label || (address.isResidential !== false ? 'Home' : 'Office')}</span>
+                      {address.isDefault && (
+                        <span className="text-xs border border-gray-900 px-2 py-0.5 font-normal">
+                          Default
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {address.isResidential !== false ? 'Residential' : 'Business'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <button
+                    onClick={() => handleEdit(address)}
+                    className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 cursor-pointer transition-all duration-300"
+                    title="Edit"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(address._id)}
+                    className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 cursor-pointer transition-all duration-300"
+                    title="Delete"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
-              <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <button
-                  onClick={() => handleEdit(address)}
-                  className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center hover:bg-emerald-200 transition-colors"
-                  title="Edit address"
-                >
-                  <Edit3 size={14} />
-                </button>
-                <button
-                  onClick={() => handleDelete(address._id)}
-                  className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-200 transition-colors"
-                  title="Delete address"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
 
-            <div className="space-y-2 text-gray-600">
-              <div className="flex items-start space-x-3">
-                <MapPin className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {address.streetLine1 || address.street}
-                  </p>
-                  {(address.streetLine2 || address.apartment) && (
-                    <p className="text-sm">{address.streetLine2 || address.apartment}</p>
-                  )}
-                  <p className="mt-1">
-                    {address.city}, {address.stateCode || address.state} {address.zipCode}
-                  </p>
+              {/* Card Body */}
+              <div className="px-6 py-5 space-y-3">
+                <div className="flex items-start space-x-3">
+                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                  <div className="text-gray-600">
+                    <p className="text-gray-900 font-medium">
+                      {address.streetLine1 || address.street}
+                    </p>
+                    {(address.streetLine2 || address.apartment) && (
+                      <p className="text-sm">{address.streetLine2 || address.apartment}</p>
+                    )}
+                    <p className="mt-1">
+                      {address.city}, {address.stateCode || address.state} {address.zipCode}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-2 border-t border-gray-100">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600">{formatPhoneNumber(address.phoneNumber || address.phoneNo)}</span>
                 </div>
               </div>
-              <div className="flex items-center space-x-2 text-sm pt-2">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span>{formatPhoneNumber(address.phoneNumber || address.phoneNo)}</span>
-              </div>
             </div>
+          ))}
+        </div>
+      ) : !showAddForm ? (
+        /* Empty State */
+        <div className="border-2 border-dashed border-gray-200 py-16 text-center">
+          <div className="w-20 h-20 border-2 border-gray-200 flex items-center justify-center mx-auto mb-6">
+            <MapPin className="w-10 h-10 text-gray-300" />
           </div>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {addresses.length === 0 && !showAddForm && (
-        <div className="text-center py-12">
-          <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MapPin className="w-12 h-12 text-emerald-500" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No addresses saved</h3>
-          <p className="text-gray-600 mb-6">Add your first US shipping address to get started</p>
+          <h3 className="text-xl font-light text-gray-900 mb-2">No addresses yet</h3>
+          <p className="text-gray-500 mb-8 max-w-sm mx-auto">
+            Add your first shipping address to make checkout faster
+          </p>
           <button
             onClick={() => {
               setShowAddForm(true);
               resetFormData();
             }}
-            className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all transform hover:scale-105 font-medium"
+            className="inline-flex items-center space-x-2 border-2 border-gray-900 bg-gray-900 text-white px-8 py-4 cursor-pointer hover:bg-white hover:text-gray-900 transition-all duration-300"
           >
-            Add Your First Address
+            <Plus size={18} />
+            <span className="font-medium">Add Your First Address</span>
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };
