@@ -67,7 +67,7 @@ const AboutCompanySection = () => {
   return (
     <section 
       ref={sectionRef}
-      className="relative py-32 overflow-hidden bg-white"
+      className="relative py-12 overflow-hidden bg-white"
     >
       {/* Subtle Background Pattern */}
       <div 
@@ -371,81 +371,6 @@ const AboutCompanySection = () => {
                 />
               </motion.div>
             ))}
-          </div>
-        </motion.div>
-
-        {/* Promise Section - Minimal */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 1 }}
-          className="mt-32 pt-20 border-t border-gray-900/10"
-        >
-          <div className="text-center max-w-4xl mx-auto">
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              whileInView={{ scale: 1, rotate: 0 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", duration: 1 }}
-              className="inline-flex items-center justify-center w-16 h-16 border border-gray-900/10 mb-8"
-            >
-              <Sparkles className="w-6 h-6 text-gray-900" strokeWidth={1.5} />
-            </motion.div>
-
-            <motion.h3 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="font-playfair text-3xl lg:text-4xl font-bold text-gray-900 mb-6"
-            >
-              Our Promise to You
-            </motion.h3>
-            
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-lg text-gray-900/60 leading-relaxed mb-12"
-            >
-              Every artwork comes with our commitment to quality, authenticity, and exceptional 
-              service. We stand behind every piece we sell.
-            </motion.p>
-
-            {/* Promise items - inline with animations */}
-            <div className="flex flex-wrap justify-center gap-x-12 gap-y-4">
-              {['Free Shipping', 'Authenticity Guarantee', '30-Day Returns', '24/7 Support'].map((item, idx) => (
-                <motion.div
-                  key={item}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.2 + idx * 0.1 }}
-                  whileHover={{ y: -3 }}
-                  className="flex items-center gap-2 text-gray-900"
-                >
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    whileInView={{ scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.3 + idx * 0.1, type: "spring" }}
-                  >
-                    <CheckCircle2 className="w-4 h-4" strokeWidth={1.5} />
-                  </motion.div>
-                  <span className="text-sm font-medium">{item}</span>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Bottom line animation */}
-            <motion.div
-              initial={{ scaleX: 0 }}
-              whileInView={{ scaleX: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.6, duration: 1 }}
-              className="w-32 h-px bg-gray-900/20 mx-auto mt-16 origin-center"
-            />
           </div>
         </motion.div>
 

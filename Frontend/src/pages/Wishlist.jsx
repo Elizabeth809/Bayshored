@@ -267,7 +267,7 @@ const Wishlist = () => {
           <p className="text-gray-600 !mb-8">Save your favorite artworks here!</p>
           <Link
             to="/store"
-            className="bg-emerald-600 text-white !px-6 !py-3 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+            className="bg-gray-600 text-white !px-6 !py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium"
           >
             Explore Artworks
           </Link>
@@ -298,7 +298,7 @@ const Wishlist = () => {
             return (
               <motion.div
                 key={product._id}
-                className="!relative !bg-white !rounded-xl !shadow-lg !overflow-hidden !transition-all !duration-300 !hover:shadow-2xl !border !border-emerald-100"
+                className="!relative !bg-white !rounded-xl !shadow-lg !overflow-hidden !transition-all !duration-300 !hover:shadow-2xl !border !border-gray-100"
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 whileHover={{ y: -8 }}
@@ -330,7 +330,7 @@ const Wishlist = () => {
                       whileTap={{ scale: 0.95 }}
                       onClick={() => removeFromWishlist(product._id)}
                       disabled={updating}
-                      className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 !disabled:!opacity-50"
+                      className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 !disabled:!opacity-50 cursor-pointer"
                       title="Remove from Wishlist"
                     >
                       {updating ? (
@@ -347,10 +347,10 @@ const Wishlist = () => {
                       whileHover={{ scale: 1.1, backgroundColor: "#ffffff" }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleQuickView(product)}
-                      className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200"
+                      className="!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 cursor-pointer"
                       title="Quick View"
                     >
-                      <Eye className="!text-gray-700 !hover:!text-emerald-600" size={20} />
+                      <Eye className="!text-gray-700 !hover:!text-gray-600" size={20} />
                     </motion.button>
 
                     {/* Add to Cart Button - Hide for Ask for Price products */}
@@ -362,7 +362,7 @@ const Wishlist = () => {
                         whileTap={{ scale: 0.95 }}
                         onClick={() => moveToCart(product)}
                         disabled={updating || isSoldOut}
-                        className={`!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 ${isSoldOut
+                        className={`!p-3 !bg-white/90 !backdrop-blur-sm !rounded-full !shadow-lg !transition-all !duration-200 cursor-pointer ${isSoldOut
                           ? '!cursor-not-allowed'
                           : '!disabled:!opacity-50'
                           }`}
@@ -373,7 +373,7 @@ const Wishlist = () => {
                         ) : isSoldOut ? (
                           <Info className="!text-red-500" size={20} />
                         ) : (
-                          <ShoppingCart className="!text-gray-700 !hover:!text-emerald-600" size={20} />
+                          <ShoppingCart className="!text-gray-700 !hover:!text-gray-600" size={20} />
                         )}
                       </motion.button>
                     )}
@@ -382,7 +382,7 @@ const Wishlist = () => {
                   {/* Discount Badge */}
                   {discountPercentage > 0 && !hasAskForPrice && (
                     <div className="!absolute !top-4 !left-4 !z-10">
-                      <span className="!bg-emerald-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
+                      <span className="!bg-gray-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
                         {discountPercentage}% OFF
                       </span>
                     </div>
@@ -391,8 +391,8 @@ const Wishlist = () => {
                   {/* Ask for Price Badge */}
                   {hasAskForPrice && (
                     <div className="!absolute !top-4 !left-4 !z-10">
-                      <span className="!bg-purple-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
-                        Ask for Price
+                      <span className="!bg-gray-600 !text-white !px-3 !py-1 !rounded-full !text-xs !font-bold !shadow-lg">
+                        Ask Upon Price
                       </span>
                     </div>
                   )}
@@ -412,13 +412,13 @@ const Wishlist = () => {
                   <Link to={`/product/${product.slug}`}>
                     {/* Category */}
                     <div className="!mb-2">
-                      <span className="!text-sm !font-semibold !text-emerald-700 !uppercase !tracking-wider">
+                      <span className="!text-sm !font-semibold !text-gray-700 !uppercase !tracking-wider">
                         {product.category?.name || 'Uncategorized'}
                       </span>
                     </div>
 
                     {/* Title */}
-                    <h3 className="font-playfair !text-xl !font-bold !text-gray-900 !line-clamp-2 !transition-colors !duration-300 !hover:!text-emerald-800 !mb-3">
+                    <h3 className="font-playfair !text-xl !font-bold !text-gray-900 !line-clamp-2 !transition-colors !duration-300 !hover:!text-gray-800 !mb-3">
                       {product.name}
                     </h3>
 
@@ -430,8 +430,8 @@ const Wishlist = () => {
                     {/* Price Section */}
                     <div className="!flex !items-baseline !justify-center !space-x-2">
                       {hasAskForPrice ? (
-                        <span className="font-playfair !text-2xl !font-bold !text-purple-700">
-                          Price on Request
+                        <span className="font-playfair !text-2xl !font-bold !text-gray-700">
+                          Price Upon Request
                         </span>
                       ) : (
                         <>
@@ -502,7 +502,7 @@ const Wishlist = () => {
                   </div>
                   <div className="!flex !flex-col font-playfair">
                     <h2 className="!text-3xl !font-bold !text-gray-900 !mb-2">{selectedProduct.name}</h2>
-                    <p className="font-parisienne !text-2xl !text-emerald-700 !mb-4">
+                    <p className="font-parisienne !text-2xl !text-gray-700 !mb-4">
                       by {selectedProduct.author?.name || 'Unknown Artist'}
                     </p>
                     
@@ -510,11 +510,11 @@ const Wishlist = () => {
                     <div className="!mb-4">
                       {selectedProduct.askForPrice ? (
                         <div className="!flex !items-center !space-x-2 !mb-2">
-                          <span className="!text-3xl !font-bold !text-purple-700">
-                            Price on Request
+                          <span className="!text-3xl !font-bold !text-gray-700">
+                            Price Upon Request
                           </span>
-                          <span className="!bg-purple-100 !text-purple-800 !px-2 !py-1 !rounded-full !text-sm !font-bold">
-                            Ask for Price
+                          <span className="!bg-gray-100 !text-gray-800 !px-2 !py-1 !rounded-full !text-sm !font-bold">
+                            Ask Upon Price
                           </span>
                         </div>
                       ) : (
@@ -552,14 +552,14 @@ const Wishlist = () => {
                       </div>
                       <div className="!flex !justify-between">
                         <span className="!text-gray-600">Stock:</span>
-                        <span className={`!font-medium ${selectedProduct.stock > 0 ? '!text-green-600' : '!text-red-600'}`}>
+                        <span className={`!font-medium ${selectedProduct.stock > 0 ? '!text-gray-600' : '!text-red-600'}`}>
                           {selectedProduct.stock > 0 ? 'In Stock' : 'Out of Stock'}
                         </span>
                       </div>
                       {selectedProduct.askForPrice && (
                         <div className="!flex !justify-between">
                           <span className="!text-gray-600">Pricing:</span>
-                          <span className="!font-medium !text-purple-700">Available on Request</span>
+                          <span className="!font-medium !text-gray-700">Available Upon Request</span>
                         </div>
                       )}
                     </div>
@@ -572,7 +572,7 @@ const Wishlist = () => {
                           {selectedProduct.tags.map((tag, index) => (
                             <span
                               key={index}
-                              className="!bg-emerald-100 !text-emerald-800 !px-3 !py-1 !rounded-full !text-sm !font-medium"
+                              className="!bg-gray-100 !text-gray-800 !px-3 !py-1 !rounded-full !text-sm !font-medium"
                             >
                               {tag}
                             </span>
@@ -595,7 +595,7 @@ const Wishlist = () => {
                         <button
                           onClick={handleQuickViewAddToCart}
                           disabled={addingToCart || selectedProduct.stock === 0}
-                          className="!flex-1 !bg-emerald-600 !text-white !py-3 !px-6 !rounded-lg !hover:!bg-emerald-700 !disabled:!bg-gray-300 !disabled:!cursor-not-allowed !transition-colors !duration-200 !font-medium"
+                          className="!flex-1 !bg-gray-600 !text-white !py-3 !px-6 !rounded-lg !hover:!bg-gray-700 !disabled:!bg-gray-300 !disabled:!cursor-not-allowed !transition-colors !duration-200 !font-medium"
                         >
                           {addingToCart ? 'Adding...' : selectedProduct.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                         </button>
@@ -613,7 +613,7 @@ const Wishlist = () => {
       <AnimatePresence>
         {feedback.active && (
           <motion.div
-            className="!fixed !bottom-4 !right-4 !bg-emerald-600 !text-white !p-4 !rounded-lg !shadow-lg !flex !items-center !justify-center !z-50"
+            className="!fixed !bottom-4 !right-4 !bg-gray-600 !text-white !p-4 !rounded-lg !shadow-lg !flex !items-center !justify-center !z-50"
             initial={{ opacity: 0, y: "100%" }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: "100%" }}
