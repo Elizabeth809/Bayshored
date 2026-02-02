@@ -27,6 +27,7 @@ import OrderSuccess from './pages/ordersStatus/OrderSuccess';
 import PaymentFailed from './pages/ordersStatus/PaymentFailed';
 import ContactPage from './pages/ContactPage';
 import Footer from './components/Footer/Footer';
+import About from './pages/About';
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
                 <Route path="/artists" element={<Authors />} />
                 <Route path="/artist/:authorId" element={<AuthorDetail />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/about" element={<About />} />
 
                 {/* Protected Routes */}
                 <Route
