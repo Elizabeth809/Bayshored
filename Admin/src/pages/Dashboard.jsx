@@ -10,8 +10,7 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement,
-  Filler
+  ArcElement
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import LoadingSpinner from '../components/AdminLoadingSpinner';
@@ -43,8 +42,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement,
-  Filler
+  ArcElement
 );
 
 // --- New Activity Feed Component ---

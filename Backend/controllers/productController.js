@@ -1,164 +1,16 @@
-// controllers/productController.js
 import Product from "../models/productModel.js";
 import cloudinary from "../config/cloudinary.js";
 import PriceInquiry from "../models/priceInquiryModel.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
-// ============================================
-// Helper Functions
-// ============================================
-
-const parseJSON = (value, defaultValue = {}) => {
-  if (!value) return defaultValue;
-  if (typeof value === 'object') return value;
-  
-  try {
-    return JSON.parse(value);
-  } catch {
-    return defaultValue;
-  }
-};
-
-const parseTags = (tags) => {
-  if (!tags) return [];
-  if (Array.isArray(tags)) return tags.map(t => t.trim().toLowerCase());
-  
-  try {
-    const parsed = JSON.parse(tags);
-    return Array.isArray(parsed) ? parsed.map(t => t.trim().toLowerCase()) : [];
-  } catch {
-    return tags.split(',').map(t => t.trim().toLowerCase());
-  }
-};
-
-const parseBoolean = (value, defaultVal = false) => {
-  if (typeof value === 'boolean') return value;
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  return defaultVal;
-};
-
-const parseNumber = (value, defaultVal = 0) => {
-  if (value === null || value === undefined || value === '') return defaultVal;
-  const num = parseFloat(value);
-  return isNaN(num) ? defaultVal : num;
-};
-
-const deleteCloudinaryImages = async (images) => {
-  if (!images?.length) return;
-  
-  try {
-    await Promise.all(
-      images.map(url => {
-        const publicId = url.split('/').pop().split('.')[0];
-        return cloudinary.uploader.destroy(`mern_art/products/${publicId}`);
-      })
-    );
-  } catch (error) {
-    console.error('Cloudinary delete error:', error);
-  }
-};
-
-// Parse dimensions (US default: inches)
-const parseDimensions = (dimensions) => {
-  const d = parseJSON(dimensions, {});
-  return {
-    height: parseNumber(d.height, 1),
-    width: parseNumber(d.width, 1),
-    depth: parseNumber(d.depth, 0),
-    unit: d.unit || 'in' // US default
-  };
-};
-
-// Parse weight (US default: lbs)
-const parseWeight = (weight) => {
-  const w = parseJSON(weight, {});
-  return {
-    value: parseNumber(w.value, 1),
-    unit: w.unit || 'lb' // US default
-  };
-};
-
-// Parse package dimensions (US default: inches)
-const parsePackageDimensions = (dims) => {
-  const d = parseJSON(dims, {});
-  return {
-    length: parseNumber(d.length, 1),
-    width: parseNumber(d.width, 1),
-    height: parseNumber(d.height, 1),
-    unit: d.unit || 'in' // US default
-  };
-};
-
-// Parse shipping object
-const parseShipping = (shipping, weight, packageDimensions, existingShipping = {}) => {
-  if (shipping) {
-    const s = parseJSON(shipping, {});
-    return {
-      weight: s.weight ? parseWeight(s.weight) : parseWeight(weight),
-      packageDimensions: s.packageDimensions ? parsePackageDimensions(s.packageDimensions) : parsePackageDimensions(packageDimensions),
-      isFragile: parseBoolean(s.isFragile, true),
-      requiresSignature: parseBoolean(s.requiresSignature, true),
-      insuranceRequired: parseBoolean(s.insuranceRequired, true),
-      packagingType: s.packagingType || 'box',
-      specialHandling: s.specialHandling || '',
-      freeShipping: parseBoolean(s.freeShipping, false),
-      freeShippingMinAmount: parseNumber(s.freeShippingMinAmount, 0),
-      shippingClass: s.shippingClass || 'standard',
-      originZipCode: s.originZipCode || ''
-    };
-  }
-  
-  return {
-    weight: weight ? parseWeight(weight) : (existingShipping.weight || { value: 1, unit: 'lb' }),
-    packageDimensions: packageDimensions ? parsePackageDimensions(packageDimensions) : (existingShipping.packageDimensions || { length: 1, width: 1, height: 1, unit: 'in' }),
-    isFragile: existingShipping.isFragile ?? true,
-    requiresSignature: existingShipping.requiresSignature ?? true,
-    insuranceRequired: existingShipping.insuranceRequired ?? true,
-    packagingType: existingShipping.packagingType || 'box',
-    specialHandling: existingShipping.specialHandling || '',
-    freeShipping: existingShipping.freeShipping ?? false,
-    freeShippingMinAmount: existingShipping.freeShippingMinAmount || 0,
-    shippingClass: existingShipping.shippingClass || 'standard',
-    originZipCode: existingShipping.originZipCode || ''
-  };
-};
-
-/**
- * Parse offer object
- */
-const parseOffer = (offer) => {
-  const parsed = parseJSON(offer, {});
-  return {
-    isActive: parseBoolean(parsed.isActive, false),
-    discountPercentage: parseNumber(parsed.discountPercentage, 0),
-    validFrom: parsed.validFrom ? new Date(parsed.validFrom) : null,
-    validUntil: parsed.validUntil ? new Date(parsed.validUntil) : null
-  };
-};
-
-/**
- * Parse SEO object
- */
-const parseSEO = (seo, metaTitle, metaDescription) => {
-  const parsed = parseJSON(seo, {});
-  return {
-    metaTitle: parsed.metaTitle || metaTitle || '',
-    metaDescription: parsed.metaDescription || metaDescription || '',
-    metaKeywords: parsed.metaKeywords || []
-  };
-};
-
-// ============================================
-// CRUD Operations
-// ============================================
-
+// @desc    Create a new product
+// @route   POST /api/v1/products
+// @access  Private/Admin
 export const createProduct = async (req, res) => {
   try {
     const {
       name,
       description,
-      shortDescription,
       mrpPrice,
       discountPrice,
       stock,
@@ -166,173 +18,179 @@ export const createProduct = async (req, res) => {
       author,
       dimensions,
       medium,
-      style,
-      subject,
-      yearCreated,
-      isOriginal,
-      isFramed,
-      frameDetails,
-      certificateOfAuthenticity,
       metaTitle,
       metaDescription,
-      seo,
       tags,
       featured,
       offer,
       askForPrice,
-      // Shipping
-      shipping,
-      weight,
-      packageDimensions,
-      isFragile,
-      requiresSignature,
-      packagingType,
-      specialHandling,
-      freeShipping,
-      shippingClass
     } = req.body;
 
-    // Validate images
-    if (!req.files?.length) {
+    // Check if images were uploaded
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "At least one product image is required"
+        message: "At least one product image is required",
       });
     }
 
+    // Maximum 5 images allowed
     if (req.files.length > 5) {
-      await deleteCloudinaryImages(req.files.map(f => f.path));
+      // Delete uploaded images if more than 5
+      await Promise.all(
+        req.files.map((file) => cloudinary.uploader.destroy(file.filename))
+      );
       return res.status(400).json({
         success: false,
-        message: "Maximum 5 images allowed"
+        message: "Maximum 5 images allowed per product",
       });
     }
 
-    const isAskForPrice = parseBoolean(askForPrice);
-
-    // Build shipping object
-    let shippingData;
-    if (shipping) {
-      shippingData = parseShipping(shipping);
-    } else {
-      shippingData = {
-        weight: parseWeight(weight),
-        packageDimensions: parsePackageDimensions(packageDimensions),
-        isFragile: parseBoolean(isFragile, true),
-        requiresSignature: parseBoolean(requiresSignature, true),
-        insuranceRequired: true,
-        packagingType: packagingType || 'box',
-        specialHandling: specialHandling || '',
-        freeShipping: parseBoolean(freeShipping, false),
-        shippingClass: shippingClass || 'standard',
-        originZipCode: ''
-      };
+    // Parse dimensions if it's a string
+    let parsedDimensions = dimensions;
+    if (typeof dimensions === "string") {
+      try {
+        parsedDimensions = JSON.parse(dimensions);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid dimensions format",
+        });
+      }
     }
 
-    // Build product data
+    // Parse tags if it's a string
+    let parsedTags = tags;
+    if (typeof tags === "string") {
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch (error) {
+        parsedTags = tags.split(",").map((tag) => tag.trim().toLowerCase());
+      }
+    }
+
+    // Parse offer if it's a string
+    let parsedOffer = offer;
+    if (typeof offer === "string") {
+      try {
+        parsedOffer = JSON.parse(offer);
+      } catch (error) {
+        parsedOffer = {};
+      }
+    }
+
+    // Parse askForPrice
+    const isAskForPrice = askForPrice === "true";
+
+    // Get image URLs from uploaded files
+    const imageUrls = req.files.map((file) => file.path);
+
+    // Prepare product data
     const productData = {
       name,
       description,
-      shortDescription,
-      stock: parseNumber(stock, 1),
-      images: req.files.map(f => f.path),
+      stock: parseInt(stock),
+      images: imageUrls,
       category,
       author,
-      dimensions: parseDimensions(dimensions),
+      dimensions: parsedDimensions,
       medium,
-      style,
-      subject,
-      yearCreated: yearCreated ? parseInt(yearCreated) : undefined,
-      isOriginal: parseBoolean(isOriginal, true),
-      isFramed: parseBoolean(isFramed, false),
-      frameDetails,
-      certificateOfAuthenticity: parseBoolean(certificateOfAuthenticity, false),
-      seo: {
-        metaTitle: metaTitle || '',
-        metaDescription: metaDescription || '',
-        ...parseJSON(seo, {})
-      },
-      tags: parseTags(tags),
-      featured: parseBoolean(featured),
+      metaTitle,
+      metaDescription,
+      tags: parsedTags,
+      featured: featured === "true",
       askForPrice: isAskForPrice,
-      offer: parseJSON(offer, {}),
-      shipping: shippingData
+      offer: parsedOffer,
     };
 
-    // Handle pricing
+    // Handle pricing based on askForPrice
     if (isAskForPrice) {
-      productData.mrpPrice = 0;
+      // For ask for price products, set prices to null/undefined
+      productData.mrpPrice = 0; // Set to 0 instead of null to avoid validation errors
       productData.discountPrice = undefined;
+      
+      // Disable offer for ask for price products
+      if (productData.offer) {
+        productData.offer.isActive = false;
+        productData.offer.discountPercentage = 0;
+      }
     } else {
-      const price = parseNumber(mrpPrice);
-      if (price <= 0) {
-        await deleteCloudinaryImages(req.files.map(f => f.path));
+      // For regular products, parse prices normally
+      if (mrpPrice && !isNaN(parseFloat(mrpPrice))) {
+        productData.mrpPrice = parseFloat(mrpPrice);
+      } else {
         return res.status(400).json({
           success: false,
-          message: "Valid price is required"
+          message: "Valid MRP price is required when Ask for Price is disabled",
         });
       }
-      productData.mrpPrice = price;
-      
-      const discount = parseNumber(discountPrice);
-      if (discount > 0 && discount < price) {
-        productData.discountPrice = discount;
+
+      if (discountPrice && discountPrice !== '' && !isNaN(parseFloat(discountPrice))) {
+        productData.discountPrice = parseFloat(discountPrice);
       }
     }
 
+    // Create product
     const product = await Product.create(productData);
-    
-    await product.populate([
-      { path: 'category', select: 'name' },
-      { path: 'author', select: 'name' }
-    ]);
+
+    // Populate category and author details
+    await product.populate("category", "name");
+    await product.populate("author", "name");
 
     res.status(201).json({
       success: true,
       message: "Product created successfully",
-      data: product
+      data: product,
     });
-
   } catch (error) {
     console.error("Create product error:", error);
 
+    // Delete uploaded images from Cloudinary if product creation fails
     if (req.files) {
-      await deleteCloudinaryImages(req.files.map(f => f.path));
+      try {
+        await Promise.all(
+          req.files.map((file) => cloudinary.uploader.destroy(file.filename))
+        );
+      } catch (cloudinaryError) {
+        console.error(
+          "Error deleting images from Cloudinary:",
+          cloudinaryError
+        );
+      }
     }
 
     if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
         message: "Validation error",
-        errors: Object.values(error.errors).map(e => e.message)
+        errors: messages,
       });
     }
 
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: "Product with this name already exists"
+        message: "Product with this name already exists",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: "Server error",
-      error: error.message
+      message: "Server error while creating product",
+      error: error.message,
     });
   }
 };
 
-// ============================================
-// UPDATE PRODUCT
-// ============================================
-
+// @desc    Update product
+// @route   PUT /api/v1/products/:id
+// @access  Private/Admin
 export const updateProduct = async (req, res) => {
   try {
     const {
       name,
       description,
-      shortDescription,
       mrpPrice,
       discountPrice,
       stock,
@@ -340,138 +198,420 @@ export const updateProduct = async (req, res) => {
       author,
       dimensions,
       medium,
-      style,
-      subject,
-      yearCreated,
-      isOriginal,
-      isFramed,
-      frameDetails,
-      certificateOfAuthenticity,
       metaTitle,
       metaDescription,
-      seo,
       tags,
       featured,
       active,
       offer,
       askForPrice,
-      shipping,
-      weight,
-      packageDimensions
     } = req.body;
 
+    // Find existing product
     let product = await Product.findById(req.params.id);
-    
     if (!product) {
-      if (req.files) await deleteCloudinaryImages(req.files.map(f => f.path));
+      // Delete newly uploaded images if product not found
+      if (req.files) {
+        await Promise.all(
+          req.files.map((file) => cloudinary.uploader.destroy(file.filename))
+        );
+      }
       return res.status(404).json({
         success: false,
-        message: "Product not found"
+        message: "Product not found",
       });
     }
 
-    const isAskForPrice = parseBoolean(askForPrice);
+    // Parse dimensions if it's a string
+    let parsedDimensions = dimensions;
+    if (typeof dimensions === "string") {
+      try {
+        parsedDimensions = JSON.parse(dimensions);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid dimensions format",
+        });
+      }
+    }
 
+    // Parse tags if it's a string
+    let parsedTags = tags;
+    if (typeof tags === "string") {
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch (error) {
+        parsedTags = tags.split(",").map((tag) => tag.trim().toLowerCase());
+      }
+    }
+
+    // Parse offer if it's a string
+    let parsedOffer = offer;
+    if (typeof offer === "string") {
+      try {
+        parsedOffer = JSON.parse(offer);
+      } catch (error) {
+        parsedOffer = product.offer;
+      }
+    }
+
+    // Parse askForPrice
+    const isAskForPrice = askForPrice === "true";
+
+    // Prepare update data
     const updateData = {
       name,
       description,
-      shortDescription,
-      stock: parseNumber(stock, product.stock),
+      stock: parseInt(stock),
       category,
       author,
-      dimensions: dimensions ? parseDimensions(dimensions) : product.dimensions,
+      dimensions: parsedDimensions,
       medium,
-      style,
-      subject,
-      yearCreated: yearCreated ? parseInt(yearCreated) : product.yearCreated,
-      isOriginal: isOriginal !== undefined ? parseBoolean(isOriginal) : product.isOriginal,
-      isFramed: isFramed !== undefined ? parseBoolean(isFramed) : product.isFramed,
-      frameDetails: frameDetails !== undefined ? frameDetails : product.frameDetails,
-      certificateOfAuthenticity: certificateOfAuthenticity !== undefined ? parseBoolean(certificateOfAuthenticity) : product.certificateOfAuthenticity,
-      seo: seo || metaTitle || metaDescription ? {
-        metaTitle: metaTitle || product.seo?.metaTitle || '',
-        metaDescription: metaDescription || product.seo?.metaDescription || '',
-        ...parseJSON(seo, {})
-      } : product.seo,
-      tags: tags ? parseTags(tags) : product.tags,
-      featured: featured !== undefined ? parseBoolean(featured) : product.featured,
-      active: active !== undefined ? parseBoolean(active) : product.active,
+      metaTitle,
+      metaDescription,
+      tags: parsedTags,
+      featured: featured === "true",
+      active: active === "true",
       askForPrice: isAskForPrice,
-      offer: offer ? parseJSON(offer) : product.offer,
-      shipping: parseShipping(shipping, weight, packageDimensions, product.shipping)
+      offer: parsedOffer,
     };
 
-    // Handle pricing
+    // Handle pricing based on askForPrice
     if (isAskForPrice) {
+      // For ask for price products, set prices to 0 and disable offers
       updateData.mrpPrice = 0;
       updateData.discountPrice = undefined;
-      updateData.offer = { isActive: false, discountPercentage: 0 };
+      
+      // Disable offer for ask for price products
+      if (updateData.offer) {
+        updateData.offer.isActive = false;
+        updateData.offer.discountPercentage = 0;
+      }
     } else {
-      const price = parseNumber(mrpPrice, product.mrpPrice);
-      if (price <= 0) {
-        if (req.files) await deleteCloudinaryImages(req.files.map(f => f.path));
+      // For regular products, handle prices normally
+      if (mrpPrice && !isNaN(parseFloat(mrpPrice))) {
+        updateData.mrpPrice = parseFloat(mrpPrice);
+      } else {
         return res.status(400).json({
           success: false,
-          message: "Valid price is required"
+          message: "Valid MRP price is required when Ask for Price is disabled",
         });
       }
-      updateData.mrpPrice = price;
 
-      if (discountPrice !== undefined && discountPrice !== '' && discountPrice !== null) {
-        const discount = parseNumber(discountPrice);
-        if (discount > 0 && discount < price) {
-          updateData.discountPrice = discount;
-        }
+      // Handle discountPrice carefully - only include if provided
+      if (discountPrice && discountPrice !== '' && !isNaN(parseFloat(discountPrice))) {
+        updateData.discountPrice = parseFloat(discountPrice);
       } else if (discountPrice === '' || discountPrice === null) {
+        // Explicitly set to undefined to remove the field from update
         updateData.discountPrice = undefined;
       }
     }
 
-    // Handle images
-    if (req.files?.length) {
-      await deleteCloudinaryImages(product.images);
-      updateData.images = req.files.map(f => f.path);
+    // If new images are uploaded, update images array and delete old ones from Cloudinary
+    if (req.files && req.files.length > 0) {
+      // Delete old images from Cloudinary
+      if (product.images && product.images.length > 0) {
+        try {
+          await Promise.all(
+            product.images.map((imageUrl) => {
+              const publicId = imageUrl.split("/").pop().split(".")[0];
+              return cloudinary.uploader.destroy(
+                `mern_art/products/${publicId}`
+              );
+            })
+          );
+        } catch (cloudinaryError) {
+          console.error(
+            "Error deleting old images from Cloudinary:",
+            cloudinaryError
+          );
+        }
+      }
+
+      // Add new images
+      const newImageUrls = req.files.map((file) => file.path);
+      updateData.images = newImageUrls;
     }
 
+    // Update product using findByIdAndUpdate
     product = await Product.findByIdAndUpdate(
-      req.params.id,
+      req.params.id, 
       { $set: updateData },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     )
-      .populate('category', 'name')
-      .populate('author', 'name');
+      .populate("category", "name")
+      .populate("author", "name");
 
     res.json({
       success: true,
       message: "Product updated successfully",
-      data: product
+      data: product,
     });
-
   } catch (error) {
     console.error("Update product error:", error);
 
-    if (req.files) await deleteCloudinaryImages(req.files.map(f => f.path));
+    // Delete newly uploaded images if update fails
+    if (req.files) {
+      try {
+        await Promise.all(
+          req.files.map((file) => cloudinary.uploader.destroy(file.filename))
+        );
+      } catch (cloudinaryError) {
+        console.error(
+          "Error deleting images from Cloudinary:",
+          cloudinaryError
+        );
+      }
+    }
 
     if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
         message: "Validation error",
-        errors: Object.values(error.errors).map(e => e.message)
+        errors: messages,
+      });
+    }
+
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: "Server error",
-      error: error.message
+      message: "Server error while updating product",
+      error: error.message,
     });
   }
 };
 
-// ============================================
-// GET ALL PRODUCTS
-// ============================================
+// @desc    Submit price inquiry
+// @route   POST /api/v1/products/:id/price-inquiry
+// @access  Public
+export const submitPriceInquiry = async (req, res) => {
+  try {
+    const { fullName, email, mobile, message, budget, purpose } = req.body;
+    const productId = req.params.id;
 
+    // Find product
+    const product = await Product.findById(productId)
+      .populate("category", "name")
+      .populate("author", "name");
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Check if product has ask for price enabled
+    if (!product.askForPrice) {
+      return res.status(400).json({
+        success: false,
+        message: "Price inquiry is not available for this product",
+      });
+    }
+
+    // Create price inquiry
+    const priceInquiry = await PriceInquiry.create({
+      product: productId,
+      fullName,
+      email,
+      mobile,
+      message,
+      budget,
+      purpose,
+    });
+
+    // Send email to admin
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@mernart.com";
+    const emailSubject = `New Price Inquiry - ${product.name}`;
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .inquiry-details { background: #fff; padding: 20px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #667eea; }
+          .product-details { background: #fff; padding: 20px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #28a745; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>MERN Art Gallery</h1>
+            <p>New Price Inquiry Received</p>
+          </div>
+          <div class="content">
+            <h2>Price Inquiry Details</h2>
+            
+            <div class="inquiry-details">
+              <h3>Customer Information</h3>
+              <p><strong>Full Name:</strong> ${fullName}</p>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Mobile:</strong> ${mobile}</p>
+              <p><strong>Budget:</strong> ${budget || 'Not specified'}</p>
+              <p><strong>Purpose:</strong> ${purpose}</p>
+              <p><strong>Message:</strong> ${message || 'No additional message'}</p>
+              <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            
+            <div class="product-details">
+              <h3>Product Information</h3>
+              <p><strong>Product Name:</strong> ${product.name}</p>
+              <p><strong>Artist:</strong> ${product.author.name}</p>
+              <p><strong>Category:</strong> ${product.category.name}</p>
+              <p><strong>Medium:</strong> ${product.medium}</p>
+              <p><strong>Dimensions:</strong> ${product.formattedDimensions}</p>
+            </div>
+            
+            <p>Please contact the customer within 24 hours to discuss pricing and availability.</p>
+            
+            <div class="footer">
+              <p>MERN Art Gallery<br>123 Art Street, Creative District<br>Email: ${adminEmail}</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Send email to admin
+    await sendEmail(adminEmail, emailSubject, emailHtml);
+
+    res.status(201).json({
+      success: true,
+      message: "Price inquiry submitted successfully. We will contact you soon!",
+      data: {
+        inquiryId: priceInquiry._id,
+        product: {
+          name: product.name,
+          author: product.author.name,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Submit price inquiry error:", error);
+
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: messages,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while submitting price inquiry",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get price inquiries for admin
+// @route   GET /api/v1/products/price-inquiries
+// @access  Private/Admin
+export const getPriceInquiries = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+
+    const filter = {};
+    if (status) {
+      filter.status = status;
+    }
+
+    const inquiries = await PriceInquiry.find(filter)
+      .populate("product", "name images slug")
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await PriceInquiry.countDocuments(filter);
+
+    res.json({
+      success: true,
+      count: inquiries.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      data: inquiries,
+    });
+  } catch (error) {
+    console.error("Get price inquiries error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching price inquiries",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Update price inquiry status
+// @route   PUT /api/v1/products/price-inquiries/:id
+// @access  Private/Admin
+export const updatePriceInquiry = async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+
+    const inquiry = await PriceInquiry.findByIdAndUpdate(
+      req.params.id,
+      {
+        status,
+        adminNotes,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).populate("product", "name images slug");
+
+    if (!inquiry) {
+      return res.status(404).json({
+        success: false,
+        message: "Price inquiry not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Price inquiry updated successfully",
+      data: inquiry,
+    });
+  } catch (error) {
+    console.error("Update price inquiry error:", error);
+
+    if (error.kind === "ObjectId") {
+      return res.status(404).json({
+        success: false,
+        message: "Price inquiry not found",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating price inquiry",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get all products with filtering and sorting
+// @route   GET /api/v1/products
+// @access  Public
 export const getAllProducts = async (req, res) => {
   try {
     const {
@@ -483,195 +623,332 @@ export const getAllProducts = async (req, res) => {
       search,
       tags,
       onSale,
-      inStock,
-      freeShipping,
       sortBy = "createdAt_desc",
       page = 1,
-      limit = 12
+      limit = 12,
     } = req.query;
 
+    // Build filter object
     const filter = { active: true };
 
-    // Category filter
+    // Handle category filter - support multiple categories
     if (category) {
-      const cats = category.split(',').map(c => c.trim());
-      filter.category = cats.length > 1 ? { $in: cats } : cats[0];
+      if (typeof category === "string" && category.includes(",")) {
+        // Multiple categories provided as comma-separated string
+        const categoryArray = category.split(",").map((cat) => cat.trim());
+        filter.category = { $in: categoryArray };
+      } else {
+        // Single category
+        filter.category = category;
+      }
     }
 
-    // Author filter
+    // Handle author filter - support multiple authors
     if (author) {
-      const authors = author.split(',').map(a => a.trim());
-      filter.author = authors.length > 1 ? { $in: authors } : authors[0];
+      if (typeof author === "string" && author.includes(",")) {
+        // Multiple authors provided as comma-separated string
+        const authorArray = author.split(",").map((auth) => auth.trim());
+        filter.author = { $in: authorArray };
+      } else {
+        // Single author
+        filter.author = author;
+      }
     }
 
-    // Boolean filters
-    if (featured === 'true') filter.featured = true;
-    if (freeShipping === 'true') filter['shipping.freeShipping'] = true;
-
-    // Stock filter
-    if (inStock === 'true') filter.stock = { $gt: 0 };
-    if (inStock === 'false') filter.stock = 0;
-
-    // Sale filter
-    if (onSale === 'true') {
-      filter['offer.isActive'] = true;
-      filter.discountPrice = { $exists: true, $ne: null, $gt: 0 };
+    if (featured) {
+      filter.featured = featured === "true";
     }
 
-    // Price filter
+    if (onSale === "true") {
+      filter["offer.isActive"] = true;
+      filter.discountPrice = { $exists: true, $ne: null };
+    }
+
+    // Price range filter - fix the field name
     if (minPrice || maxPrice) {
-      const priceFilter = {};
-      if (minPrice) priceFilter.$gte = parseFloat(minPrice);
-      if (maxPrice) priceFilter.$lte = parseFloat(maxPrice);
+      // Use mrpPrice or discountPrice based on what's available
       filter.$or = [
-        { discountPrice: priceFilter },
-        { mrpPrice: priceFilter }
+        {
+          $and: [
+            { discountPrice: { $exists: true, $ne: null } },
+            { discountPrice: {} },
+          ],
+        },
+        { mrpPrice: {} },
       ];
+
+      // Price range filter - improved version
+      if (minPrice || maxPrice) {
+
+        const priceFilter = {};
+
+        if (minPrice) {
+          priceFilter.$gte = parseFloat(minPrice);
+        }
+        if (maxPrice) {
+          priceFilter.$lte = parseFloat(maxPrice);
+        }
+
+        // Check both mrpPrice and discountPrice
+        filter.$or = [
+          { discountPrice: priceFilter },
+          { mrpPrice: priceFilter },
+        ];
+      }
     }
 
-    // Search
+    // Search functionality
     if (search) {
-      const regex = new RegExp(search, 'i');
       filter.$or = [
-        { name: regex },
-        { description: regex },
-        { tags: { $in: [regex] } },
-        { medium: regex }
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { tags: { $in: [new RegExp(search, "i")] } },
       ];
     }
 
-    // Tags
+    // Filter by tags
     if (tags) {
-      const tagArr = tags.split(',').map(t => new RegExp(t.trim(), 'i'));
-      filter.tags = { $in: tagArr };
+      const tagArray = Array.isArray(tags) ? tags : tags.split(",");
+      filter.tags = { $in: tagArray.map((tag) => new RegExp(tag, "i")) };
     }
 
-    // Sort
+    // Sort options - fix price sorting
     const sortOptions = {};
     switch (sortBy) {
-      case 'price_asc': sortOptions.mrpPrice = 1; break;
-      case 'price_desc': sortOptions.mrpPrice = -1; break;
-      case 'name_asc': sortOptions.name = 1; break;
-      case 'name_desc': sortOptions.name = -1; break;
-      case 'createdAt_asc': sortOptions.createdAt = 1; break;
-      case 'popular': sortOptions.soldCount = -1; break;
-      default: sortOptions.createdAt = -1;
+      case "price_asc":
+        // Sort by discount price if available, otherwise by mrpPrice
+        sortOptions.discountPrice = 1;
+        sortOptions.mrpPrice = 1;
+        break;
+      case "price_desc":
+        sortOptions.discountPrice = -1;
+        sortOptions.mrpPrice = -1;
+        break;
+      case "name_asc":
+        sortOptions.name = 1;
+        break;
+      case "name_desc":
+        sortOptions.name = -1;
+        break;
+      case "discount_desc":
+        // Calculate discount percentage for sorting
+        // This might need a virtual field or aggregation
+        sortOptions.discountPrice = -1;
+        break;
+      case "createdAt_asc":
+        sortOptions.createdAt = 1;
+        break;
+      default:
+        sortOptions.createdAt = -1;
     }
 
+    // Pagination
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .populate('category', 'name')
-        .populate('author', 'name')
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limitNum),
-      Product.countDocuments(filter)
-    ]);
+    // Execute query
+    const products = await Product.find(filter)
+      .populate("category", "name")
+      .populate("author", "name bio profileImage")
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum);
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(filter);
+    const totalPages = Math.ceil(total / limitNum);
 
     res.json({
       success: true,
       count: products.length,
       total,
-      totalPages: Math.ceil(total / limitNum),
+      totalPages,
       currentPage: pageNum,
-      data: products
+      data: products,
     });
-
   } catch (error) {
-    console.error("Get products error:", error);
     res.status(500).json({
       success: false,
-      message: "Server error",
-      error: error.message
+      message: "Server error while fetching products",
+      error: error.message,
     });
   }
 };
 
-// ============================================
-// GET PRODUCT BY SLUG
-// ============================================
-
+// @desc    Get single product by slug
+// @route   GET /api/v1/products/slug/:slug
+// @access  Public
 export const getProductBySlug = async (req, res) => {
   try {
     const product = await Product.findOne({
       slug: req.params.slug,
-      active: true
+      active: true,
     })
-      .populate('category', 'name description')
-      .populate('author', 'name bio profileImage');
+      .populate("category", "name description")
+      .populate("author", "name bio profileImage");
 
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: "Product not found"
+        message: "Product not found",
       });
     }
 
-    // Increment view count
-    product.viewCount += 1;
-    await product.save();
-
     res.json({
       success: true,
-      data: product
+      data: product,
     });
-
   } catch (error) {
     console.error("Get product by slug error:", error);
     res.status(500).json({
       success: false,
-      message: "Server error",
-      error: error.message
+      message: "Server error while fetching product",
+      error: error.message,
     });
   }
 };
 
-// ============================================
-// GET PRODUCT BY ID
-// ============================================
+// @desc    Get featured products
+// @route   GET /api/v1/products/featured
+// @access  Public
+export const getFeaturedProducts = async (req, res) => {
+  try {
+    const products = await Product.find({
+      featured: true,
+      active: true,
+    })
+      .populate("category", "name")
+      .populate("author", "name")
+      .sort({ createdAt: -1 })
+      .limit(8);
 
+    res.json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
+  } catch (error) {
+    console.error("Get featured products error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching featured products",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get products on sale
+// @route   GET /api/v1/products/on-sale
+// @access  Public
+export const getProductsOnSale = async (req, res) => {
+  try {
+    const products = await Product.find({
+      "offer.isActive": true,
+      active: true,
+    })
+      .populate("category", "name")
+      .populate("author", "name")
+      .sort({ "offer.discountPercentage": -1 })
+      .limit(12);
+
+    res.json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
+  } catch (error) {
+    console.error("Get products on sale error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching products on sale",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get products by tags
+// @route   GET /api/v1/products/tags/:tag
+// @access  Public
+export const getProductsByTag = async (req, res) => {
+  try {
+    const { tag } = req.params;
+    const { page = 1, limit = 12 } = req.query;
+
+    const products = await Product.find({
+      tags: { $in: [new RegExp(tag, "i")] },
+      active: true,
+    })
+      .populate("category", "name")
+      .populate("author", "name")
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Product.countDocuments({
+      tags: { $in: [new RegExp(tag, "i")] },
+      active: true,
+    });
+
+    res.json({
+      success: true,
+      count: products.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      data: products,
+    });
+  } catch (error) {
+    console.error("Get products by tag error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching products by tag",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get single product by ID
+// @route   GET /api/v1/products/:id
+// @access  Public
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate('category', 'name description')
-      .populate('author', 'name bio profileImage');
+      .populate("category", "name description")
+      .populate("author", "name bio profileImage");
 
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: "Product not found"
+        message: "Product not found",
       });
     }
 
     res.json({
       success: true,
-      data: product
+      data: product,
     });
-
   } catch (error) {
+    console.error("Get product error:", error);
+
     if (error.kind === "ObjectId") {
       return res.status(404).json({
         success: false,
-        message: "Product not found"
+        message: "Product not found",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: "Server error",
-      error: error.message
+      message: "Server error while fetching product",
+      error: error.message,
     });
   }
 };
 
-// ============================================
-// DELETE PRODUCT
-// ============================================
-
+// @desc    Delete product
+// @route   DELETE /api/v1/products/:id
+// @access  Private/Admin
 export const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -679,677 +956,41 @@ export const deleteProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: "Product not found"
+        message: "Product not found",
       });
     }
 
-    await deleteCloudinaryImages(product.images);
+    // Delete image from Cloudinary
+    if (product.image) {
+      try {
+        const publicId = product.image.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(`mern_art/products/${publicId}`);
+      } catch (cloudinaryError) {
+        console.error("Error deleting image from Cloudinary:", cloudinaryError);
+      }
+    }
+
+    // Delete product from database
     await Product.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
-      message: "Product deleted successfully"
+      message: "Product deleted successfully",
     });
-
   } catch (error) {
+    console.error("Delete product error:", error);
+
     if (error.kind === "ObjectId") {
       return res.status(404).json({
         success: false,
-        message: "Product not found"
+        message: "Product not found",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: "Server error",
-      error: error.message
+      message: "Server error while deleting product",
+      error: error.message,
     });
   }
-};
-
-// ============================================
-// GET FEATURED PRODUCTS
-// ============================================
-
-export const getFeaturedProducts = async (req, res) => {
-  try {
-    const { limit = 8 } = req.query;
-
-    const products = await Product.find({
-      featured: true,
-      active: true
-    })
-      .populate('category', 'name')
-      .populate('author', 'name')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// GET PRODUCTS ON SALE
-// ============================================
-
-export const getProductsOnSale = async (req, res) => {
-  try {
-    const { limit = 12 } = req.query;
-
-    const products = await Product.find({
-      'offer.isActive': true,
-      active: true,
-      discountPrice: { $exists: true, $ne: null, $gt: 0 }
-    })
-      .populate('category', 'name')
-      .populate('author', 'name')
-      .sort({ 'offer.discountPercentage': -1 })
-      .limit(parseInt(limit));
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// GET PRODUCTS BY TAG
-// ============================================
-
-export const getProductsByTag = async (req, res) => {
-  try {
-    const { tag } = req.params;
-    const { page = 1, limit = 12 } = req.query;
-
-    const filter = {
-      tags: { $in: [new RegExp(tag, 'i')] },
-      active: true
-    };
-
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .populate('category', 'name')
-        .populate('author', 'name')
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
-        .skip((parseInt(page) - 1) * parseInt(limit)),
-      Product.countDocuments(filter)
-    ]);
-
-    res.json({
-      success: true,
-      count: products.length,
-      total,
-      totalPages: Math.ceil(total / parseInt(limit)),
-      currentPage: parseInt(page),
-      data: products
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// GET PRODUCT SHIPPING INFO (for FedEx)
-// ============================================
-
-export const getProductShippingInfo = async (req, res) => {
-  try {
-    const { quantity = 1 } = req.query;
-
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found"
-      });
-    }
-
-    const qty = parseInt(quantity);
-    const fedexData = product.getFedExShippingData(qty);
-
-    res.json({
-      success: true,
-      data: {
-        productId: product._id,
-        productName: product.name,
-        sku: product.sku,
-        quantity: qty,
-        
-        // Raw shipping data
-        shipping: {
-          weight: product.shipping.weight,
-          packageDimensions: product.shipping.packageDimensions,
-          isFragile: product.shipping.isFragile,
-          requiresSignature: product.shipping.requiresSignature,
-          packagingType: product.shipping.packagingType,
-          freeShipping: product.shipping.freeShipping,
-          shippingClass: product.shipping.shippingClass
-        },
-        
-        // Calculated values
-        weightInLbs: product.weightInLbs,
-        dimensionalWeight: product.dimensionalWeight,
-        billableWeight: product.billableWeight,
-        
-        // FedEx-ready data
-        fedex: fedexData,
-        
-        // Price for insurance
-        declaredValue: {
-          amount: product.currentPrice || product.mrpPrice,
-          currency: 'USD'
-        }
-      }
-    });
-
-  } catch (error) {
-    if (error.kind === "ObjectId") {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found"
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// GET BULK SHIPPING INFO (for cart)
-// ============================================
-
-export const getBulkShippingInfo = async (req, res) => {
-  try {
-    const { items } = req.body; // [{ productId, quantity }]
-
-    if (!items?.length) {
-      return res.status(400).json({
-        success: false,
-        message: "Items array is required"
-      });
-    }
-
-    const productIds = items.map(i => i.productId);
-    const products = await Product.find({ _id: { $in: productIds } });
-
-    const productMap = new Map(products.map(p => [p._id.toString(), p]));
-
-    let totalWeightLbs = 0;
-    let totalDimWeight = 0;
-    let totalValue = 0;
-    let hasFragile = false;
-    let allFreeShipping = true;
-
-    const itemsInfo = [];
-
-    for (const item of items) {
-      const product = productMap.get(item.productId);
-      if (!product) continue;
-
-      const qty = item.quantity || 1;
-      
-      totalWeightLbs += product.weightInLbs * qty;
-      totalDimWeight += product.dimensionalWeight.value * qty;
-      totalValue += (product.currentPrice || product.mrpPrice) * qty;
-      
-      if (product.shipping?.isFragile) hasFragile = true;
-      if (!product.shipping?.freeShipping) allFreeShipping = false;
-
-      itemsInfo.push({
-        productId: product._id,
-        name: product.name,
-        sku: product.sku,
-        quantity: qty,
-        weight: product.weightInLbs * qty,
-        fedexData: product.getFedExShippingData(qty)
-      });
-    }
-
-    const totalBillable = Math.max(totalWeightLbs, totalDimWeight);
-
-    res.json({
-      success: true,
-      data: {
-        items: itemsInfo,
-        totals: {
-          itemCount: items.reduce((sum, i) => sum + (i.quantity || 1), 0),
-          actualWeight: {
-            value: Math.ceil(totalWeightLbs * 100) / 100,
-            unit: 'lb'
-          },
-          dimensionalWeight: {
-            value: Math.ceil(totalDimWeight * 100) / 100,
-            unit: 'lb'
-          },
-          billableWeight: {
-            value: Math.ceil(totalBillable * 100) / 100,
-            unit: 'lb',
-            isDimensional: totalDimWeight > totalWeightLbs
-          },
-          declaredValue: {
-            amount: totalValue,
-            currency: 'USD'
-          }
-        },
-        hasFragileItems: hasFragile,
-        allFreeShipping,
-        requiresSignature: true // High-value items
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// UPDATE PRODUCT STOCK
-// ============================================
-
-export const updateProductStock = async (req, res) => {
-  try {
-    const { quantity, operation = 'decrease' } = req.body;
-
-    if (!quantity || quantity < 1) {
-      return res.status(400).json({
-        success: false,
-        message: "Valid quantity is required"
-      });
-    }
-
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found"
-      });
-    }
-
-    await product.updateStock(quantity, operation);
-
-    res.json({
-      success: true,
-      message: `Stock ${operation}d successfully`,
-      data: {
-        productId: product._id,
-        sku: product.sku,
-        newStock: product.stock,
-        soldCount: product.soldCount
-      }
-    });
-
-  } catch (error) {
-    if (error.message === 'Insufficient stock') {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient stock"
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// GET LOW STOCK PRODUCTS
-// ============================================
-
-export const getLowStockProducts = async (req, res) => {
-  try {
-    const products = await Product.findLowStock()
-      .populate('category', 'name')
-      .populate('author', 'name')
-      .sort({ stock: 1 });
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// GET OUT OF STOCK PRODUCTS
-// ============================================
-
-export const getOutOfStockProducts = async (req, res) => {
-  try {
-    const products = await Product.findOutOfStock()
-      .populate('category', 'name')
-      .populate('author', 'name');
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-/**
- * @desc    Get new arrival products
- * @route   GET /api/v1/products/new-arrivals
- * @access  Public
- */
-export const getNewArrivals = async (req, res) => {
-  try {
-    const { limit = 12 } = req.query;
-    
-    const products = await Product.find({
-      isNewArrival: true,
-      active: true
-    })
-      .populate('category', 'name')
-      .populate('author', 'name')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    console.error("Get new arrivals error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching new arrivals",
-      error: error.message
-    });
-  }
-};
-
-/**
- * @desc    Get bestseller products
- * @route   GET /api/v1/products/bestsellers
- * @access  Public
- */
-export const getBestsellers = async (req, res) => {
-  try {
-    const { limit = 12 } = req.query;
-    
-    const products = await Product.find({
-      active: true
-    })
-      .populate('category', 'name')
-      .populate('author', 'name')
-      .sort({ soldCount: -1, viewCount: -1 })
-      .limit(parseInt(limit));
-
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-
-  } catch (error) {
-    console.error("Get bestsellers error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching bestsellers",
-      error: error.message
-    });
-  }
-};
-
-
-// =============================================================================================================
-
-// ============================================
-// PRICE INQUIRY - SUBMIT
-// ============================================
-
-export const submitPriceInquiry = async (req, res) => {
-  try {
-    const { fullName, email, phone, message, budget, purpose } = req.body;
-
-    const product = await Product.findById(req.params.id)
-      .populate('category', 'name')
-      .populate('author', 'name');
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found"
-      });
-    }
-
-    if (!product.askForPrice) {
-      return res.status(400).json({
-        success: false,
-        message: "Price inquiry not available for this product"
-      });
-    }
-
-    const inquiry = await PriceInquiry.create({
-      product: req.params.id,
-      fullName,
-      email,
-      phone,
-      message,
-      budget,
-      purpose
-    });
-
-    // Send admin notification
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (adminEmail) {
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }
-            .content { background: #f9f9f9; padding: 20px; }
-            .section { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; }
-            .label { font-weight: bold; color: #555; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h2>New Price Inquiry</h2>
-            </div>
-            <div class="content">
-              <div class="section">
-                <h3>Customer Details</h3>
-                <p><span class="label">Name:</span> ${fullName}</p>
-                <p><span class="label">Email:</span> ${email}</p>
-                <p><span class="label">Phone:</span> ${phone}</p>
-                <p><span class="label">Budget:</span> ${budget || 'Not specified'}</p>
-                <p><span class="label">Purpose:</span> ${purpose}</p>
-                ${message ? `<p><span class="label">Message:</span> ${message}</p>` : ''}
-              </div>
-              <div class="section">
-                <h3>Product Details</h3>
-                <p><span class="label">Name:</span> ${product.name}</p>
-                <p><span class="label">SKU:</span> ${product.sku}</p>
-                <p><span class="label">Artist:</span> ${product.author.name}</p>
-                <p><span class="label">Category:</span> ${product.category.name}</p>
-                <p><span class="label">Dimensions:</span> ${product.formattedDimensions}</p>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      await sendEmail(adminEmail, `Price Inquiry - ${product.name}`, emailHtml);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: "Inquiry submitted successfully. We'll contact you soon!",
-      data: { inquiryId: inquiry._id }
-    });
-
-  } catch (error) {
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: Object.values(error.errors).map(e => e.message)
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// PRICE INQUIRY - GET ALL (Admin)
-// ============================================
-
-export const getPriceInquiries = async (req, res) => {
-  try {
-    const { page = 1, limit = 10, status } = req.query;
-
-    const filter = {};
-    if (status) filter.status = status;
-
-    const [inquiries, total] = await Promise.all([
-      PriceInquiry.find(filter)
-        .populate('product', 'name images slug sku')
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
-        .skip((parseInt(page) - 1) * parseInt(limit)),
-      PriceInquiry.countDocuments(filter)
-    ]);
-
-    res.json({
-      success: true,
-      count: inquiries.length,
-      total,
-      totalPages: Math.ceil(total / parseInt(limit)),
-      currentPage: parseInt(page),
-      data: inquiries
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-// ============================================
-// PRICE INQUIRY - UPDATE (Admin)
-// ============================================
-
-export const updatePriceInquiry = async (req, res) => {
-  try {
-    const { status, adminNotes } = req.body;
-
-    const inquiry = await PriceInquiry.findByIdAndUpdate(
-      req.params.id,
-      { status, adminNotes },
-      { new: true, runValidators: true }
-    ).populate('product', 'name images slug sku');
-
-    if (!inquiry) {
-      return res.status(404).json({
-        success: false,
-        message: "Inquiry not found"
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Inquiry updated",
-      data: inquiry
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message
-    });
-  }
-};
-
-export default {
-  createProduct,
-  updateProduct,
-  getAllProducts,
-  getProductBySlug,
-  getProductById,
-  deleteProduct,
-  getFeaturedProducts,
-  getProductsOnSale,
-  getNewArrivals,
-  getBestsellers,
-  getProductsByTag,
-  getProductShippingInfo,
-  getBulkShippingInfo,
-  updateProductStock,
-  getLowStockProducts,
-  getOutOfStockProducts,
-  submitPriceInquiry,
-  getPriceInquiries,
-  updatePriceInquiry
 };
