@@ -816,6 +816,25 @@ const OrderDetail = ({ order, onBack, token, isOnline }) => {
     if (hasTrackingNumber) fetchTracking();
   }, [hasTrackingNumber, fetchTracking]);
 
+  // Auto-poll tracking while order is in transit
+  useEffect(() => {
+    if (!hasTrackingNumber || !isOnline) return;
+
+    const inTransitStatuses = ['shipped', 'out_for_delivery'];
+    let intervalId = null;
+
+    if (inTransitStatuses.includes(order.orderStatus)) {
+      // Poll every 60 seconds
+      intervalId = setInterval(() => {
+        fetchTracking();
+      }, 60000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [hasTrackingNumber, isOnline, order.orderStatus, fetchTracking]);
+
   const handleCopyTracking = () => {
     copyToClipboard(order.fedex?.trackingNumber, () => {
       setCopiedTracking(true);

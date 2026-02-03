@@ -455,32 +455,45 @@ class FedExService {
                 };
             }
 
-            // Calculate total insured value
+            // Calculate total insured value (shipment-level)
             const totalInsuredValue = packages.reduce((sum, pkg) => {
                 return sum + (pkg.insuredValue?.amount || pkg.insuredValue || 100);
             }, 0);
 
-            // Build package line items with validation
-            const requestedPackageLineItems = packages.map((pkg, index) => {
-                const weight = pkg.weight?.value || pkg.weight || 5;
+            // Build package line items with validation and smart splitting for heavy packages
+            const requestedPackageLineItems = [];
+
+            packages.forEach((pkg) => {
+                const rawWeight = pkg.weight?.value || pkg.weight || 5;
                 const length = Math.ceil(pkg.dimensions?.length || pkg.length || 12);
                 const width = Math.ceil(pkg.dimensions?.width || pkg.width || 12);
                 const height = Math.ceil(pkg.dimensions?.height || pkg.height || 6);
+                const weightUnits = pkg.weight?.units || pkg.weight?.unit || 'LB';
+                const dimUnits = pkg.dimensions?.units || pkg.dimensions?.unit || 'IN';
 
-                return {
-                    subPackagingType: 'BOX',
-                    groupPackageCount: 1,
-                    weight: {
-                        value: Math.max(1, Math.min(150, weight)), // 1-150 lbs
-                        units: pkg.weight?.units || 'LB'
-                    },
-                    dimensions: {
-                        length: Math.max(1, Math.min(119, length)), // FedEx max 119 inches
-                        width: Math.max(1, Math.min(119, width)),
-                        height: Math.max(1, Math.min(70, height)), // FedEx max 70 inches height
-                        units: pkg.dimensions?.units || 'IN'
-                    }
-                };
+                // Enforce FedEx single-package weight limit recommendations by splitting large weights
+                // We'll split into packages of ~50 lbs for better accuracy (configurable later)
+                const maxPerPackage = 50; // lbs
+                const totalWeight = Math.max(1, Math.min(150, rawWeight));
+                const splitCount = totalWeight > maxPerPackage ? Math.ceil(totalWeight / maxPerPackage) : 1;
+
+                for (let i = 0; i < splitCount; i++) {
+                    const partWeight = Math.ceil(totalWeight / splitCount);
+                    requestedPackageLineItems.push({
+                        subPackagingType: 'BOX',
+                        groupPackageCount: 1,
+                        weight: {
+                            value: Math.max(1, Math.min(150, partWeight)), // 1-150 lbs
+                            units: weightUnits.toUpperCase()
+                        },
+                        dimensions: {
+                            length: Math.max(1, Math.min(119, length)),
+                            width: Math.max(1, Math.min(119, width)),
+                            height: Math.max(1, Math.min(70, height)),
+                            units: dimUnits.toUpperCase()
+                        }
+                    });
+                }
             });
 
             // FedEx Rate API v1 payload
@@ -515,7 +528,12 @@ class FedExService {
                         }
                     },
                     pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
-                    rateRequestType: ['LIST', 'ACCOUNT'],
+                    rateRequestType: ['ACCOUNT', 'LIST'],
+                    // Provide shipment-level insured value
+                    totalInsuredValue: {
+                        amount: totalInsuredValue,
+                        currency: 'USD'
+                    },
                     requestedPackageLineItems
                 }
             };
@@ -525,6 +543,29 @@ class FedExService {
             const result = await this.makeRequest('/rate/v1/rates/quotes', payload);
 
             if (result.output?.rateReplyDetails?.length > 0) {
+                // Debug: log sanitized rate reply details in non-production for troubleshooting
+                if (!this.isProduction) {
+                    try {
+                        const sanitized = result.output.rateReplyDetails.map(r => ({
+                            serviceType: r.serviceType,
+                            serviceName: r.serviceName,
+                            ratedShipmentDetails: (r.ratedShipmentDetails || []).map(d => ({
+                                rateType: d.rateType,
+                                totalNetCharge: d.totalNetCharge,
+                                totalNetFedExCharge: d.totalNetFedExCharge,
+                                shipmentRateDetail: d.shipmentRateDetail ? {
+                                    totalBaseCharge: d.shipmentRateDetail.totalBaseCharge,
+                                    totalSurcharges: d.shipmentRateDetail.totalSurcharges,
+                                    totalDiscounts: d.shipmentRateDetail.totalDiscounts,
+                                    totalNetCharge: d.shipmentRateDetail.totalNetCharge
+                                } : undefined
+                            }))
+                        }));
+                        console.log('[FedEx] Rate reply (sanitized):', JSON.stringify(sanitized, null, 2));
+                    } catch (e) {
+                        console.warn('[FedEx] Failed to sanitize rate reply for logging');
+                    }
+                }
                 const rates = result.output.rateReplyDetails.map(rate => {
                     // Extract price using multiple fallback paths
                     const priceInfo = this.extractPrice(rate);
@@ -645,12 +686,13 @@ class FedExService {
                     currency = ratedDetails.totalNetCharge.currency || 'USD';
                 }
                 // Path 2: totalNetFedExCharge
-                else if (ratedDetails.totalNetFedExCharge?.amount) {
+                if (!total && ratedDetails.totalNetFedExCharge?.amount) {
                     total = parseFloat(ratedDetails.totalNetFedExCharge.amount);
                     currency = ratedDetails.totalNetFedExCharge.currency || 'USD';
                 }
+
                 // Path 3: shipmentRateDetail
-                else if (ratedDetails.shipmentRateDetail) {
+                if (ratedDetails.shipmentRateDetail) {
                     const srd = ratedDetails.shipmentRateDetail;
 
                     if (srd.totalNetCharge?.amount) {
@@ -674,14 +716,16 @@ class FedExService {
                 }
 
                 // Path 4: Sum from ratedPackages
-                if (total === 0 && ratedDetails.ratedPackages?.length > 0) {
+                if ((!total || total === 0) && ratedDetails.ratedPackages?.length > 0) {
                     ratedDetails.ratedPackages.forEach(pkg => {
-                        if (pkg.packageRateDetail?.netCharge?.amount) {
-                            total += parseFloat(pkg.packageRateDetail.netCharge.amount);
-                        } else if (pkg.packageRateDetail?.netFedExCharge?.amount) {
-                            total += parseFloat(pkg.packageRateDetail.netFedExCharge.amount);
-                        }
+                        const pkgNet = pkg.packageRateDetail?.netCharge?.amount || pkg.packageRateDetail?.netFedExCharge?.amount;
+                        if (pkgNet) total += parseFloat(pkgNet);
                     });
+                }
+
+                // Final fallback: if we have breakdown values but no explicit total, compute it
+                if ((!total || total === 0) && (base || surcharges || discounts)) {
+                    total = (base || 0) + (surcharges || 0) - (discounts || 0);
                 }
             }
         }

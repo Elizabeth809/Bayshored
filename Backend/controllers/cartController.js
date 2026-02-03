@@ -17,7 +17,7 @@ export const getCart = async (req, res) => {
     const user = await User.findById(req.user.id)
       .populate({
         path: 'cart.product',
-        select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
+        select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer shipping',
         populate: {
           path: 'author',
           select: 'name'
@@ -142,7 +142,7 @@ export const addToCart = async (req, res) => {
     // Populate the cart to return complete data
     await user.populate({
       path: 'cart.product',
-      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
+      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer shipping',
       populate: {
         path: 'author',
         select: 'name'
@@ -247,7 +247,7 @@ export const updateCartQuantity = async (req, res) => {
     // Populate the cart to return complete data
     await user.populate({
       path: 'cart.product',
-      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
+      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer shipping',
       populate: {
         path: 'author',
         select: 'name'
@@ -312,7 +312,7 @@ export const removeFromCart = async (req, res) => {
     // Populate the cart to return complete data
     await user.populate({
       path: 'cart.product',
-      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer',
+      select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer shipping',
       populate: {
         path: 'author',
         select: 'name'

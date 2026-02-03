@@ -29,37 +29,71 @@ const calculatePackageDetails = (cartItems) => {
     const product = item.product;
     const quantity = item.quantity;
 
-    // Calculate weight based on art type and dimensions
-    let itemWeight = 5; // Default 5 lbs
-    
-    if (product.dimensions) {
-      // Calculate area in square inches (convert from cm if needed)
-      const heightCm = product.dimensions.height || 60;
-      const widthCm = product.dimensions.width || 60;
-      const depthCm = product.dimensions.depth || 5;
+      // Prefer explicit shipping weight if available on the product
+      let itemWeight = 0;
+
+      if (product.shipping && product.shipping.weight && product.shipping.weight.value) {
+        // Convert to pounds using product virtual if available
+        if (typeof product.weightInLbs === 'number' && product.weightInLbs > 0) {
+          itemWeight = product.weightInLbs;
+        } else {
+          // Fallback: use shipping.weight.value and unit
+          const w = product.shipping.weight;
+          switch ((w.unit || 'lb').toLowerCase()) {
+            case 'lb': itemWeight = w.value; break;
+            case 'oz': itemWeight = w.value / 16; break;
+            case 'kg': itemWeight = w.value * 2.20462; break;
+            case 'g': itemWeight = w.value * 0.00220462; break;
+            default: itemWeight = w.value; break;
+          }
+        }
+
+        // Use provided package dimensions if present
+        if (product.shipping.packageDimensions) {
+          const pd = product.shipping.packageDimensions;
+          const unit = (pd.unit || 'in').toLowerCase();
+          const lengthIn = unit === 'cm' ? pd.length / 2.54 : pd.length;
+          const widthIn = unit === 'cm' ? pd.width / 2.54 : pd.width;
+          const heightIn = unit === 'cm' ? pd.height / 2.54 : pd.height;
+
+          const padding = 4;
+          maxDimensions.length = Math.max(maxDimensions.length, Math.ceil(lengthIn + padding));
+          maxDimensions.width = Math.max(maxDimensions.width, Math.ceil(widthIn + padding));
+          maxDimensions.height = Math.max(maxDimensions.height, Math.ceil(heightIn + padding));
+        }
+      } else {
+        // Calculate weight based on art type and dimensions (legacy fallback)
+        itemWeight = 5; // Default 5 lbs
       
-      // Convert cm to inches
-      const heightIn = heightCm / 2.54;
-      const widthIn = widthCm / 2.54;
-      const depthIn = Math.max(depthCm / 2.54, 4); // Minimum 4 inches for framing
-      
-      // Calculate weight based on size and type
-      const areaSquareInches = heightIn * widthIn;
-      
-      // Weight formula: base weight + area factor
-      // Canvas/framed art: heavier
-      // Prints: lighter
-      const weightPerSquareInch = product.medium?.toLowerCase().includes('canvas') ? 0.015 : 0.008;
-      const frameWeight = depthIn > 2 ? 3 : 1; // Extra weight for deep frames
-      
-      itemWeight = Math.max(2, Math.min(70, (areaSquareInches * weightPerSquareInch) + frameWeight));
-      
-      // Update max dimensions (add padding for packaging)
-      const padding = 4; // 4 inches padding for protection
-      maxDimensions.length = Math.max(maxDimensions.length, widthIn + padding);
-      maxDimensions.width = Math.max(maxDimensions.width, heightIn + padding);
-      maxDimensions.height = Math.max(maxDimensions.height, depthIn + padding);
-    }
+        if (product.dimensions) {
+          // Calculate area in square inches (convert from cm if needed)
+          const heightCm = product.dimensions.height || 60;
+          const widthCm = product.dimensions.width || 60;
+          const depthCm = product.dimensions.depth || 5;
+        
+          // Convert cm to inches
+          const heightIn = heightCm / 2.54;
+          const widthIn = widthCm / 2.54;
+          const depthIn = Math.max(depthCm / 2.54, 4); // Minimum 4 inches for framing
+        
+          // Calculate weight based on size and type
+          const areaSquareInches = heightIn * widthIn;
+        
+          // Weight formula: base weight + area factor
+          // Canvas/framed art: heavier
+          // Prints: lighter
+          const weightPerSquareInch = product.medium?.toLowerCase().includes('canvas') ? 0.015 : 0.008;
+          const frameWeight = depthIn > 2 ? 3 : 1; // Extra weight for deep frames
+        
+          itemWeight = Math.max(2, Math.min(70, (areaSquareInches * weightPerSquareInch) + frameWeight));
+        
+          // Update max dimensions (add padding for packaging)
+          const padding = 4; // 4 inches padding for protection
+          maxDimensions.length = Math.max(maxDimensions.length, widthIn + padding);
+          maxDimensions.width = Math.max(maxDimensions.width, heightIn + padding);
+          maxDimensions.height = Math.max(maxDimensions.height, depthIn + padding);
+        }
+      }
     
     totalWeight += itemWeight * quantity;
   });
@@ -488,7 +522,7 @@ export const getShippingOptions = async (req, res) => {
     // Get user cart
     const user = await User.findById(req.user.id).populate({
       path: 'cart.product',
-      select: 'name mrpPrice discountPrice dimensions offer medium'
+      select: 'name mrpPrice discountPrice dimensions offer medium shipping'
     });
 
     if (!user || user.cart.length === 0) {
@@ -529,15 +563,37 @@ export const getShippingOptions = async (req, res) => {
       });
     }
 
-    // Build rate request
-    const rateRequest = {
-      destination: {
+    // Validate address with FedEx to get classification and normalized address
+    let addressValidation = { isValid: false, requiresManualVerification: true };
+    try {
+      addressValidation = await fedexService.validateAddress({
         streetLine1,
         streetLine2,
         city,
         stateCode,
-        zipCode,
-        isResidential: shippingAddress.isResidential !== false
+        zipCode
+      });
+    } catch (err) {
+      console.warn('Address validation error (shipping-options):', err.message);
+    }
+
+    // Use normalized address if available, otherwise fall back to provided fields
+    const destStreetLines = (addressValidation.normalizedAddress?.streetLines) || [streetLine1, streetLine2].filter(Boolean);
+    const destCity = addressValidation.normalizedAddress?.city || city;
+    const destState = addressValidation.normalizedAddress?.stateCode || stateCode;
+    const destZip = addressValidation.normalizedAddress?.zipCode || zipCode;
+    const isResidential = addressValidation.isResidential ?? (shippingAddress.isResidential !== false);
+
+    // Build rate request
+    const rateRequest = {
+      destination: {
+        streetLines: destStreetLines,
+        streetLine1: destStreetLines[0] || streetLine1,
+        streetLine2: destStreetLines[1] || streetLine2,
+        city: destCity,
+        stateCode: destState,
+        zipCode: destZip,
+        isResidential
       },
       packages: [{
         weight: packageDetails.weight,
@@ -676,7 +732,7 @@ export const createOrder = async (req, res) => {
     const user = await User.findById(req.user.id)
       .populate({
         path: 'cart.product',
-        select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer sku',
+        select: 'name mrpPrice discountPrice images slug stock active dimensions medium author offer sku shipping',
         populate: {
           path: 'author',
           select: 'name'
@@ -727,14 +783,35 @@ export const createOrder = async (req, res) => {
     let allRates = [];
 
     try {
-      const rateRequest = {
-        destination: {
+      // Validate address with FedEx before requesting rates
+      let addressValidationForOrder = { isValid: false };
+      try {
+        addressValidationForOrder = await fedexService.validateAddress({
           streetLine1: streetLine1,
-          streetLine2: shippingAddress.streetLine2 || shippingAddress.apartment || '',
+          streetLine2: shippingAddress.streetLine2 || shippingAddress.apartment,
           city: shippingAddress.city,
           stateCode: stateCode,
-          zipCode: shippingAddress.zipCode,
-          isResidential: shippingAddress.isResidential !== false
+          zipCode: shippingAddress.zipCode
+        });
+      } catch (err) {
+        console.warn('Address validation error (createOrder):', err.message);
+      }
+
+      const reqStreetLines = (addressValidationForOrder.normalizedAddress?.streetLines) || [streetLine1, shippingAddress.streetLine2 || shippingAddress.apartment].filter(Boolean);
+      const reqCity = addressValidationForOrder.normalizedAddress?.city || shippingAddress.city;
+      const reqState = addressValidationForOrder.normalizedAddress?.stateCode || stateCode;
+      const reqZip = addressValidationForOrder.normalizedAddress?.zipCode || shippingAddress.zipCode;
+      const reqIsResidential = addressValidationForOrder.isResidential ?? (shippingAddress.isResidential !== false);
+
+      const rateRequest = {
+        destination: {
+          streetLines: reqStreetLines,
+          streetLine1: reqStreetLines[0] || streetLine1,
+          streetLine2: reqStreetLines[1] || (shippingAddress.streetLine2 || shippingAddress.apartment || ''),
+          city: reqCity,
+          stateCode: reqState,
+          zipCode: reqZip,
+          isResidential: reqIsResidential
         },
         packages: [{
           weight: packageDetails.weight,

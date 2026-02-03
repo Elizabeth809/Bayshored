@@ -535,7 +535,7 @@ const Checkout = () => {
       const orderData = {
         shippingAddress,
         couponCode: appliedCoupon?.coupon?.code || '',
-        paymentMethod: paymentMethod === 'cod' ? 'COD' : 'card',
+        paymentMethod: 'card',
         shippingMethod: shippingMethodMap[selectedShippingOption?.serviceType || shippingMethod] || 'ground',
         signatureRequired,
         notes: orderNotes
@@ -557,11 +557,7 @@ const Checkout = () => {
         setAppliedCoupon(null);
         setCouponCode('');
 
-        if (paymentMethod === 'cod') {
-          navigate(`/order-confirmation/${data.data._id}`);
-        } else {
-          await initiatePayment(data.data);
-        }
+        await initiatePayment(data.data);
       } else {
         alert(data.message || 'Failed to place order');
       }
@@ -1163,32 +1159,7 @@ const Checkout = () => {
                   {paymentMethod === 'card' && <Check size={20} className="text-gray-900" />}
                 </label>
 
-                <label
-                  className={`flex items-center justify-between p-5 border-2 cursor-pointer transition-all duration-300 ${
-                    paymentMethod === 'cod'
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-200 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="cod"
-                      checked={paymentMethod === 'cod'}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="cursor-pointer"
-                    />
-                    <div className="flex items-center space-x-3">
-                      <Package size={20} className="text-gray-700" />
-                      <div>
-                        <p className="font-medium text-gray-900">Cash on Delivery</p>
-                        <p className="text-sm text-gray-500">Pay when you receive your order</p>
-                      </div>
-                    </div>
-                  </div>
-                  {paymentMethod === 'cod' && <Check size={20} className="text-gray-900" />}
-                </label>
+                {/* Cash on Delivery option removed for production */}
               </div>
             </div>
 
@@ -1388,7 +1359,7 @@ const Checkout = () => {
                   ) : (
                     <>
                       <Lock size={18} />
-                      <span>{paymentMethod === 'cod' ? 'Place Order' : `Pay ${formatPrice(finalTotal)}`}</span>
+                      <span>{`Pay ${formatPrice(finalTotal)}`}</span>
                     </>
                   )}
                 </button>
