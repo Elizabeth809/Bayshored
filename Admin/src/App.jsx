@@ -15,6 +15,8 @@ import Coupons from './pages/Coupons';
 import UserManagement from './pages/UserManagement';
 import Subscribers from './pages/Subscribers';
 import PriceInquiries from './pages/PriceInquiries';
+import CreateProduct from './pages/CreateProduct';
+import EditProduct from './pages/EditProduct';
 
 function App() {
   return (
@@ -23,7 +25,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
-          
+
           {/* Protected Admin Routes */}
           <Route path="/" element={
             <ProtectedAdminRoute>
@@ -35,11 +37,13 @@ function App() {
             <Route path="categories" element={<Categories />} />
             <Route path="authors" element={<Authors />} />
             <Route path="products" element={<Products />} />
+            <Route path="products/create" element={<CreateProduct />} />
+            <Route path="products/edit/:id" element={<EditProduct />} />
             <Route path="orders" element={<Orders />} />
             <Route path="coupons" element={<Coupons />} />
             <Route path="users" element={<UserManagement />} />
-            <Route path="subscribers" element={<Subscribers/>} />
-            <Route path="price-inquiries" element={<PriceInquiries/>} />
+            <Route path="subscribers" element={<Subscribers />} />
+            <Route path="price-inquiries" element={<PriceInquiries />} />
           </Route>
 
           {/* Catch all route */}
