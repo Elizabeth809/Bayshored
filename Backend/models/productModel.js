@@ -267,15 +267,49 @@ const productSchema = new mongoose.Schema({
   }],
 
   // Artwork Dimensions
-  dimensions: {
-    type: dimensionsSchema,
-    required: [true, 'Artwork dimensions are required']
-  },
+  // dimensions: {
+  //   type: dimensionsSchema,
+  //   required: [true, 'Artwork dimensions are required']
+  // },
 
   // Shipping Information (for FedEx)
   shipping: {
-    type: shippingSchema,
-    required: [true, 'Shipping information is required']
+    weight: {
+      value: Number,
+      unit: { type: String, enum: ['lb', 'kg', 'oz', 'g'], default: 'lb' }
+    },
+    packageDimensions: {
+      length: Number,
+      width: Number,
+      height: Number,
+      unit: { type: String, enum: ['in', 'cm'], default: 'in' }
+    },
+    requiresSpecialHandling: { type: Boolean, default: false },
+    fragile: { type: Boolean, default: true }
+  },
+  
+  // Product dimensions (for art)
+  dimensions: {
+    height: Number, // in cm
+    width: Number,  // in cm
+    depth: Number   // in cm (for framed art)
+  },
+  
+  // Virtual for weight in lbs
+  weightInLbs: {
+    type: Number,
+    default: function() {
+      if (this.shipping?.weight) {
+        const weight = this.shipping.weight;
+        switch (weight.unit) {
+          case 'kg': return weight.value * 2.20462;
+          case 'oz': return weight.value / 16;
+          case 'g': return weight.value * 0.00220462;
+          default: return weight.value;
+        }
+      }
+      return 5; // Default 5 lbs for art
+    }
   },
 
   // Art-specific fields
@@ -420,18 +454,18 @@ productSchema.virtual('formattedPackageDimensions').get(function() {
 });
 
 // Weight in LBS (standardized for FedEx US)
-productSchema.virtual('weightInLbs').get(function() {
-  const w = this.shipping?.weight;
-  if (!w) return 0;
+// productSchema.virtual('weightInLbs').get(function() {
+//   const w = this.shipping?.weight;
+//   if (!w) return 0;
   
-  switch (w.unit) {
-    case 'lb': return w.value;
-    case 'oz': return w.value / 16;
-    case 'kg': return w.value * 2.20462;
-    case 'g': return w.value * 0.00220462;
-    default: return w.value;
-  }
-});
+//   switch (w.unit) {
+//     case 'lb': return w.value;
+//     case 'oz': return w.value / 16;
+//     case 'kg': return w.value * 2.20462;
+//     case 'g': return w.value * 0.00220462;
+//     default: return w.value;
+//   }
+// });
 
 // Weight in KG
 productSchema.virtual('weightInKg').get(function() {

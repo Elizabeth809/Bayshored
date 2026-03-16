@@ -100,36 +100,6 @@ const HomePage = () => {
         />
         <TrustBar />
          <NewsletterSubscription />
-
-      {/* <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-        
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-6">
-        {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-        
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-6">
-        
-      </section>
-
-      <div className="relative">
-        
-      </div>
-
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
-       
-      </section> */}
     </main>
   );
 };

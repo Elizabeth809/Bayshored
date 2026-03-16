@@ -28,7 +28,11 @@ import {
   User,
   Phone,
   Mail,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  DollarSign,
+  Scale,
+  Ruler
 } from 'lucide-react';
 import { usePayment } from '../context/PaymentContext';
 
@@ -87,6 +91,23 @@ const US_STATES = [
   { code: 'WY', name: 'Wyoming' }
 ];
 
+// US Sales Tax Rates
+// const STATE_TAX_RATES = {
+//   'AL': 4.0, 'AK': 0.0, 'AZ': 5.6, 'AR': 6.5,
+//   'CA': 7.25, 'CO': 2.9, 'CT': 6.35, 'DE': 0.0,
+//   'FL': 6.0, 'GA': 4.0, 'HI': 4.0, 'ID': 6.0,
+//   'IL': 6.25, 'IN': 7.0, 'IA': 6.0, 'KS': 6.5,
+//   'KY': 6.0, 'LA': 4.45, 'ME': 5.5, 'MD': 6.0,
+//   'MA': 6.25, 'MI': 6.0, 'MN': 6.875, 'MS': 7.0,
+//   'MO': 4.225, 'MT': 0.0, 'NE': 5.5, 'NV': 6.85,
+//   'NH': 0.0, 'NJ': 6.625, 'NM': 5.125, 'NY': 4.0,
+//   'NC': 4.75, 'ND': 5.0, 'OH': 5.75, 'OK': 4.5,
+//   'OR': 0.0, 'PA': 6.0, 'RI': 7.0, 'SC': 6.0,
+//   'SD': 4.5, 'TN': 7.0, 'TX': 6.25, 'UT': 6.1,
+//   'VT': 6.0, 'VA': 5.3, 'WA': 6.5, 'WV': 6.0,
+//   'WI': 5.0, 'WY': 4.0, 'DC': 6.0
+// };
+
 const formatPrice = (price) => {
   if (isNaN(price) || price === null || price === undefined) return '$0.00';
   return new Intl.NumberFormat('en-US', {
@@ -103,6 +124,17 @@ const formatPhoneNumber = (phone) => {
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
   }
   return phone;
+};
+
+// Helper to validate US ZIP code
+const isValidUSZip = (zip) => {
+  return /^\d{5}(-\d{4})?$/.test(zip);
+};
+
+// Helper to validate US phone number
+const isValidUSPhone = (phone) => {
+  const cleaned = phone.replace(/\D/g, '');
+  return cleaned.length === 10;
 };
 
 const Checkout = () => {
@@ -137,11 +169,17 @@ const Checkout = () => {
   const [signatureRequired, setSignatureRequired] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
   const [activeStep, setActiveStep] = useState(1);
+  const [taxEstimate, setTaxEstimate] = useState({ amount: 0, rate: 0 });
+  const [addressErrors, setAddressErrors] = useState({});
+  const [showAddressWarning, setShowAddressWarning] = useState(false);
+  const [packageDetails, setPackageDetails] = useState(null);
+  const [shippingCacheKey, setShippingCacheKey] = useState('');
 
   const { token, updateCartCount, user } = useAuth();
   const navigate = useNavigate();
   const { initiatePayment, loading: paymentLoading, paymentError } = usePayment();
 
+  // Load saved coupon
   useEffect(() => {
     const savedCoupon = localStorage.getItem('appliedCoupon');
     if (savedCoupon) {
@@ -155,15 +193,23 @@ const Checkout = () => {
     }
   }, []);
 
+  // Initialize checkout
   useEffect(() => {
     const initializeCheckout = async () => {
       setLoading(true);
-      await Promise.all([fetchCart(), fetchAddresses()]);
-      setLoading(false);
+      try {
+        await Promise.all([fetchCart(), fetchAddresses()]);
+      } catch (error) {
+        console.error('Checkout initialization failed:', error);
+        alert('Failed to load checkout. Please refresh the page.');
+      } finally {
+        setLoading(false);
+      }
     };
     initializeCheckout();
   }, []);
 
+  // Save coupon to localStorage
   useEffect(() => {
     if (appliedCoupon) {
       localStorage.setItem('appliedCoupon', JSON.stringify(appliedCoupon));
@@ -172,23 +218,45 @@ const Checkout = () => {
     }
   }, [appliedCoupon]);
 
+  // Calculate tax when address changes
+  // useEffect(() => {
+  //   if (selectedAddress && cart?.total) {
+  //     const stateCode = selectedAddress.stateCode || selectedAddress.state;
+  //     const taxRate = STATE_TAX_RATES[stateCode] || 8.0;
+  //     const taxAmount = (cart.total * taxRate) / 100;
+  //     setTaxEstimate({
+  //       amount: Math.round(taxAmount * 100) / 100,
+  //       rate: taxRate
+  //     });
+  //   }
+  // }, [selectedAddress, cart]);
+
+  // Fetch cart
   const fetchCart = async () => {
     try {
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/cart`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error('Failed to fetch cart');
       const data = await response.json();
-      if (data.success) setCart(data.data);
+      if (data.success) {
+        setCart(data.data);
+      } else {
+        throw new Error(data.message || 'Cart fetch failed');
+      }
     } catch (error) {
       console.error('Error fetching cart:', error);
+      alert('Failed to load cart. Please try again.');
     }
   };
 
+  // Fetch user addresses
   const fetchAddresses = async () => {
     try {
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error('Failed to fetch addresses');
       const data = await response.json();
       if (data.success && data.data) {
         const usAddresses = data.data.filter(addr => addr.countryCode === 'US' || !addr.countryCode);
@@ -204,69 +272,47 @@ const Checkout = () => {
     }
   };
 
+  // When address selection changes
   useEffect(() => {
     if (selectedAddressId && addresses.length > 0) {
       const addr = addresses.find(a => a._id === selectedAddressId);
       if (addr) {
         setSelectedAddress(addr);
+        setShowAddressWarning(false);
         validateAndFetchRates(addr);
       }
     }
   }, [selectedAddressId]);
 
-  const validateAndFetchRates = async (address) => {
-    if (!address) return;
-    setValidatingAddress(true);
-    setAddressValidation(null);
-    setShippingOptions([]);
-
-    try {
-      const addressForValidation = {
-        streetLine1: address.streetLine1 || address.street,
-        streetLine2: address.streetLine2 || address.apartment || '',
-        city: address.city,
-        stateCode: address.stateCode || address.state,
-        zipCode: address.zipCode,
-        isResidential: address.isResidential !== false
-      };
-
-      const validationResponse = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/validate-address`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ shippingAddress: addressForValidation })
-      });
-
-      const validationData = await validationResponse.json();
-      if (validationData.success) {
-        setAddressValidation(validationData.data);
-      } else {
-        setAddressValidation({
-          isValid: false,
-          requiresManualVerification: true,
-          messages: [validationData.message || 'Address validation failed']
-        });
-      }
-    } catch (error) {
-      setAddressValidation({
-        isValid: false,
-        requiresManualVerification: true,
-        warning: 'Address validation service unavailable'
-      });
-    } finally {
-      setValidatingAddress(false);
-    }
-
-    await fetchShippingRates(address);
-  };
-
-  const fetchShippingRates = async (address) => {
+  // Fetch FedEx shipping rates
+  const fetchShippingRates = useCallback(async (address, validationData = null) => {
     if (!address || !cart) return;
+
     setFetchingRates(true);
+    setShippingOptions([]);
+    setPackageDetails(null);
 
     try {
+      // Prepare cart items with complete product data
+      const cartItems = cart.items.map(item => ({
+        productId: item.product._id,
+        quantity: item.quantity,
+        // productData: {
+        //   name: item.product.name,
+        //   mrpPrice: item.product.mrpPrice,
+        //   discountPrice: item.product.discountPrice,
+        //   // dimensions: item.product.dimensions,
+        //   medium: item.product.medium,
+        //   // shipping: item.product.shipping || null,
+        //   // weightInLbs: item.product.weightInLbs || null,
+        //   offer: item.product.offer || null,
+        //   images: item.product.images,
+        //   author: item.product.author,
+        //   sku: item.product.sku,
+        //   category: item.product.category
+        // }
+      }));
+
       const shippingAddress = {
         streetLine1: address.streetLine1 || address.street,
         streetLine2: address.streetLine2 || address.apartment || '',
@@ -276,86 +322,219 @@ const Checkout = () => {
         isResidential: address.isResidential !== false
       };
 
+      const requestBody = {
+        shippingAddress,
+        cartItems
+      };
+
+      console.log('Fetching shipping rates with:', {
+        address: shippingAddress.city + ', ' + shippingAddress.stateCode,
+        itemCount: cartItems.length,
+        totalItems: cartItems.reduce((sum, item) => sum + item.quantity, 0)
+      });
+
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/shipping-options`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ shippingAddress })
+        body: JSON.stringify(requestBody)
       });
 
+      if (!response.ok) {
+        throw new Error(`Shipping service error: ${response.status}`);
+      }
+
       const data = await response.json();
+      
       if (data.success && data.data?.rates?.length > 0) {
-        const rates = data.data.rates;
+        const { rates, packageDetails, fedexAvailable, isEstimated, isCached } = data.data;
+        
         setShippingOptions(rates);
-        setFedexAvailable(data.data.fedexAvailable !== false);
-
-        const groundOption = rates.find(r =>
-          r.id === 'ground' || r.serviceType === 'FEDEX_GROUND' || r.serviceType === 'FEDEX_HOME_DELIVERY'
-        );
-
-        if (groundOption) {
-          setSelectedShippingOption(groundOption);
-          setShippingMethod('ground');
-        } else if (rates.length > 0) {
-          setSelectedShippingOption(rates[0]);
-          setShippingMethod(rates[0].id || 'standard');
+        setFedexAvailable(fedexAvailable !== false);
+        setPackageDetails(packageDetails);
+        
+        if (packageDetails) {
+          console.log('Package details from backend:', {
+            weight: `${packageDetails.weight.value} ${packageDetails.weight.units}`,
+            dimensions: `${packageDetails.dimensions.length}" × ${packageDetails.dimensions.width}" × ${packageDetails.dimensions.height}"`,
+            insuredValue: packageDetails.insuredValue ? `$${packageDetails.insuredValue.amount}` : 'Not specified'
+          });
         }
+        
+        // Select appropriate shipping method
+        let selectedRate = rates[0];
+        
+        // Prefer ground shipping for cost savings
+        const groundRate = rates.find(r => 
+          r.serviceType === 'FEDEX_GROUND' || 
+          r.serviceType === 'GROUND_HOME_DELIVERY'
+        );
+        if (groundRate) selectedRate = groundRate;
+        
+        setSelectedShippingOption(selectedRate);
+        setShippingMethod(selectedRate.serviceType || 'ground');
+        
+        if (isCached) {
+          console.log('Using cached shipping rates');
+        }
+        
+        return { rates, fedexAvailable, isEstimated, packageDetails };
       } else {
-        const fallbackRates = getFallbackShippingRates();
-        setShippingOptions(fallbackRates);
-        setFedexAvailable(false);
-        setSelectedShippingOption(fallbackRates[0]);
+        throw new Error('No shipping rates available');
       }
     } catch (error) {
-      const fallbackRates = getFallbackShippingRates();
-      setShippingOptions(fallbackRates);
+      console.error('Shipping rate fetch failed:', error);
+      // Show error but continue with checkout
+      setShippingOptions([]);
       setFedexAvailable(false);
-      setSelectedShippingOption(fallbackRates[0]);
+      return null;
     } finally {
       setFetchingRates(false);
     }
-  };
+  }, [cart, token]);
 
-  const getFallbackShippingRates = () => {
-    const subtotal = cart?.total || 0;
-    return [
-      {
-        id: 'standard',
-        serviceType: 'STANDARD',
-        name: 'Standard Shipping',
-        price: subtotal >= 500 ? 0 : 25,
-        currency: 'USD',
-        transitDays: '5-7',
-        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        fedexService: false
-      },
-      {
-        id: 'express',
-        serviceType: 'EXPRESS',
-        name: 'Express Shipping',
-        price: 45,
-        currency: 'USD',
-        transitDays: '2-3',
-        deliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        fedexService: false
-      },
-      {
-        id: 'overnight',
-        serviceType: 'OVERNIGHT',
-        name: 'Overnight Shipping',
-        price: 75,
-        currency: 'USD',
-        transitDays: '1',
-        deliveryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-        fedexService: false
+  // Validate address with FedEx and fetch shipping rates
+  const validateAndFetchRates = async (address) => {
+    if (!address) return;
+    
+    setValidatingAddress(true);
+    setAddressValidation(null);
+    setShippingOptions([]);
+    setShowAddressWarning(false);
+
+    try {
+      // Build address for validation
+      const addressForValidation = {
+        streetLine1: address.streetLine1 || address.street,
+        streetLine2: address.streetLine2 || address.apartment || '',
+        city: address.city,
+        stateCode: address.stateCode || address.state,
+        zipCode: address.zipCode,
+        isResidential: address.isResidential !== false
+      };
+
+      // Validate address with FedEx
+      const validationResponse = await fetch(`${CLIENT_BASE_URL}/api/v1/orders/validate-address`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ shippingAddress: addressForValidation })
+      });
+
+      if (!validationResponse.ok) {
+        throw new Error('Validation service unavailable');
       }
-    ];
+
+      const validationData = await validationResponse.json();
+      
+      if (validationData.success) {
+        setAddressValidation(validationData.data);
+        
+        // If address is invalid and requires manual verification, show warning
+        if (!validationData.data.isValid && validationData.data.requiresManualVerification) {
+          setShowAddressWarning(true);
+        }
+        
+        // Fetch shipping rates
+        await fetchShippingRates(address, validationData.data);
+      } else {
+        setAddressValidation({
+          isValid: false,
+          requiresManualVerification: true,
+          messages: [validationData.message || 'Address validation failed'],
+          warning: 'Address could not be verified'
+        });
+        setShowAddressWarning(true);
+        await fetchShippingRates(address);
+      }
+    } catch (error) {
+      console.error('Address validation error:', error);
+      setAddressValidation({
+        isValid: false,
+        requiresManualVerification: true,
+        warning: 'Address validation service temporarily unavailable',
+        fallback: true
+      });
+      setShowAddressWarning(true);
+      await fetchShippingRates(address);
+    } finally {
+      setValidatingAddress(false);
+    }
   };
 
+  // Package Info Display Component
+  const PackageInfoDisplay = () => {
+    if (!packageDetails) return null;
+    
+    const { weight, dimensions, insuredValue } = packageDetails;
+    
+    return (
+      <div className="mb-6 p-4 border border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <Package size={16} className="text-gray-600" />
+            <p className="text-sm font-medium text-gray-900">Package Details</p>
+          </div>
+          <div className="flex items-center space-x-3 text-xs text-gray-500">
+            <div className="flex items-center space-x-1">
+              <Scale size={12} />
+              <span>{weight.value} {weight.units}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Ruler size={12} />
+              <span>{dimensions.length}" × {dimensions.width}" × {dimensions.height}"</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-gray-500">Total Weight</p>
+            <p className="font-medium">{weight.value} {weight.units}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Dimensions</p>
+            <p className="font-medium">{dimensions.length}" × {dimensions.width}" × {dimensions.height}"</p>
+          </div>
+          {insuredValue && (
+            <div className="col-span-2">
+              <p className="text-gray-500">Insured Value</p>
+              <p className="font-medium">{formatPrice(insuredValue.amount)}</p>
+            </div>
+          )}
+        </div>
+        
+        {cart?.items && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-500 mb-2">Items in package:</p>
+            <div className="space-y-1">
+              {cart.items.slice(0, 3).map((item, index) => (
+                <div key={index} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600 truncate">{item.product.name}</span>
+                  <span className="text-gray-500">Qty: {item.quantity}</span>
+                </div>
+              ))}
+              {cart.items.length > 3 && (
+                <p className="text-xs text-gray-400">+{cart.items.length - 3} more items</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Apply coupon
   const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
+    if (!couponCode.trim()) {
+      alert('Please enter a coupon code');
+      return;
+    }
+
     setApplyingCoupon(true);
 
     try {
@@ -365,82 +544,123 @@ const Checkout = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ code: couponCode.trim(), subtotal: cart?.total || 0 })
+        body: JSON.stringify({ 
+          code: couponCode.trim().toUpperCase(), 
+          subtotal: cart?.total || 0 
+        })
       });
+
+      if (!response.ok) {
+        throw new Error('Coupon service unavailable');
+      }
 
       const data = await response.json();
       if (data.success) {
         setAppliedCoupon(data.data);
       } else {
-        alert(data.message || 'Invalid coupon code');
+        alert(data.message || 'Invalid or expired coupon code');
         setCouponCode('');
       }
     } catch (error) {
-      alert('Failed to apply coupon');
+      console.error('Coupon application error:', error);
+      alert('Failed to apply coupon. Please try again.');
     } finally {
       setApplyingCoupon(false);
     }
   };
 
+  // Remove coupon
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode('');
     localStorage.removeItem('appliedCoupon');
   };
 
+  // Validate new address form
+  const validateNewAddress = () => {
+    const errors = {};
+    const { streetLine1, city, stateCode, zipCode, phoneNumber } = newAddress;
+
+    if (!streetLine1.trim()) errors.streetLine1 = 'Street address is required';
+    if (!city.trim()) errors.city = 'City is required';
+    if (!stateCode) errors.stateCode = 'State is required';
+    
+    if (!zipCode.trim()) {
+      errors.zipCode = 'ZIP code is required';
+    } else if (!isValidUSZip(zipCode)) {
+      errors.zipCode = 'Invalid ZIP code format (use 12345 or 12345-6789)';
+    }
+    
+    if (!phoneNumber.trim()) {
+      errors.phoneNumber = 'Phone number is required';
+    } else if (!isValidUSPhone(phoneNumber)) {
+      errors.phoneNumber = 'Invalid phone number (10 digits required)';
+    }
+
+    setAddressErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Save new address
   const handleSaveNewAddress = async () => {
-    const { recipientName, streetLine1, city, stateCode, zipCode, phoneNumber } = newAddress;
-
-    if (!streetLine1 || !city || !stateCode || !zipCode || !phoneNumber) {
-      alert('Please fill all required address fields');
-      return;
-    }
-
-    if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
-      alert('Please enter a valid US ZIP code');
-      return;
-    }
-
-    const cleanedPhone = phoneNumber.replace(/\D/g, '');
-    if (cleanedPhone.length < 10) {
-      alert('Please enter a valid phone number');
+    if (!validateNewAddress()) {
       return;
     }
 
     setValidatingAddress(true);
+
     try {
+      const cleanedPhone = newAddress.phoneNumber.replace(/\D/g, '');
+      
       const response = await fetch(`${CLIENT_BASE_URL}/api/v1/user/addresses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ ...newAddress, countryCode: 'US', phoneNumber: cleanedPhone })
+        body: JSON.stringify({ 
+          ...newAddress, 
+          countryCode: 'US', 
+          phoneNumber: cleanedPhone,
+          recipientName: newAddress.recipientName || user?.name || ''
+        })
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to save address');
+      }
 
       const data = await response.json();
       if (data.success) {
         const updatedAddresses = data.data;
         setAddresses(updatedAddresses);
+        
+        // Select the new address
         const addedAddress = updatedAddresses.find(addr =>
-          addr.streetLine1 === newAddress.streetLine1 && addr.zipCode === newAddress.zipCode
+          addr.streetLine1 === newAddress.streetLine1 && 
+          addr.zipCode === newAddress.zipCode
         );
+        
         if (addedAddress) {
           setSelectedAddressId(addedAddress._id);
           setSelectedAddress(addedAddress);
         }
+        
         setShowNewAddress(false);
         resetNewAddress();
+        setAddressErrors({});
       } else {
         alert(data.message || 'Failed to add address');
       }
     } catch (error) {
-      alert('Failed to add address');
+      console.error('Address save error:', error);
+      alert('Failed to save address. Please try again.');
     } finally {
       setValidatingAddress(false);
     }
   };
 
+  // Reset new address form
   const resetNewAddress = () => {
     setNewAddress({
       recipientName: '',
@@ -452,26 +672,32 @@ const Checkout = () => {
       phoneNumber: '',
       isResidential: true
     });
+    setAddressErrors({});
   };
 
+  // Calculate shipping cost
   const getShippingCost = () => {
     if (selectedShippingOption) {
       return selectedShippingOption.price || selectedShippingOption.totalCharge?.amount || 0;
     }
     if (cart && cart.total >= 500) return 0;
-    return 25;
+    return 12;
   };
 
+  // Calculate discount amount
   const getDiscountAmount = () => {
     if (!appliedCoupon || !cart) return 0;
     return appliedCoupon.discountAmount || 0;
   };
 
+  // Calculate totals
   const subtotal = cart?.total || 0;
   const shippingCost = getShippingCost();
   const discountAmount = getDiscountAmount();
-  const finalTotal = Math.max(0, subtotal + shippingCost - discountAmount);
+  const taxAmount = taxEstimate.amount;
+  const finalTotal = Math.max(0, subtotal + shippingCost + taxAmount - discountAmount);
 
+  // Get current product price
   const getCurrentPrice = (product) => {
     if (!product) return 0;
     if (product.offer?.isActive && product.discountPrice && product.discountPrice < product.mrpPrice) {
@@ -480,63 +706,90 @@ const Checkout = () => {
     return product.mrpPrice || 0;
   };
 
-  const handlePlaceOrder = async () => {
+  // Validate order before placement
+  const validateOrder = () => {
     if (!selectedAddress && !showNewAddress) {
       alert('Please select a shipping address');
+      return false;
+    }
+
+    if (showNewAddress) {
+      if (!validateNewAddress()) {
+        alert('Please fix address errors before proceeding');
+        return false;
+      }
+    }
+
+    // Check if address was validated
+    if (addressValidation && !addressValidation.isValid && addressValidation.requiresManualVerification) {
+      if (!showAddressWarning) {
+        setShowAddressWarning(true);
+        return false;
+      }
+    }
+
+    if (!shippingOptions.length) {
+      alert('Shipping options are not available. Please try again.');
+      return false;
+    }
+
+    return true;
+  };
+
+  // Place order
+  const handlePlaceOrder = async () => {
+    if (!validateOrder()) {
       return;
     }
 
-    if (addressValidation && !addressValidation.isValid && addressValidation.requiresManualVerification) {
-      const warningMessage = addressValidation.warning || addressValidation.messages?.[0] || 'Address could not be verified.';
-      if (!confirm(`Warning: ${warningMessage}\n\nContinue with this address?`)) return;
-    }
-
     setPlacingOrder(true);
+
     try {
       let shippingAddress;
       if (showNewAddress) {
+        const cleanedPhone = newAddress.phoneNumber.replace(/\D/g, '');
         shippingAddress = {
-          recipientName: newAddress.recipientName || user?.name,
+          recipientName: newAddress.recipientName || user?.name || '',
           streetLine1: newAddress.streetLine1,
-          streetLine2: newAddress.streetLine2,
+          streetLine2: newAddress.streetLine2 || '',
           city: newAddress.city,
           stateCode: newAddress.stateCode,
           zipCode: newAddress.zipCode,
-          phoneNumber: newAddress.phoneNumber.replace(/\D/g, ''),
-          email: user?.email,
+          phoneNumber: cleanedPhone,
+          email: user?.email || '',
           isResidential: newAddress.isResidential
         };
       } else {
+        const cleanedPhone = (selectedAddress.phoneNumber || selectedAddress.phoneNo || '').replace(/\D/g, '');
         shippingAddress = {
-          recipientName: selectedAddress.recipientName || user?.name,
+          recipientName: selectedAddress.recipientName || user?.name || '',
           streetLine1: selectedAddress.streetLine1 || selectedAddress.street,
           streetLine2: selectedAddress.streetLine2 || selectedAddress.apartment || '',
           city: selectedAddress.city,
           stateCode: selectedAddress.stateCode || selectedAddress.state,
           zipCode: selectedAddress.zipCode,
-          phoneNumber: (selectedAddress.phoneNumber || selectedAddress.phoneNo || '').replace(/\D/g, ''),
-          email: user?.email,
+          phoneNumber: cleanedPhone,
+          email: user?.email || '',
           isResidential: selectedAddress.isResidential !== false
         };
       }
 
+      // Map shipping method
       const shippingMethodMap = {
         'ground': 'ground',
-        'standard': 'express_saver',
-        'express': '2_day',
-        'overnight': 'overnight',
         'FEDEX_GROUND': 'ground',
-        'FEDEX_HOME_DELIVERY': 'home_delivery',
+        'GROUND_HOME_DELIVERY': 'home_delivery',
         'FEDEX_EXPRESS_SAVER': 'express_saver',
         'FEDEX_2_DAY': '2_day',
-        'STANDARD_OVERNIGHT': 'overnight'
+        'STANDARD_OVERNIGHT': 'overnight',
+        'PRIORITY_OVERNIGHT': 'overnight'
       };
 
       const orderData = {
         shippingAddress,
         couponCode: appliedCoupon?.coupon?.code || '',
         paymentMethod: 'card',
-        shippingMethod: shippingMethodMap[selectedShippingOption?.serviceType || shippingMethod] || 'ground',
+        shippingMethod: shippingMethodMap[selectedShippingOption?.serviceType] || 'ground',
         signatureRequired,
         notes: orderNotes
       };
@@ -550,24 +803,34 @@ const Checkout = () => {
         body: JSON.stringify(orderData)
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Order creation failed');
+      }
+
       const data = await response.json();
+      
       if (data.success) {
+        // Clear cart and coupon
         updateCartCount(0);
         localStorage.removeItem('appliedCoupon');
         setAppliedCoupon(null);
         setCouponCode('');
 
+        // Initiate payment
         await initiatePayment(data.data);
       } else {
-        alert(data.message || 'Failed to place order');
+        throw new Error(data.message || 'Order creation failed');
       }
     } catch (error) {
-      alert('Failed to place order. Please try again.');
+      console.error('Order placement error:', error);
+      alert(`Failed to place order: ${error.message}`);
     } finally {
       setPlacingOrder(false);
     }
   };
 
+  // Format address for display
   const formatAddressDisplay = (address) => {
     const parts = [];
     if (address.streetLine2 || address.apartment) parts.push(address.streetLine2 || address.apartment);
@@ -692,11 +955,11 @@ const Checkout = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Name</p>
-                    <p className="font-medium text-gray-900">{user?.name}</p>
+                    <p className="font-medium text-gray-900">{user?.name || 'Guest'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Email</p>
-                    <p className="font-medium text-gray-900">{user?.email}</p>
+                    <p className="font-medium text-gray-900">{user?.email || 'No email'}</p>
                   </div>
                   {user?.phoneNumber && (
                     <div>
@@ -759,7 +1022,7 @@ const Checkout = () => {
                                       <span className="text-xs px-2 py-0.5 border border-gray-900 text-gray-900">Default</span>
                                     )}
                                   </div>
-                                  <p className="text-gray-700">{address.recipientName || user?.name}</p>
+                                  <p className="text-gray-700">{address.recipientName || user?.name || 'No name'}</p>
                                   <p className="text-gray-600 text-sm">{formatAddressDisplay(address)}</p>
                                   <p className="text-gray-500 text-sm mt-1">
                                     {formatPhoneNumber(address.phoneNumber || address.phoneNo)}
@@ -792,7 +1055,8 @@ const Checkout = () => {
                                           <p className="font-medium text-gray-900">Address Verified</p>
                                           {addressValidation.classification && (
                                             <p className="text-sm text-gray-600 mt-0.5">
-                                              Classification: {addressValidation.classification}
+                                              {addressValidation.classification} • 
+                                              {addressValidation.isResidential ? ' Residential' : ' Business'}
                                             </p>
                                           )}
                                         </div>
@@ -801,10 +1065,15 @@ const Checkout = () => {
                                       <>
                                         <AlertCircle size={18} className="text-gray-500 flex-shrink-0 mt-0.5" />
                                         <div>
-                                          <p className="font-medium text-gray-700">Verification Warning</p>
+                                          <p className="font-medium text-gray-700">Verification Required</p>
                                           <p className="text-sm text-gray-500 mt-0.5">
                                             {addressValidation.warning || addressValidation.messages?.[0] || 'Could not verify address'}
                                           </p>
+                                          {addressValidation.requiresManualVerification && (
+                                            <p className="text-xs text-gray-400 mt-1">
+                                              You may proceed, but verify accuracy
+                                            </p>
+                                          )}
                                         </div>
                                       </>
                                     )}
@@ -854,7 +1123,7 @@ const Checkout = () => {
                           value={newAddress.recipientName}
                           onChange={(e) => setNewAddress({ ...newAddress, recipientName: e.target.value })}
                           className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
-                          placeholder={user?.name}
+                          placeholder={user?.name || "Your Name"}
                         />
                       </div>
 
@@ -867,9 +1136,14 @@ const Checkout = () => {
                           required
                           value={newAddress.streetLine1}
                           onChange={(e) => setNewAddress({ ...newAddress, streetLine1: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          className={`w-full px-4 py-3 border-2 focus:outline-none transition-colors duration-300 ${
+                            addressErrors.streetLine1 ? 'border-red-300' : 'border-gray-200 focus:border-gray-900'
+                          }`}
                           placeholder="123 Main Street"
                         />
+                        {addressErrors.streetLine1 && (
+                          <p className="text-xs text-red-500 mt-1">{addressErrors.streetLine1}</p>
+                        )}
                       </div>
 
                       <div className="md:col-span-2">
@@ -894,9 +1168,14 @@ const Checkout = () => {
                           required
                           value={newAddress.city}
                           onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          className={`w-full px-4 py-3 border-2 focus:outline-none transition-colors duration-300 ${
+                            addressErrors.city ? 'border-red-300' : 'border-gray-200 focus:border-gray-900'
+                          }`}
                           placeholder="Los Angeles"
                         />
+                        {addressErrors.city && (
+                          <p className="text-xs text-red-500 mt-1">{addressErrors.city}</p>
+                        )}
                       </div>
 
                       <div>
@@ -908,7 +1187,9 @@ const Checkout = () => {
                             required
                             value={newAddress.stateCode}
                             onChange={(e) => setNewAddress({ ...newAddress, stateCode: e.target.value })}
-                            className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none appearance-none bg-white cursor-pointer transition-colors duration-300"
+                            className={`w-full px-4 py-3 border-2 focus:outline-none appearance-none bg-white cursor-pointer transition-colors duration-300 ${
+                              addressErrors.stateCode ? 'border-red-300' : 'border-gray-200 focus:border-gray-900'
+                            }`}
                           >
                             <option value="">Select State</option>
                             {US_STATES.map(state => (
@@ -917,6 +1198,9 @@ const Checkout = () => {
                           </select>
                           <ChevronDown size={16} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>
+                        {addressErrors.stateCode && (
+                          <p className="text-xs text-red-500 mt-1">{addressErrors.stateCode}</p>
+                        )}
                       </div>
 
                       <div>
@@ -931,10 +1215,15 @@ const Checkout = () => {
                             const value = e.target.value.replace(/[^\d-]/g, '');
                             setNewAddress({ ...newAddress, zipCode: value });
                           }}
-                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          className={`w-full px-4 py-3 border-2 focus:outline-none transition-colors duration-300 ${
+                            addressErrors.zipCode ? 'border-red-300' : 'border-gray-200 focus:border-gray-900'
+                          }`}
                           placeholder="90210"
                           maxLength={10}
                         />
+                        {addressErrors.zipCode && (
+                          <p className="text-xs text-red-500 mt-1">{addressErrors.zipCode}</p>
+                        )}
                       </div>
 
                       <div>
@@ -946,9 +1235,14 @@ const Checkout = () => {
                           required
                           value={newAddress.phoneNumber}
                           onChange={(e) => setNewAddress({ ...newAddress, phoneNumber: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300"
+                          className={`w-full px-4 py-3 border-2 focus:outline-none transition-colors duration-300 ${
+                            addressErrors.phoneNumber ? 'border-red-300' : 'border-gray-200 focus:border-gray-900'
+                          }`}
                           placeholder="(555) 123-4567"
                         />
+                        {addressErrors.phoneNumber && (
+                          <p className="text-xs text-red-500 mt-1">{addressErrors.phoneNumber}</p>
+                        )}
                       </div>
 
                       <div className="md:col-span-2">
@@ -1011,6 +1305,41 @@ const Checkout = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Address Warning Modal */}
+                {showAddressWarning && addressValidation && !addressValidation.isValid && (
+                  <div className="mt-6 p-4 border border-gray-300 bg-yellow-50">
+                    <div className="flex items-start space-x-3">
+                      <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-yellow-800">Address Verification Warning</p>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          {addressValidation.warning || addressValidation.messages?.[0] || 
+                           'We could not verify this address with FedEx. Please verify the information is correct.'}
+                        </p>
+                        <div className="flex space-x-3 mt-3">
+                          <button
+                            onClick={() => setShowAddressWarning(false)}
+                            className="text-sm text-yellow-800 hover:text-yellow-900 underline cursor-pointer"
+                          >
+                            Edit Address
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowAddressWarning(false);
+                              if (showNewAddress) {
+                                handleSaveNewAddress();
+                              }
+                            }}
+                            className="text-sm px-3 py-1 bg-yellow-600 text-white hover:bg-yellow-700 cursor-pointer"
+                          >
+                            Continue Anyway
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1024,17 +1353,22 @@ const Checkout = () => {
                     </div>
                     <h2 className="text-lg font-medium text-gray-900">Delivery Method</h2>
                   </div>
-                  {fedexAvailable && (
+                  {fedexAvailable ? (
                     <span className="text-xs px-3 py-1 bg-gray-900 text-white">FedEx</span>
+                  ) : (
+                    <span className="text-xs px-3 py-1 bg-gray-200 text-gray-700">Estimated</span>
                   )}
                 </div>
               </div>
 
               <div className="p-6">
+                {/* Package Info Display */}
+                <PackageInfoDisplay />
+
                 {fetchingRates ? (
                   <div className="flex items-center justify-center py-12 space-x-3">
                     <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent animate-spin"></div>
-                    <span className="text-gray-600">Loading shipping options...</span>
+                    <span className="text-gray-600">Calculating shipping options...</span>
                   </div>
                 ) : shippingOptions.length > 0 ? (
                   <div className="space-y-3">
@@ -1042,6 +1376,8 @@ const Checkout = () => {
                       const isSelected = selectedShippingOption?.id === option.id ||
                         selectedShippingOption?.serviceType === option.serviceType;
                       const price = option.price || option.totalCharge?.amount || 0;
+                      const isFree = price === 0;
+                      const isFedEx = option.fedexService;
 
                       return (
                         <label
@@ -1066,22 +1402,40 @@ const Checkout = () => {
                             <div>
                               <div className="flex items-center space-x-2">
                                 <p className="font-medium text-gray-900">{option.name || option.serviceName}</p>
-                                {option.fedexService && (
-                                  <span className="text-xs px-2 py-0.5 border border-gray-300">FedEx</span>
+                                {isFedEx && (
+                                  <span className="text-xs px-2 py-0.5 border border-gray-300 text-gray-600">FedEx</span>
+                                )}
+                                {option.isEstimated && (
+                                  <span className="text-xs px-2 py-0.5 border border-gray-300 text-gray-600">Estimated</span>
+                                )}
+                                {isFree && (
+                                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800">FREE</span>
                                 )}
                               </div>
                               <p className="text-sm text-gray-500 mt-0.5">
                                 {option.transitDays ? `${option.transitDays} business days` : 'Standard delivery'}
+                                {option.deliveryDate && (
+                                  <span className="ml-2">
+                                    • Est. {new Date(option.deliveryDate).toLocaleDateString('en-US', { 
+                                      weekday: 'short', 
+                                      month: 'short', 
+                                      day: 'numeric' 
+                                    })}
+                                  </span>
+                                )}
                               </p>
+                              {option.details && (
+                                <p className="text-xs text-gray-400 mt-0.5">{option.details}</p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium text-gray-900">
-                              {price === 0 ? 'FREE' : formatPrice(price)}
+                            <p className={`font-medium ${isFree ? 'text-green-600' : 'text-gray-900'}`}>
+                              {isFree ? 'FREE' : formatPrice(price)}
                             </p>
-                            {option.deliveryDate && (
-                              <p className="text-sm text-gray-500">
-                                Est. {new Date(option.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {!isFree && option.originalPrice && option.originalPrice > price && (
+                              <p className="text-sm text-gray-400 line-through">
+                                {formatPrice(option.originalPrice)}
                               </p>
                             )}
                           </div>
@@ -1112,7 +1466,7 @@ const Checkout = () => {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">Require Signature</p>
-                        <p className="text-sm text-gray-500">Someone must sign for delivery</p>
+                        <p className="text-sm text-gray-500">Someone must sign for delivery (Recommended for high-value orders)</p>
                       </div>
                     </label>
                   </div>
@@ -1159,7 +1513,12 @@ const Checkout = () => {
                   {paymentMethod === 'card' && <Check size={20} className="text-gray-900" />}
                 </label>
 
-                {/* Cash on Delivery option removed for production */}
+                <div className="p-4 border border-gray-200 bg-gray-50">
+                  <p className="text-sm text-gray-600">
+                    <Info size={14} className="inline mr-1" />
+                    Secure card payment processed via Stripe. Your payment information is encrypted.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1235,7 +1594,7 @@ const Checkout = () => {
                 <textarea
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
-                  placeholder="Add any special instructions..."
+                  placeholder="Add any special instructions, gift messages, or delivery notes..."
                   className="w-full px-4 py-3 border-2 border-gray-200 focus:border-gray-900 focus:outline-none transition-colors duration-300 resize-none"
                   rows={3}
                   maxLength={500}
@@ -1303,10 +1662,23 @@ const Checkout = () => {
 
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping</span>
-                  <span className={`font-medium ${shippingCost === 0 ? 'text-gray-900' : 'text-gray-900'}`}>
+                  <span className={`font-medium ${shippingCost === 0 ? 'text-green-600' : 'text-gray-900'}`}>
                     {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                   </span>
                 </div>
+
+                {/* TAX */}
+                {/* <div className="flex justify-between text-gray-600">
+                  <span>Estimated Tax</span>
+                  <div className="text-right">
+                    <span className="font-medium text-gray-900">{formatPrice(taxAmount)}</span>
+                    {selectedAddress && (
+                      <p className="text-xs text-gray-400">
+                        {STATE_TAX_RATES[selectedAddress.stateCode || selectedAddress.state] || 8.0}% • {selectedAddress.stateCode || selectedAddress.state}
+                      </p>
+                    )}
+                  </div>
+                </div> */}
 
                 {appliedCoupon && (
                   <div className="flex justify-between">
@@ -1320,6 +1692,9 @@ const Checkout = () => {
                     <span className="text-lg font-medium text-gray-900">Total</span>
                     <span className="text-2xl font-light text-gray-900">{formatPrice(finalTotal)}</span>
                   </div>
+                  <p className="text-xs text-gray-400 mt-2 text-right">
+                    Includes {formatPrice(taxAmount)} estimated tax
+                  </p>
                 </div>
 
                 {/* Security Features */}
@@ -1340,6 +1715,18 @@ const Checkout = () => {
                   </div>
                 </div>
 
+                {/* Address Warning */}
+                {showAddressWarning && (
+                  <div className="mt-4 p-4 border border-yellow-300 bg-yellow-50">
+                    <div className="flex items-start space-x-2">
+                      <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-yellow-700">
+                        Address could not be verified. Please verify your address information is correct.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Place Order Button */}
                 <button
                   onClick={handlePlaceOrder}
@@ -1347,7 +1734,8 @@ const Checkout = () => {
                     placingOrder ||
                     paymentLoading ||
                     (!selectedAddress && !showNewAddress) ||
-                    !shippingOptions.length
+                    !shippingOptions.length ||
+                    (addressValidation && !addressValidation.isValid && !showAddressWarning)
                   }
                   className="w-full flex items-center justify-center space-x-2 py-4 bg-gray-900 text-white border-2 border-gray-900 hover:bg-white hover:text-gray-900 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-900 disabled:hover:text-white font-medium text-lg mt-4"
                 >
@@ -1365,13 +1753,18 @@ const Checkout = () => {
                 </button>
 
                 {paymentError && (
-                  <div className="mt-4 p-4 border border-gray-300 bg-gray-50">
-                    <p className="text-sm text-gray-700">{paymentError}</p>
+                  <div className="mt-4 p-4 border border-red-200 bg-red-50">
+                    <div className="flex items-start space-x-2">
+                      <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-red-700">{paymentError}</p>
+                    </div>
                   </div>
                 )}
 
                 <p className="text-center text-xs text-gray-400 mt-4">
-                  By placing your order, you agree to our Terms of Service
+                  By placing your order, you agree to our Terms of Service. 
+                  <br />
+                  <span className="text-gray-500">Tax calculation based on shipping state. Final tax may vary.</span>
                 </p>
               </div>
             </div>
